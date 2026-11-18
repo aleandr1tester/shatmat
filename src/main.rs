@@ -510,7 +510,7 @@ impl App {
         }
 
         // фигуры
-        let pulse_amp = 0.016 + 0.05 * bell(g.trans);
+        let pulse_amp = 0.028 + 0.05 * bell(g.trans);
         for r in 0..8usize {
             for f in 0..8usize {
                 let sq = (f, r);
@@ -814,13 +814,26 @@ impl App {
             let secs = g.phase_left.max(0.0).ceil() as i32;
             format!("{}:{:02}", secs / 60, secs % 60)
         };
+        let urgent = g.trans == 0.0
+            && g.phase_left <= 5.0
+            && !g.is_over()
+            && !g.paused;
+        let countdown_color = if urgent {
+            mix(
+                cur.text,
+                cur.danger,
+                0.45 + 0.45 * (self.time * 5.0).sin(),
+            )
+        } else {
+            cur.text
+        };
         text(
             painter,
             Pos2::new(x, y),
             Align2::LEFT_TOP,
             countdown_text,
             44.0,
-            cur.text,
+            countdown_color,
         );
         text(
             painter,

@@ -1,0 +1,1442 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod art;
+mod game;
+
+use std::path::PathBuf;
+
+use art::{
+    alpha, blend, draw_checker, draw_chess_piece, glow_dot, gradient, mix, rr, smooth, spaced_text,
+    sparkle, text, Palette,
+};
+use eframe::egui::{self, Align2, Color32, CursorIcon, FontId, Pos2, Rect, Sense, Stroke, Vec2};
+use game::{Game, Kind, Phase, Side, Square};
+
+// ---------------------------------------------------------------------------
+// Точка входа
+// ---------------------------------------------------------------------------
+
+fn main() -> eframe::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    let mut shot_path: Option<PathBuf> = None;
+    let mut i = 1;
+    while i < args.len() {
+        if args[i] == "--screenshot" {
+            if let Some(p) = args.get(i + 1) {
+                shot_path = Some(PathBuf::from(p));
+                i += 1;
+            }
+        }
+        i += 1;
+    }
+    let shot_mode = shot_path.is_some();
+
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title("Сумерки — гибрид шахмат и шашек")
+        .with_inner_size([1240.0, 820.0])
+        .with_min_inner_size([1040.0, 700.0]);
+
+    if shot_mode {
+        viewport = viewport.with_active(false);
+        #[cfg(target_os = "windows")]
+        {
+            viewport = viewport.with_window_level(egui::WindowLevel::AlwaysOnBottom);
+        }
+    }
+
+    let native = eframe::NativeOptions {
+        viewport,
+        run_and_return: true,
+        ..Default::default()
+    };
+
+    #[cfg(target_os = "macos")]
+    let native = {
+        let mut native = native;
+        if shot_mode {
+            native.event_loop_builder = Some(Box::new(|builder| {
+                builder.with_activate_ignoring_other_apps(false);
+            }));
+        }
+        native
+    };
+
+    let shot_for_app = shot_path.clone();
+    eframe::run_native(
+        "shatmat",
+        native,
+        Box::new(move |cc| Ok(Box::new(App::new(cc, shot_for_app.clone())))),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Приложение
+// ---------------------------------------------------------------------------
+
+struct Shot {
+    path: PathBuf,
+    requested: bool,
+    saved: bool,
+}
+
+struct Layout {
+    full: Rect,
+    header: Rect,
+    frame: Rect,
+    board: Rect,
+    panel: Rect,
+    cell: f32,
+}
+
+impl Layout {
+    fn new(ctx: &egui::Context) -> Self {
+        let full = ctx.screen_rect();
+        let m = 26.0;
+        let header_h = 84.0;
+        let panel_w = (full.width() * 0.30).clamp(304.0, 384.0);
+        let gap = 24.0;
+        let board_area = Rect::from_min_max(
+            Pos2::new(full.left() + m, full.top() + header_h),
+            Pos2::new(full.right() - m - panel_w - gap, full.bottom() - m),
+        );
+        let side = board_area.width().min(board_area.height()).max(240.0);
+        let frame = Rect::from_center_size(board_area.center(), Vec2::splat(side));
+        let board = frame.shrink(16.0);
+        let cell = board.width() / 8.0;
+        Layout {
+            full,
+            header: Rect::from_min_max(
+                Pos2::new(full.left() + m, full.top()),
+                Pos2::new(full.right() - m, full.top() + header_h),
+            ),
+            frame,
+            board,
+            panel: Rect::from_min_max(
+                Pos2::new(full.right() - m - panel_w, full.top() + header_h),
+                Pos2::new(full.right() - m, full.bottom() - m),
+            ),
+            cell,
+        }
+    }
+
+    fn square_rect(&self, sq: Square) -> Rect {
+        let x = self.board.left() + sq.0 as f32 * self.cell;
+        let y = self.board.bottom() - (sq.1 as f32 + 1.0) * self.cell;
+        Rect::from_min_size(Pos2::new(x, y), Vec2::splat(self.cell))
+    }
+
+    fn square_at(&self, pos: Pos2) -> Option<Square> {
+        if !self.board.contains(pos) {
+            return None;
+        }
+        let f = ((pos.x - self.board.left()) / self.cell).floor() as i32;
+        let r = ((self.board.bottom() - pos.y) / self.cell).floor() as i32;
+        if (0..8).contains(&f) && (0..8).contains(&r) {
+            Some((f as usize, r as usize))
+        } else {
+            None
+        }
+    }
+}
+
+pub struct App {
+    game: Game,
+    time: f32,
+    rules: bool,
+    rules_rect: Rect,
+    shot: Option<Shot>,
+    frames: u32,
+}
+
+impl App {
+    fn new(cc: &eframe::CreationContext<'_>, shot: Option<PathBuf>) -> Self {
+        let mut style = (*cc.egui_ctx.style()).clone();
+        style.animation_time = 0.16;
+        style.visuals = egui::Visuals::dark();
+        cc.egui_ctx.set_style(style);
+
+        App {
+            game: initial_game(),
+            time: 0.0,
+            rules: false,
+            rules_rect: Rect::NOTHING,
+            shot: shot.map(|path| Shot {
+                path,
+                requested: false,
+                saved: false,
+            }),
+            frames: 0,
+        }
+    }
+
+    fn handle_keys(&mut self, ctx: &egui::Context) {
+        let (space, r, h, esc) = ctx.input(|i| {
+            (
+                i.key_pressed(egui::Key::Space),
+                i.key_pressed(egui::Key::R),
+                i.key_pressed(egui::Key::H) || i.key_pressed(egui::Key::Questionmark),
+                i.key_pressed(egui::Key::Escape),
+            )
+        });
+        if esc {
+            if self.rules {
+                self.rules = false;
+            } else {
+                self.game.deselect();
+            }
+        }
+        if h {
+            self.rules = !self.rules;
+        }
+        if space && !self.rules {
+            self.game.paused = !self.game.paused;
+        }
+        if r && !self.rules {
+            self.new_game();
+        }
+    }
+
+    fn new_game(&mut self) {
+        self.game = Game::new(self.game.phase_len);
+    }
+
+    fn handle_pointer(&mut self, ctx: &egui::Context, layout: &Layout) {
+        let clicked = ctx.input(|i| i.pointer.primary_clicked());
+        if !clicked {
+            return;
+        }
+        let pos = match ctx.input(|i| i.pointer.interact_pos()) {
+            Some(p) => p,
+            None => return,
+        };
+        if self.rules {
+            if !self.rules_rect.contains(pos) {
+                self.rules = false;
+            }
+            return;
+        }
+        if self.game.is_over() {
+            return;
+        }
+        if let Some(sq) = layout.square_at(pos) {
+            self.game.click(sq);
+        }
+    }
+
+    fn draw(&mut self, ctx: &egui::Context, layout: &Layout) {
+        egui::CentralPanel::default()
+            .frame(egui::Frame::NONE.fill(Color32::from_rgb(8, 8, 13)))
+            .show(ctx, |ui| {
+                let painter = ui.painter().clone();
+                self.paint_background(ctx, &painter, layout);
+                self.paint_header(&painter, layout);
+                self.paint_board(ctx, &painter, layout);
+                self.paint_panel(ui, &painter, layout);
+                if self.rules {
+                    self.paint_rules(ui, ctx, &painter, layout);
+                }
+                if self.game.is_over() {
+                    self.paint_result(ui, ctx, &painter, layout);
+                }
+            });
+    }
+
+    // ------------------------- фон -------------------------
+
+    fn paint_background(&self, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
+        let phase = self.game.phase;
+        let pal = Palette::for_phase(phase);
+        let next = Palette::for_phase(phase.other());
+        let m = smooth(self.game.trans);
+        let mixed = blend(pal, next, m * 0.7);
+
+        gradient(painter, layout.full, mixed.bg_top, mixed.bg_bottom);
+
+        // мягкие цветные пятна
+        let t = self.time;
+        radial(
+            painter,
+            Pos2::new(
+                layout.full.left() + layout.full.width() * 0.24 + (t * 0.10).sin() * 24.0,
+                layout.full.top() + layout.full.height() * 0.30,
+            ),
+            460.0,
+            mixed.accent,
+            0.055,
+        );
+        radial(
+            painter,
+            Pos2::new(
+                layout.full.right() - 160.0,
+                layout.full.bottom() - 120.0 + (t * 0.13).cos() * 18.0,
+            ),
+            420.0,
+            mix(mixed.accent, Color32::from_rgb(120, 90, 200), 0.55),
+            0.05,
+        );
+        radial(
+            painter,
+            Pos2::new(layout.full.center().x, layout.full.top()+40.0),
+            520.0,
+            Color32::from_rgb(70, 60, 120),
+            0.035,
+        );
+
+        // звёздная пыль
+        for i in 0..90u32 {
+            let h1 = hash(i as f32 * 1.31);
+            let h2 = hash(i as f32 * 7.77 + 3.3);
+            let drift = (t * (0.004 + h2 * 0.006)) % 1.0;
+            let x = layout.full.left() + ((h1 + drift * 0.35) % 1.0) * layout.full.width();
+            let y = layout.full.top()
+                + ((h2 + drift) % 1.0) * layout.full.height();
+            let tw = 0.30 + 0.70 * (0.5 + 0.5 * (t * 0.9 + h1 * 6.28).sin());
+            let r = 0.6 + h2 * 1.1;
+            painter.circle_filled(
+                Pos2::new(x, y),
+                r,
+                alpha(Color32::from_rgb(230, 220, 240), 0.09 + 0.16 * tw),
+            );
+        }
+
+        // виньетка
+        for i in 0..10 {
+            let f = i as f32 / 10.0;
+            let r = layout.full.expand(40.0 - f * 40.0);
+            painter.rect_stroke(
+                r,
+                0.0,
+                Stroke::new(6.0_f32, Color32::from_black_alpha(6)),
+                egui::StrokeKind::Middle,
+            );
+        }
+
+        let _ = ctx;
+    }
+
+    // ------------------------- шапка -------------------------
+
+    fn paint_header(&self, painter: &egui::Painter, layout: &Layout) {
+        let pal = Palette::for_phase(self.game.phase);
+        let x = layout.header.left();
+        spaced_text(
+            painter,
+            Pos2::new(x, layout.header.top() + 22.0),
+            "СУМЕРКИ",
+            30.0,
+            pal.text,
+            5.0,
+        );
+        text(
+            painter,
+            Pos2::new(x + 1.0, layout.header.top() + 57.0),
+            Align2::LEFT_TOP,
+            "гибрид шахмат и шашек · фигуры дышат и меняют природу",
+            12.0,
+            alpha(pal.text_dim, 0.95),
+        );
+
+        let hint = "клик — ход · Space — пауза · R — новая партия · H — правила";
+        text(
+            painter,
+            Pos2::new(layout.panel.left() - 24.0, layout.header.top() + 34.0),
+            Align2::RIGHT_CENTER,
+            hint,
+            11.5,
+            alpha(pal.text_dim, 1.0),
+        );
+    }
+
+    // ------------------------- доска -------------------------
+
+    fn paint_board(&mut self, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
+        let g = &self.game;
+        let phase = g.phase;
+        let pal = Palette::for_phase(phase);
+        let next = Palette::for_phase(phase.other());
+        let m = smooth(g.trans);
+        let board_diag = layout.board.width() * 1.4142;
+
+        // тень и рамка
+        for i in 0..6 {
+            let e = 6.0 + i as f32 * 3.0;
+            painter.rect_filled(
+                layout.frame.expand(e),
+                26.0 + e * 0.4,
+                Color32::from_black_alpha(12),
+            );
+        }
+        rr(
+            painter,
+            layout.frame,
+            24.0,
+            alpha(pal.frame, 0.94),
+            Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.07)),
+        );
+        rr(
+            painter,
+            layout.board.expand(4.0),
+            14.0,
+            alpha(Color32::BLACK, 0.25),
+            Stroke::NONE,
+        );
+
+        // клетки: волна сумерек идёт от центра к краям
+        let ring = m * 1.25;
+        for r in 0..8usize {
+            for f in 0..8usize {
+                let rect = layout.square_rect((f, r));
+                let light = (f + r) % 2 == 1;
+                let old_c = if light { pal.square_light } else { pal.square_dark };
+                let new_c = if light {
+                    next.square_light
+                } else {
+                    next.square_dark
+                };
+                let local = if g.trans > 0.0 {
+                    let dn = (rect.center() - layout.board.center()).length() / (board_diag * 0.5);
+                    smooth(((ring - dn) / 0.12).clamp(0.0, 1.0))
+                } else {
+                    0.0
+                };
+                let c = mix(old_c, new_c, local);
+                painter.rect_filled(rect.shrink(1.0), 5.0, c);
+
+                // координаты
+                let dark_text = luminance(c) > 0.45;
+                let cc = if dark_text {
+                    alpha(Color32::from_rgb(40, 32, 26), 0.42)
+                } else {
+                    alpha(Color32::WHITE, 0.36)
+                };
+                if r == 0 {
+                    text(
+                        painter,
+                        rect.right_bottom() + Vec2::new(-6.0, -4.0),
+                        Align2::RIGHT_BOTTOM,
+                        ((b'a' + f as u8) as char).to_string(),
+                        10.0,
+                        cc,
+                    );
+                }
+                if f == 0 {
+                    text(
+                        painter,
+                        rect.left_top() + Vec2::new(5.0, 4.0),
+                        Align2::LEFT_TOP,
+                        (r + 1).to_string(),
+                        10.0,
+                        cc,
+                    );
+                }
+            }
+        }
+
+        // последний ход
+        if let Some((from, to)) = g.last_move {
+            for sq in [from, to] {
+                painter.rect_filled(
+                    layout.square_rect(sq).shrink(1.0),
+                    5.0,
+                    alpha(pal.accent, 0.16),
+                );
+            }
+        }
+
+        // рамка внутри доски
+        painter.rect_stroke(
+            layout.board.expand(1.5),
+            12.0,
+            Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.10)),
+            egui::StrokeKind::Inside,
+        );
+
+        // выделение
+        if let Some(sel) = g.selected {
+            let rect = layout.square_rect(sel);
+            painter.rect_filled(rect.shrink(1.0), 5.0, alpha(pal.accent, 0.14));
+            painter.rect_stroke(
+                rect.shrink(2.0),
+                5.0,
+                Stroke::new(2.0_f32, alpha(pal.accent, 0.85)),
+                egui::StrokeKind::Inside,
+            );
+        }
+
+        // наведение
+        let hover_sq = ctx
+            .input(|i| i.pointer.hover_pos())
+            .and_then(|p| layout.square_at(p));
+        if let Some(h) = hover_sq {
+            if !g.is_locked() && !self.rules {
+                let target = g.legal.iter().any(|mv| mv.to == h);
+                let own = g
+                    .piece_at(h)
+                    .map(|p| p.side == g.turn)
+                    .unwrap_or(false);
+                if target || own {
+                    painter.rect_stroke(
+                        layout.square_rect(h).shrink(1.5),
+                        5.0,
+                        Stroke::new(1.5_f32, alpha(pal.text, 0.35)),
+                        egui::StrokeKind::Inside,
+                    );
+                    ctx.set_cursor_icon(CursorIcon::PointingHand);
+                }
+            }
+        }
+
+        // сумеречная дымка и водяной знак — под фигурами
+        if g.trans > 0.0 {
+            let a = bell(g.trans);
+            painter.rect_filled(
+                layout.board,
+                8.0,
+                alpha(Color32::from_rgb(48, 30, 62), 0.10 * a),
+            );
+            let wm = "СУМЕРКИ";
+            let wm_w = art::spaced_width(painter, wm, 46.0, 12.0);
+            spaced_text(
+                painter,
+                Pos2::new(
+                    layout.board.center().x - wm_w * 0.5,
+                    layout.board.center().y - 32.0,
+                ),
+                wm,
+                46.0,
+                alpha(Color32::from_rgb(244, 226, 196), 0.20 * a),
+                12.0,
+            );
+        }
+
+        // фигуры
+        let pulse_amp = 0.016 + 0.05 * bell(g.trans);
+        for r in 0..8usize {
+            for f in 0..8usize {
+                let sq = (f, r);
+                if let Some(piece) = g.piece_at(sq) {
+                    let mut center = layout.square_rect(sq).center();
+                    if g.selected == Some(sq) && g.trans == 0.0 {
+                        center.y -= layout.cell * 0.035;
+                    }
+                    let seed = f as f32 * 0.83 + r as f32 * 1.71;
+                    let pulse = 1.0 + pulse_amp * (self.time * 2.0 + seed).sin();
+                    let size = layout.cell * 1.08 * pulse;
+                    if g.selected == Some(sq) {
+                        glow_dot(
+                            painter,
+                            center,
+                            layout.cell * 0.42,
+                            pal.accent,
+                            0.55,
+                        );
+                    }
+                    if g.trans > 0.0 {
+                        let dn = (center - layout.board.center()).length() / (board_diag * 0.5);
+                        let local = smooth(((ring - dn) / 0.14).clamp(0.0, 1.0));
+                        let near = (1.0 - ((ring - dn).abs() / 0.14)).clamp(0.0, 1.0);
+                        let c = center + Vec2::new(0.0, -layout.cell * 0.05 * near);
+                        let old_a = 1.0 - local;
+                        let new_a = local;
+                        let old_scale = 1.0 - 0.10 * local;
+                        let new_scale = 0.90 + 0.10 * local;
+                        glow_dot(
+                            painter,
+                            c,
+                            layout.cell * 0.30,
+                            Color32::from_rgb(255, 238, 206),
+                            0.55 * near,
+                        );
+                        if near > 0.35 {
+                            for k in 0..3u32 {
+                                let ang = 1.7 * k as f32 + 0.9;
+                                let rad = layout.cell * (0.18 + 0.10 * hash(k as f32 + sq.0 as f32));
+                                sparkle(
+                                    painter,
+                                    c + Vec2::angled(ang) * rad,
+                                    2.2,
+                                    Color32::from_rgb(255, 226, 178),
+                                    near * 0.6,
+                                );
+                            }
+                        }
+                        self.paint_piece(
+                            painter,
+                            c,
+                            size * old_scale,
+                            piece.kind,
+                            piece.is_damka(),
+                            piece.side,
+                            &pal,
+                            old_a,
+                            phase == Phase::Checkers,
+                        );
+                        self.paint_piece(
+                            painter,
+                            c,
+                            size * new_scale,
+                            piece.kind,
+                            piece.is_damka(),
+                            piece.side,
+                            &next,
+                            new_a,
+                            phase.other() == Phase::Checkers,
+                        );
+                    } else {
+                        self.paint_piece(
+                            painter,
+                            center,
+                            size,
+                            piece.kind,
+                            piece.is_damka(),
+                            piece.side,
+                            &pal,
+                            1.0,
+                            phase == Phase::Checkers,
+                        );
+                    }
+
+                    if let Some((csq, t)) = g.crowned_flash {
+                        if csq == sq {
+                            let rr = layout.cell * (0.5 + (1.0 - t) * 0.7);
+                            painter.circle_stroke(
+                                center,
+                                rr,
+                                Stroke::new(2.0_f32, alpha(pal.accent, t * 0.8)),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // подсказки ходов
+        for mv in &g.legal {
+            let rect = layout.square_rect(mv.to);
+            if mv.captured.is_some() {
+                painter.rect_filled(rect.shrink(1.0), 5.0, alpha(pal.danger, 0.16));
+                painter.rect_stroke(
+                    rect.shrink(4.0),
+                    5.0,
+                    Stroke::new(2.0_f32, alpha(pal.danger, 0.8)),
+                    egui::StrokeKind::Inside,
+                );
+            } else {
+                let c = rect.center();
+                let r = layout.cell * 0.10;
+                painter.circle_filled(c, r, alpha(pal.accent, 0.55));
+                painter.circle_stroke(c, r, Stroke::new(1.0_f32, alpha(pal.accent, 0.8)));
+            }
+        }
+
+        // взятие в цепочке: подсветить фигуру, которая бьёт
+        if let Some(chain) = g.chain {
+            let rect = layout.square_rect(chain);
+            let t = 0.5 + 0.5 * (self.time * 5.0).sin();
+            painter.rect_stroke(
+                rect.shrink(2.0),
+                5.0,
+                Stroke::new(2.5_f32, alpha(pal.accent, 0.6 + 0.4 * t)),
+                egui::StrokeKind::Inside,
+            );
+        }
+
+        // шах
+        if let Some(k) = g.check_square() {
+            let rect = layout.square_rect(k);
+            let t = 0.5 + 0.5 * (self.time * 4.0).sin();
+            painter.rect_filled(rect.shrink(1.0), 5.0, alpha(pal.danger, 0.14 + 0.10 * t));
+            painter.rect_stroke(
+                rect.shrink(2.0),
+                5.0,
+                Stroke::new(2.0_f32, alpha(pal.danger, 0.55 + 0.35 * t)),
+                egui::StrokeKind::Inside,
+            );
+        }
+
+        // пауза
+        if g.paused && !g.is_over() {
+            painter.rect_filled(layout.board, 10.0, Color32::from_black_alpha(130));
+            let pill = Rect::from_center_size(layout.board.center(), Vec2::new(320.0, 104.0));
+            rr(
+                painter,
+                pill,
+                18.0,
+                Color32::from_rgb(23, 21, 33),
+                Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.12)),
+            );
+            let title = "ПАУЗА";
+            let tw = art::spaced_width(painter, title, 22.0, 6.0);
+            spaced_text(
+                painter,
+                Pos2::new(pill.center().x - tw * 0.5, pill.top() + 24.0),
+                title,
+                22.0,
+                pal.text,
+                6.0,
+            );
+            text(
+                painter,
+                Pos2::new(pill.center().x, pill.top() + 64.0),
+                Align2::CENTER_CENTER,
+                "Space — продолжить партию",
+                12.5,
+                alpha(pal.text_dim, 0.95),
+            );
+        }
+
+        // сумеречный переход: волна от центра
+        if g.trans > 0.0 {
+            let t = g.trans;
+            let center = layout.board.center();
+            let ring_r = (m * 1.25 * (board_diag * 0.5)).min(board_diag * 0.54);
+            let a = bell(t);
+            let warm = Color32::from_rgb(248, 226, 186);
+            let clip = painter.with_clip_rect(layout.board);
+
+            for i in 0..3 {
+                let rr = (ring_r - i as f32 * 9.0).max(6.0);
+                clip.circle_stroke(
+                    center,
+                    rr,
+                    Stroke::new(
+                        2.2 - i as f32 * 0.5,
+                        alpha(warm, a * (0.55 - i as f32 * 0.13)),
+                    ),
+                );
+            }
+            clip.circle_stroke(
+                center,
+                ring_r,
+                Stroke::new(12.0_f32, alpha(warm, a * 0.10)),
+            );
+
+            for i in 0..30u32 {
+                let ang = i as f32 * 0.2417 + t * 0.8;
+                let rad = ring_r * (0.94 + 0.09 * hash(i as f32 * 3.1));
+                let p = center + Vec2::angled(ang) * rad;
+                if layout.board.contains(p) {
+                    sparkle(&clip, p, 2.0 + hash(i as f32) * 2.5, warm, a * 0.8);
+                }
+            }
+
+            let veil = alpha(Color32::from_rgb(255, 232, 196), 0.03 * a);
+            painter.rect_filled(layout.board, 6.0, veil);
+        }
+
+        // подпись под доской не нужна — всё в шапке
+        let _ = painter;
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn paint_piece(
+        &self,
+        painter: &egui::Painter,
+        center: Pos2,
+        size: f32,
+        kind: Kind,
+        damka: bool,
+        side: Side,
+        pal: &Palette,
+        a: f32,
+        checkers_form: bool,
+    ) {
+        if a <= 0.01 {
+            return;
+        }
+        if checkers_form {
+            draw_checker(painter, center, size, damka, side, pal, a);
+        } else {
+            draw_chess_piece(painter, center, size, kind, side, pal, a);
+        }
+    }
+
+    // ------------------------- панель -------------------------
+
+    fn paint_panel(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
+        let g = &self.game;
+        let pal = Palette::for_phase(g.phase);
+        let next = Palette::for_phase(g.phase.other());
+        let m = smooth(g.trans);
+        let blended = blend(pal, next, m);
+        let accent = if g.trans > 0.55 {
+            next.accent
+        } else {
+            pal.accent
+        };
+        let cur = Palette { accent, ..blended };
+        let rect = layout.panel;
+
+        rr(
+            painter,
+            rect,
+            24.0,
+            alpha(Color32::WHITE, 0.045),
+            Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.075)),
+        );
+        // тонкая подсветка сверху
+        painter.rect_filled(
+            Rect::from_min_size(rect.min + Vec2::new(18.0, 0.0), Vec2::new(rect.width() - 36.0, 1.0)),
+            0.0,
+            alpha(cur.accent, 0.35),
+        );
+
+        let p = rect.shrink(22.0);
+        let x = p.left();
+        let w = p.width();
+        let mut y = p.top();
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            "ПРОТОТИП · СУМЕРКИ",
+            9.5,
+            alpha(cur.text_dim, 0.9),
+        );
+        y += 18.0;
+
+        let display_phase = if g.trans > 0.55 { g.phase.other() } else { g.phase };
+        let display_pal = Palette::for_phase(display_phase);
+        spaced_text(
+            painter,
+            Pos2::new(x, y),
+            display_phase.label_ru(),
+            23.0,
+            display_pal.accent,
+            2.2,
+        );
+        y += 34.0;
+
+        let countdown_text = if g.trans > 0.0 {
+            "···".to_string()
+        } else {
+            let secs = g.phase_left.max(0.0).ceil() as i32;
+            format!("{}:{:02}", secs / 60, secs % 60)
+        };
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            countdown_text,
+            44.0,
+            cur.text,
+        );
+        text(
+            painter,
+            Pos2::new(x + 4.0, y + 50.0),
+            Align2::LEFT_TOP,
+            if g.trans > 0.0 {
+                "сумерки: фигуры меняются".to_string()
+            } else if g.paused {
+                "пауза".to_string()
+            } else if g.twilight_pending() {
+                "переход ждёт конца взятия".to_string()
+            } else {
+                format!("до превращения в {}", g.phase.other().one_ru())
+            },
+            11.5,
+            alpha(cur.text_dim, 0.95),
+        );
+        y += 72.0;
+
+        let frac = if g.trans > 0.0 {
+            1.0 - g.trans
+        } else {
+            (g.phase_left / g.phase_len).clamp(0.0, 1.0)
+        };
+        let bar = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 4.0));
+        painter.rect_filled(bar, 2.0, alpha(Color32::WHITE, 0.07));
+        let fill_w = (w * frac).max(2.0);
+        painter.rect_filled(
+            Rect::from_min_size(bar.min, Vec2::new(fill_w, 4.0)),
+            2.0,
+            cur.accent,
+        );
+        y += 18.0;
+
+        // предпросмотр фаз
+        let pill_h = 22.0;
+        let ph_half = (w - 8.0) * 0.5;
+        for (i, ph) in [Phase::Chess, Phase::Checkers].iter().enumerate() {
+            let pill = Rect::from_min_size(
+                Pos2::new(x + i as f32 * (ph_half + 8.0), y),
+                Vec2::new(ph_half, pill_h),
+            );
+            let active = display_phase == *ph;
+            let col = Palette::for_phase(*ph).accent;
+            rr(
+                painter,
+                pill,
+                7.0,
+                alpha(col, if active { 0.16 } else { 0.04 }),
+                Stroke::new(1.0_f32, alpha(col, if active { 0.55 } else { 0.12 })),
+            );
+            text(
+                painter,
+                pill.center(),
+                Align2::CENTER_CENTER,
+                ph.one_ru(),
+                10.5,
+                if active {
+                    col
+                } else {
+                    alpha(cur.text_dim, 0.85)
+                },
+            );
+        }
+        y += pill_h + 14.0;
+
+        divider(painter, x, y, w, cur.text_dim);
+        y += 20.0;
+
+        // ход
+        let dot = Pos2::new(x + 5.0, y + 9.0);
+        let side_color = match g.turn {
+            Side::White => Color32::from_rgb(244, 232, 210),
+            Side::Black => Color32::from_rgb(70, 82, 110),
+        };
+        painter.circle_filled(dot, 5.0, side_color);
+        painter.circle_stroke(dot, 5.0, Stroke::new(1.0_f32, alpha(cur.text_dim, 0.6)));
+        text(
+            painter,
+            Pos2::new(x + 18.0, y),
+            Align2::LEFT_TOP,
+            format!("Ход {}", g.turn.gen_ru()),
+            19.0,
+            cur.text,
+        );
+        if let game::Status::Check(_) = &g.status {
+            badge(painter, Pos2::new(x + w, y - 2.0), "ШАХ", cur.danger, true, 11.0);
+        } else if g.chain.is_some() {
+            badge(painter, Pos2::new(x + w, y - 2.0), "ВЗЯТИЕ", cur.accent, true, 11.0);
+        }
+        y += 34.0;
+
+        // материал
+        let diff = g.material_diff();
+        let material = match diff {
+            0 => "материал равный".to_string(),
+            d if d > 0 => format!("белые впереди на {}", d),
+            d => format!("чёрные впереди на {}", -d),
+        };
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            format!(
+                "{} · взято {} : {}",
+                material, g.captured_by_white, g.captured_by_black
+            ),
+            11.5,
+            alpha(cur.text_dim, 0.95),
+        );
+        y += 24.0;
+
+        divider(painter, x, y, w, cur.text_dim);
+        y += 16.0;
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            "ХОДЫ",
+            9.5,
+            alpha(cur.text_dim, 0.8),
+        );
+        y += 18.0;
+
+        // нижние элементы
+        let new_btn = Rect::from_min_size(Pos2::new(x, p.bottom() - 46.0), Vec2::new(w, 46.0));
+        let row_y = new_btn.top() - 12.0 - 36.0;
+        let half = (w - 10.0) * 0.5;
+        let rules_btn = Rect::from_min_size(Pos2::new(x, row_y), Vec2::new(half, 36.0));
+        let pause_btn = Rect::from_min_size(
+            Pos2::new(x + half + 10.0, row_y),
+            Vec2::new(half, 36.0),
+        );
+        let chips_y = row_y - 30.0 - 30.0;
+        let chips = [
+            (15.0, "15 с"),
+            (25.0, "25 с"),
+            (40.0, "40 с"),
+        ];
+        let chip_w = (w - 16.0) / 3.0;
+        let mut chip_rects = Vec::new();
+        for (i, _) in chips.iter().enumerate() {
+            chip_rects.push(Rect::from_min_size(
+                Pos2::new(x + i as f32 * (chip_w + 8.0), chips_y),
+                Vec2::new(chip_w, 30.0),
+            ));
+        }
+        // журнал ходов (последние строки)
+        let log_top = y;
+        let log_bottom = chips_y - 46.0;
+        let line_h = 17.0;
+        let max_lines = (((log_bottom - log_top) / line_h).floor() as usize).max(0);
+        if max_lines > 0 && !g.log.is_empty() {
+            let start = g.log.len().saturating_sub(max_lines);
+            let mut ly = log_top;
+            for (idx, line) in g.log[start..].iter().enumerate() {
+                let is_last = start + idx + 1 == g.log.len();
+                text(
+                    painter,
+                    Pos2::new(x, ly),
+                    Align2::LEFT_TOP,
+                    line,
+                    12.5,
+                    if is_last {
+                        alpha(cur.text, 0.95)
+                    } else {
+                        alpha(cur.text_dim, 0.8)
+                    },
+                );
+                ly += line_h;
+            }
+        } else if max_lines > 0 {
+            text(
+                painter,
+                Pos2::new(x, log_top),
+                Align2::LEFT_TOP,
+                "пока тихо — сделайте первый ход",
+                12.0,
+                alpha(cur.text_dim, 0.7),
+            );
+            let tip = "Совет: в шашечной фазе король превращается в дамку — съешьте его и победите.";
+            let galley = painter.layout(
+                tip.to_string(),
+                FontId::proportional(11.0),
+                alpha(cur.text_dim, 0.55),
+                w,
+            );
+            painter.galley(Pos2::new(x, log_top + 30.0), galley, Color32::WHITE);
+        }
+
+        // ритм
+        text(
+            painter,
+            Pos2::new(x, chips_y - 16.0),
+            Align2::LEFT_TOP,
+            "РИТМ ПРЕВРАЩЕНИЯ",
+            8.5,
+            alpha(cur.text_dim, 0.75),
+        );
+
+        // --- взаимодействие ---
+        if button(ui, new_btn, "Новая партия", true, &cur, 15.0) {
+            self.new_game();
+        }
+        if button(ui, rules_btn, "Правила", false, &cur, 13.0) {
+            self.rules = true;
+        }
+        let pause_label = if self.game.paused { "Дальше" } else { "Пауза" };
+        if button(ui, pause_btn, pause_label, false, &cur, 13.0) {
+            self.game.paused = !self.game.paused;
+        }
+        for (i, (secs, label)) in chips.iter().enumerate() {
+            let selected = (self.game.phase_len - secs).abs() < 0.5;
+            let clicked = chip(ui, chip_rects[i], label, selected, &cur);
+            if clicked && self.game.trans == 0.0 && !self.game.is_over() {
+                self.game.phase_len = *secs;
+                self.game.phase_left = *secs;
+            }
+        }
+    }
+
+    // ------------------------- правила -------------------------
+
+    fn paint_rules(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
+        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(150));
+        let card_w = (layout.full.width() * 0.62).clamp(680.0, 860.0);
+        let card_h = (layout.full.height() * 0.80).clamp(540.0, 660.0);
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(card_w, card_h));
+        self.rules_rect = card;
+        rr(
+            painter,
+            card,
+            26.0,
+            Color32::from_rgb(22, 20, 30),
+            Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.10)),
+        );
+
+        let pad = 34.0;
+        let x = card.left() + pad;
+        let w = card.width() - pad * 2.0;
+        let mut y = card.top() + 30.0;
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            "Правила Сумерек",
+            26.0,
+            Color32::from_rgb(240, 231, 217),
+        );
+        text(
+            painter,
+            Pos2::new(x + 2.0, y + 34.0),
+            Align2::LEFT_TOP,
+            "Одна партия — две игры. Раз в N секунд фигуры превращаются, и правила меняются вместе с ними.",
+            12.5,
+            Color32::from_rgb(158, 150, 168),
+        );
+        y += 72.0;
+
+        let col_w = (w - 28.0) * 0.5;
+        let chess_x = x;
+        let check_x = x + col_w + 28.0;
+
+        text(
+            painter,
+            Pos2::new(chess_x, y),
+            Align2::LEFT_TOP,
+            "КОГДА ФИГУРЫ — ШАХМАТЫ",
+            10.5,
+            Color32::from_rgb(232, 179, 106),
+        );
+        text(
+            painter,
+            Pos2::new(check_x, y),
+            Align2::LEFT_TOP,
+            "КОГДА ФИГУРЫ — ШАШКИ",
+            10.5,
+            Color32::from_rgb(111, 217, 229),
+        );
+        y += 26.0;
+
+        let chess_rules = [
+            "Ходы классические: пешка, конь, слон, ладья, ферзь, король.",
+            "Без рокировки и взятия на проходе — только чистые ходы.",
+            "Пешка на последнем ряду становится ферзём.",
+            "Шах и мат работают: короля нельзя оставить под боем.",
+            "Пат — ничья.",
+        ];
+        let checkers_rules = [
+            "Простые шашки ходят по диагонали вперёд, а бьют в любую сторону.",
+            "Дамки летят по диагонали на любое расстояние.",
+            "Бить обязательно; серия взятий продолжается, пока есть цель.",
+            "Съеденная фигура-король в шашечной фазе — тоже дамка, её можно взять.",
+            "Нет ходов — поражение.",
+        ];
+        let mut yy = y;
+        for line in chess_rules {
+            dot_line(painter, chess_x, yy, col_w, line, Color32::from_rgb(232, 179, 106));
+            yy += 40.0;
+        }
+        let mut yy2 = y;
+        for line in checkers_rules {
+            dot_line(painter, check_x, yy2, col_w, line, Color32::from_rgb(111, 217, 229));
+            yy2 += 40.0;
+        }
+
+        y = yy.max(yy2) + 6.0;
+        painter.line_segment(
+            [Pos2::new(x, y), Pos2::new(x + w, y)],
+            Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.08)),
+        );
+        y += 18.0;
+
+        let shared = [
+            "Сумерки длятся 1,7 секунды: ходы замирают, фигуры перетекают друг в друга.",
+            "Переход ждёт, пока игрок завершит серию взятий.",
+            "Победа: мат, съеденный король или у соперника не осталось фигур.",
+            "Темп превращений можно менять в панели справа — 15, 25 или 40 секунд.",
+        ];
+        for line in shared {
+            dot_line(painter, x, y, w, line, Color32::from_rgb(150, 142, 162));
+            y += 30.0;
+        }
+
+        let close = Rect::from_min_size(
+            Pos2::new(card.right() - pad - 150.0, card.bottom() - pad - 42.0),
+            Vec2::new(150.0, 42.0),
+        );
+        let pal = Palette::for_phase(self.game.phase);
+        if button(ui, close, "Понятно", true, &pal, 14.0) {
+            self.rules = false;
+        }
+        let _ = ctx;
+    }
+
+    // ------------------------- результат -------------------------
+
+    fn paint_result(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
+        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(160));
+        let card = Rect::from_center_size(
+            layout.board.center(),
+            Vec2::new(460.0, 250.0),
+        );
+        let pal = Palette::for_phase(self.game.phase);
+        rr(
+            painter,
+            card,
+            24.0,
+            Color32::from_rgb(22, 20, 30),
+            Stroke::new(1.0_f32, alpha(pal.accent, 0.35)),
+        );
+
+        let g = &self.game;
+        let (title, reason, color) = match &g.status {
+            game::Status::Win { side, reason } => (
+                format!("ПОБЕДА {}", side.name_ru().to_uppercase()),
+                reason.clone(),
+                pal.accent,
+            ),
+            game::Status::Draw(reason) => (
+                "НИЧЬЯ".to_string(),
+                reason.clone(),
+                Color32::from_rgb(200, 190, 210),
+            ),
+            _ => ("ПАРТИЯ".to_string(), String::new(), pal.text),
+        };
+
+        spaced_text(
+            painter,
+            Pos2::new(card.left() + 30.0, card.top() + 42.0),
+            &title,
+            20.0,
+            color,
+            3.2,
+        );
+        text(
+            painter,
+            Pos2::new(card.left() + 30.0, card.top() + 76.0),
+            Align2::LEFT_TOP,
+            reason,
+            13.0,
+            alpha(pal.text_dim, 0.95),
+        );
+        text(
+            painter,
+            Pos2::new(card.left() + 30.0, card.top() + 104.0),
+            Align2::LEFT_TOP,
+            format!("Ходов в журнале: {}", g.log.len()),
+            11.5,
+            alpha(pal.text_dim, 0.7),
+        );
+
+        let again = Rect::from_min_size(
+            Pos2::new(card.left() + 30.0, card.bottom() - 72.0),
+            Vec2::new(200.0, 42.0),
+        );
+        let rules = Rect::from_min_size(
+            Pos2::new(card.right() - 30.0 - 130.0, card.bottom() - 72.0),
+            Vec2::new(130.0, 42.0),
+        );
+        if button(ui, again, "Новая партия", true, &pal, 14.0) {
+            self.new_game();
+        }
+        if button(ui, rules, "Правила", false, &pal, 13.0) {
+            self.rules = true;
+        }
+        let _ = ctx;
+    }
+
+    // ------------------------- скриншот -------------------------
+
+    fn handle_shot(&mut self, ctx: &egui::Context) {
+        let Some(shot) = &mut self.shot else {
+            return;
+        };
+        if shot.saved {
+            return;
+        }
+        self.frames += 1;
+
+        if self.frames == 100 {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+            shot.requested = true;
+        }
+        if self.frames == 170 {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+        }
+        if self.frames > 500 {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+
+        let image = ctx.input(|i| {
+            i.events.iter().find_map(|e| match e {
+                egui::Event::Screenshot { image, .. } => Some(image.clone()),
+                _ => None,
+            })
+        });
+        if let Some(img) = image {
+            if let Some(dir) = shot.path.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
+            let mut bytes = Vec::with_capacity(img.pixels.len() * 4);
+            for p in &img.pixels {
+                bytes.push(p.r());
+                bytes.push(p.g());
+                bytes.push(p.b());
+                bytes.push(p.a());
+            }
+            match image::save_buffer(
+                &shot.path,
+                &bytes,
+                img.size[0] as u32,
+                img.size[1] as u32,
+                image::ColorType::Rgba8,
+            ) {
+                Ok(()) => {}
+                Err(_) => {
+                    // без консоли ошибку писать некуда — просто закрываемся
+                }
+            }
+            shot.saved = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+    }
+}
+
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let dt = ctx.input(|i| i.stable_dt).min(0.1);
+        self.time += dt;
+        if !self.rules {
+            self.game.tick(dt);
+        }
+        ctx.request_repaint();
+
+        let layout = Layout::new(ctx);
+        self.handle_keys(ctx);
+        self.handle_pointer(ctx, &layout);
+        self.draw(ctx, &layout);
+        self.handle_shot(ctx);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Мелкие помощники
+// ---------------------------------------------------------------------------
+
+fn hash(v: f32) -> f32 {
+    let x = (v * 12.9898).sin() * 43758.5453;
+    x - x.floor()
+}
+
+/// Партия начинается в шахматной фазе.
+fn initial_game() -> Game {
+    Game::new(25.0)
+}
+
+fn bell(t: f32) -> f32 {
+    (std::f32::consts::PI * t).sin()
+}
+
+fn luminance(c: Color32) -> f32 {
+    0.2126 * c.r() as f32 / 255.0 + 0.7152 * c.g() as f32 / 255.0 + 0.0722 * c.b() as f32 / 255.0
+}
+
+fn radial(painter: &egui::Painter, center: Pos2, radius: f32, color: Color32, strength: f32) {
+    let steps = 14;
+    for i in 0..steps {
+        let t = i as f32 / steps as f32;
+        let r = radius * (1.0 - t * 0.72);
+        let a = strength * (1.0 - t) * 0.45;
+        painter.circle_filled(center, r, alpha(color, a));
+    }
+}
+
+fn divider(painter: &egui::Painter, x: f32, y: f32, w: f32, c: Color32) {
+    painter.line_segment(
+        [Pos2::new(x, y), Pos2::new(x + w, y)],
+        Stroke::new(1.0_f32, alpha(c, 0.14)),
+    );
+}
+
+fn dot_line(painter: &egui::Painter, x: f32, y: f32, w: f32, line: &str, color: Color32) {
+    painter.circle_filled(Pos2::new(x + 3.0, y + 7.0), 2.0, alpha(color, 0.8));
+    let galley = painter.layout(
+        line.to_string(),
+        FontId::proportional(12.5),
+        alpha(Color32::from_rgb(214, 206, 220), 0.95),
+        w - 16.0,
+    );
+    painter.galley(Pos2::new(x + 14.0, y), galley, Color32::WHITE);
+}
+
+fn button(
+    ui: &mut egui::Ui,
+    rect: Rect,
+    label: &str,
+    accent: bool,
+    pal: &Palette,
+    font: f32,
+) -> bool {
+    let id = ui.id().with(("button", label, rect.left() as i32, rect.top() as i32));
+    let resp = ui.interact(rect, id, Sense::click());
+    let hovered = resp.hovered();
+    let (bg, fg, stroke) = if accent {
+        (
+            if hovered {
+                mix(pal.accent, Color32::WHITE, 0.14)
+            } else {
+                pal.accent
+            },
+            Color32::from_rgb(22, 18, 26),
+            Stroke::NONE,
+        )
+    } else {
+        (
+            alpha(Color32::WHITE, if hovered { 0.13 } else { 0.07 }),
+            pal.text,
+            Stroke::new(1.0_f32, alpha(Color32::WHITE, if hovered { 0.16 } else { 0.13 })),
+        )
+    };
+    rr(ui.painter(), rect, 10.0, bg, stroke);
+    text(ui.painter(), rect.center(), Align2::CENTER_CENTER, label, font, fg);
+    if hovered {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    resp.clicked()
+}
+
+fn chip(ui: &mut egui::Ui, rect: Rect, label: &str, selected: bool, pal: &Palette) -> bool {
+    let id = ui.id().with(("chip", label, rect.left() as i32));
+    let resp = ui.interact(rect, id, Sense::click());
+    let hovered = resp.hovered();
+    let (bg, fg, stroke) = if selected {
+        (alpha(pal.accent, 0.16), pal.accent, Stroke::new(1.0_f32, alpha(pal.accent, 0.6)))
+    } else if hovered {
+        (alpha(Color32::WHITE, 0.08), pal.text, Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.10)))
+    } else {
+        (alpha(Color32::WHITE, 0.03), alpha(pal.text_dim, 0.9), Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.06)))
+    };
+    rr(ui.painter(), rect, 8.0, bg, stroke);
+    text(ui.painter(), rect.center(), Align2::CENTER_CENTER, label, 12.0, fg);
+    if hovered {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    resp.clicked()
+}
+
+fn badge(painter: &egui::Painter, right_top: Pos2, label: &str, color: Color32, active: bool, size: f32) {
+    let galley = painter.layout_no_wrap(label.to_string(), FontId::proportional(size), Color32::WHITE);
+    let pad = Vec2::new(9.0, 4.0);
+    let rect = Rect::from_min_size(
+        Pos2::new(right_top.x - galley.size().x - pad.x * 2.0, right_top.y),
+        galley.size() + pad * 2.0,
+    );
+    if active {
+        rr(painter, rect, 7.0, alpha(color, 0.18), Stroke::new(1.0_f32, alpha(color, 0.55)));
+        text(
+            painter,
+            rect.center(),
+            Align2::CENTER_CENTER,
+            label,
+            size,
+            color,
+        );
+    } else {
+        rr(painter, rect, 7.0, alpha(Color32::WHITE, 0.05), Stroke::NONE);
+        text(
+            painter,
+            rect.center(),
+            Align2::CENTER_CENTER,
+            label,
+            size,
+            alpha(color, 0.5),
+        );
+    }
+}

@@ -3602,6 +3602,7 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let dt = ctx.input(|i| i.stable_dt).min(0.1);
         self.time += dt;
+        music::tick();
         if !self.started {
             let layout = Layout::new(ctx);
             let play = start_play_rect(&layout);

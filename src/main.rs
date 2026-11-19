@@ -16,6 +16,8 @@ use art::{
 use eframe::egui::{self, Align2, Color32, CursorIcon, FontId, Pos2, Rect, Sense, Stroke, Vec2};
 use game::{Game, Kind, Move, Phase, Piece, Side, Square};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
     Hotseat,
@@ -1197,7 +1199,7 @@ impl App {
             painter,
             Pos2::new(x, y),
             Align2::LEFT_TOP,
-            "ПРОТОТИП · СУМЕРКИ",
+            format!("ПРОТОТИП · СУМЕРКИ · v{VERSION}"),
             9.5,
             alpha(cur.text_dim, 0.9),
         );
@@ -1419,19 +1421,20 @@ impl App {
         );
         y += 18.0;
 
-        // нижние элементы
-        let new_btn = Rect::from_min_size(Pos2::new(x, p.bottom() - 46.0), Vec2::new(w, 46.0));
-        let row_y = new_btn.top() - 12.0 - 36.0;
+        // нижние элементы: Играть/Пауза (с заливкой) и Новая партия рядом.
         let gap = 8.0;
-        let third = (w - gap * 2.0) / 3.0;
-        let rules_btn = Rect::from_min_size(Pos2::new(x, row_y), Vec2::new(third, 36.0));
-        let pause_btn = Rect::from_min_size(
-            Pos2::new(x + third + gap, row_y),
-            Vec2::new(third, 36.0),
+        let half = (w - gap) * 0.5;
+        let bottom_y = p.bottom() - 46.0;
+        let play_btn = Rect::from_min_size(Pos2::new(x, bottom_y), Vec2::new(half, 46.0));
+        let new_btn = Rect::from_min_size(
+            Pos2::new(x + half + gap, bottom_y),
+            Vec2::new(half, 46.0),
         );
+        let row_y = bottom_y - 10.0 - 36.0;
+        let rules_btn = Rect::from_min_size(Pos2::new(x, row_y), Vec2::new(half, 36.0));
         let settings_btn = Rect::from_min_size(
-            Pos2::new(x + (third + gap) * 2.0, row_y),
-            Vec2::new(third, 36.0),
+            Pos2::new(x + half + gap, row_y),
+            Vec2::new(half, 36.0),
         );
         let chips_y = row_y - 30.0 - 30.0;
         let chips = [
@@ -1511,19 +1514,19 @@ impl App {
         if self.game.pending_promotion.is_some() {
             return;
         }
-        if button(ui, new_btn, "Новая партия", true, &cur, 15.0) {
-            self.new_game();
-        }
         if button(ui, rules_btn, "Правила", false, &cur, 12.5) {
             self.rules = true;
         }
-        let pause_label = if self.game.paused { "Играть" } else { "Пауза" };
-        if button(ui, pause_btn, pause_label, false, &cur, 12.5) {
-            self.game.paused = !self.game.paused;
-        }
-        if button(ui, settings_btn, "Настройки", false, &cur, 10.0) {
+        if button(ui, settings_btn, "Настройки", false, &cur, 11.0) {
             self.settings = true;
             self.rules = false;
+        }
+        let pause_label = if self.game.paused { "Играть" } else { "Пауза" };
+        if button(ui, play_btn, pause_label, true, &cur, 14.5) {
+            self.game.paused = !self.game.paused;
+        }
+        if button(ui, new_btn, "Новая партия", false, &cur, 14.5) {
+            self.new_game();
         }
         for (i, (secs, label)) in chips.iter().enumerate() {
             let cur_len = self.game.len_for(self.game.phase);
@@ -1558,6 +1561,14 @@ impl App {
         let mut y = card.top() + 26.0;
 
         spaced_text(painter, Pos2::new(x, y), "НАСТРОЙКИ", 22.0, pal.text, 2.4);
+        text(
+            painter,
+            Pos2::new(card.right() - pad, card.top() + 30.0),
+            Align2::RIGHT_TOP,
+            format!("v{VERSION}"),
+            10.0,
+            alpha(pal.text_dim, 0.9),
+        );
         y += 42.0;
         let top = y;
 
@@ -1875,8 +1886,8 @@ impl App {
 
     fn paint_rules(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(150));
-        let card_w = (layout.full.width() * 0.62).clamp(680.0, 860.0);
-        let card_h = (layout.full.height() * 0.88).clamp(640.0, 740.0);
+        let card_w = (layout.full.width() * 0.60).clamp(640.0, 780.0);
+        let card_h = (layout.full.height() * 0.70).clamp(500.0, 580.0);
         let card = Rect::from_center_size(layout.full.center(), Vec2::new(card_w, card_h));
         self.rules_rect = card;
         rr(
@@ -1887,16 +1898,16 @@ impl App {
             Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.10)),
         );
 
-        let pad = 34.0;
+        let pad = 26.0;
         let x = card.left() + pad;
-        let mut y = card.top() + 30.0;
+        let mut y = card.top() + 24.0;
 
         text(
             painter,
             Pos2::new(x, y),
             Align2::LEFT_TOP,
             "Правила Сумерек",
-            26.0,
+            24.0,
             Color32::from_rgb(240, 231, 217),
         );
         text(

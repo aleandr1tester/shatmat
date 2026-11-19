@@ -57,7 +57,7 @@ pub fn best_move(g: &Game, difficulty: Difficulty, seed: &mut u64) -> Option<Mov
     let mut alpha = -INF;
     for mv in order(g, moves) {
         let mut child = g.clone();
-        child.apply(mv);
+        apply_auto(&mut child, mv);
         let score = -negamax(&child, depth.saturating_sub(1), -INF, -alpha, 1);
         if score > best_score + 0.001 {
             best_score = score;
@@ -94,7 +94,7 @@ fn negamax(g: &Game, depth: u8, mut alpha: f32, beta: f32, ply: u8) -> f32 {
     let mut best = -INF;
     for mv in order(g, moves) {
         let mut child = g.clone();
-        child.apply(mv);
+        apply_auto(&mut child, mv);
         let score = -negamax(&child, depth - 1, -beta, -alpha, ply + 1);
         if score > best {
             best = score;
@@ -107,6 +107,15 @@ fn negamax(g: &Game, depth: u8, mut alpha: f32, beta: f32, ply: u8) -> f32 {
         }
     }
     best
+}
+
+/// Применяет ход и, если пешка дошла до края, сразу выбирает ферзя.
+/// Компьютер не спрашивает игрока — он всегда превращает в ферзя.
+fn apply_auto(g: &mut Game, mv: Move) {
+    g.apply(mv);
+    if g.pending_promotion.is_some() {
+        g.choose_promotion(Kind::Queen);
+    }
 }
 
 fn eval_for_turn(g: &Game) -> f32 {
@@ -233,7 +242,7 @@ mod tests {
                 continue;
             }
             if let Some(mv) = best_move(&g, Difficulty::Medium, &mut seed) {
-                g.apply(mv);
+                apply_auto(&mut g, mv);
                 g.tick(0.0);
             } else {
                 g.tick(0.01);

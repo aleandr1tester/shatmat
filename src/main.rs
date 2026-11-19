@@ -3,6 +3,7 @@
 mod ai;
 mod art;
 mod game;
+mod sound;
 
 use std::path::PathBuf;
 
@@ -12,7 +13,7 @@ use art::{
     sparkle, text, Palette,
 };
 use eframe::egui::{self, Align2, Color32, CursorIcon, FontId, Pos2, Rect, Sense, Stroke, Vec2};
-use game::{Game, Kind, Phase, Side, Square};
+use game::{Game, Kind, Phase, Piece, Side, Square};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
@@ -27,11 +28,18 @@ enum Mode {
 fn main() -> eframe::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let mut shot_path: Option<PathBuf> = None;
+    let mut demo: Option<String> = None;
     let mut i = 1;
     while i < args.len() {
         if args[i] == "--screenshot" {
             if let Some(p) = args.get(i + 1) {
                 shot_path = Some(PathBuf::from(p));
+                i += 1;
+            }
+        }
+        if args[i] == "--demo" {
+            if let Some(p) = args.get(i + 1) {
+                demo = Some(p.clone());
                 i += 1;
             }
         }
@@ -70,10 +78,13 @@ fn main() -> eframe::Result<()> {
     };
 
     let shot_for_app = shot_path.clone();
+    let demo_for_app = demo.clone();
     eframe::run_native(
         "shatmat",
         native,
-        Box::new(move |cc| Ok(Box::new(App::new(cc, shot_for_app.clone())))),
+        Box::new(move |cc| {
+            Ok(Box::new(App::new(cc, shot_for_app.clone(), demo_for_app.clone())))
+        }),
     )
 }
 
@@ -85,6 +96,13 @@ struct Shot {
     path: PathBuf,
     requested: bool,
     saved: bool,
+}
+
+#[derive(Clone, Copy)]
+struct SoundMark {
+    last_move: Option<(Square, Square)>,
+    white: u32,
+    black: u32,
 }
 
 struct Layout {
@@ -161,16 +179,20 @@ pub struct App {
 }
 
 impl App {
-    fn new(cc: &eframe::CreationContext<'_>, shot: Option<PathBuf>) -> Self {
+    fn new(cc: &eframe::CreationContext<'_>, shot: Option<PathBuf>, demo: Option<String>) -> Self {
         let mut style = (*cc.egui_ctx.style()).clone();
         style.animation_time = 0.16;
         style.visuals = egui::Visuals::dark();
         cc.egui_ctx.set_style(style);
 
+        let mut game = initial_game();
+        apply_demo(&mut game, demo.as_deref());
+        let rules_open = demo.as_deref() == Some("rules");
+
         App {
-            game: initial_game(),
+            game,
             time: 0.0,
-            rules: false,
+            rules: rules_open,
             rules_rect: Rect::NOTHING,
             mode: Mode::Hotseat,
             difficulty: Difficulty::Medium,
@@ -217,13 +239,32 @@ impl App {
         self.ai_wait = 0.6;
     }
 
+    fn sound_mark(&self) -> SoundMark {
+        SoundMark {
+            last_move: self.game.last_move,
+            white: self.game.captured_by_white,
+            black: self.game.captured_by_black,
+        }
+    }
+
+    /// Звук подбираем по разнице состояния: взятие важнее обычного хода.
+    fn play_sound_since(&self, mark: SoundMark) {
+        if self.game.captured_by_white > mark.white || self.game.captured_by_black > mark.black {
+            sound::capture();
+        } else if self.game.last_move != mark.last_move {
+            sound::piece_move();
+        }
+    }
+
     /// Компьютер играет чёрными: думает полсекунды и делает ход.
     fn update_ai(&mut self, dt: f32) {
         if self.mode != Mode::Computer {
             self.ai_wait = 0.6;
             return;
         }
-        if self.rules || self.game.paused || self.game.is_over() || self.game.trans > 0.0 {
+        if self.rules || self.game.paused || self.game.is_over() || self.game.trans > 0.0
+            || self.game.pending_promotion.is_some()
+        {
             return;
         }
         if self.game.turn != Side::Black {
@@ -235,7 +276,12 @@ impl App {
             return;
         }
         if let Some(mv) = ai::best_move(&self.game, self.difficulty, &mut self.ai_seed) {
+            let mark = self.sound_mark();
             self.game.apply(mv);
+            if self.game.pending_promotion.is_some() {
+                self.game.choose_promotion(Kind::Queen);
+            }
+            self.play_sound_since(mark);
         }
         self.ai_wait = 0.55;
     }
@@ -249,6 +295,9 @@ impl App {
             Some(p) => p,
             None => return,
         };
+        if self.game.pending_promotion.is_some() {
+            return;
+        }
         if self.rules {
             if !self.rules_rect.contains(pos) {
                 self.rules = false;
@@ -262,7 +311,9 @@ impl App {
             return;
         }
         if let Some(sq) = layout.square_at(pos) {
+            let mark = self.sound_mark();
             self.game.click(sq);
+            self.play_sound_since(mark);
         }
     }
 
@@ -275,6 +326,7 @@ impl App {
                 self.paint_header(&painter, layout);
                 self.paint_board(ctx, &painter, layout);
                 self.paint_panel(ui, &painter, layout);
+                self.paint_promotion(ui, &painter, layout);
                 if self.rules {
                     self.paint_rules(ui, ctx, &painter, layout);
                 }
@@ -788,7 +840,7 @@ impl App {
             return;
         }
         if checkers_form {
-            draw_checker(painter, center, size, damka, side, pal, a);
+            draw_checker(painter, center, size, damka, kind == Kind::King, side, pal, a);
         } else {
             draw_chess_piece(painter, center, size, kind, side, pal, a);
         }
@@ -1132,6 +1184,9 @@ impl App {
         );
 
         // --- взаимодействие ---
+        if self.game.pending_promotion.is_some() {
+            return;
+        }
         if button(ui, new_btn, "Новая партия", true, &cur, 15.0) {
             self.new_game();
         }
@@ -1152,12 +1207,105 @@ impl App {
         }
     }
 
+    // ------------------------- превращение пешки -------------------------
+
+    fn paint_promotion(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
+        if self.game.pending_promotion.is_none() {
+            return;
+        }
+        let pal = Palette::for_phase(self.game.phase);
+        let next = Palette::for_phase(self.game.phase.other());
+        let cur = blend(pal, next, smooth(self.game.trans));
+        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(170));
+
+        let card = Rect::from_center_size(layout.board.center(), Vec2::new(440.0, 240.0));
+        rr(
+            painter,
+            card,
+            22.0,
+            Color32::from_rgb(24, 21, 32),
+            Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.12)),
+        );
+
+        text(
+            painter,
+            Pos2::new(card.center().x, card.top() + 28.0),
+            Align2::CENTER_CENTER,
+            "ПРЕВРАЩЕНИЕ ПЕШКИ",
+            19.0,
+            Color32::from_rgb(240, 231, 217),
+        );
+        text(
+            painter,
+            Pos2::new(card.center().x, card.top() + 52.0),
+            Align2::CENTER_CENTER,
+            "Пешка на последнем ряду — выберите новую фигуру",
+            12.0,
+            alpha(cur.text_dim, 0.95),
+        );
+
+        let choices = [
+            (Kind::Queen, "Ферзь"),
+            (Kind::Rook, "Ладья"),
+            (Kind::Bishop, "Слон"),
+            (Kind::Knight, "Конь"),
+        ];
+        let bw = 88.0;
+        let bh = 112.0;
+        let gap = 12.0;
+        let total = 4.0 * bw + 3.0 * gap;
+        let start = card.center().x - total * 0.5;
+        let top = card.top() + 74.0;
+        for (i, (kind, label)) in choices.iter().enumerate() {
+            let r = Rect::from_min_size(
+                Pos2::new(start + i as f32 * (bw + gap), top),
+                Vec2::new(bw, bh),
+            );
+            let resp = ui.interact(r, ui.id().with(("promo", i)), Sense::click());
+            let hover = resp.hovered();
+            let bg = if hover {
+                Color32::from_rgb(56, 47, 72)
+            } else {
+                Color32::from_rgb(36, 31, 48)
+            };
+            rr(
+                painter,
+                r,
+                12.0,
+                bg,
+                Stroke::new(
+                    1.0_f32,
+                    alpha(
+                        if hover { cur.accent } else { Color32::WHITE },
+                        if hover { 0.55 } else { 0.08 },
+                    ),
+                ),
+            );
+            let icon = Pos2::new(r.center().x, r.top() + 40.0);
+            draw_chess_piece(painter, icon, 56.0, *kind, self.game.turn, &cur, 1.0);
+            text(
+                painter,
+                Pos2::new(r.center().x, r.bottom() - 18.0),
+                Align2::CENTER_CENTER,
+                *label,
+                12.5,
+                alpha(cur.text, 0.95),
+            );
+            if hover {
+                ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+            }
+            if resp.clicked() {
+                self.game.choose_promotion(*kind);
+            }
+        }
+    }
+
     // ------------------------- правила -------------------------
 
     fn paint_rules(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(150));
         let card_w = (layout.full.width() * 0.62).clamp(680.0, 860.0);
-        let card_h = (layout.full.height() * 0.80).clamp(540.0, 660.0);
+        let card_h = (layout.full.height() * 0.88).clamp(640.0, 740.0);
         let card = Rect::from_center_size(layout.full.center(), Vec2::new(card_w, card_h));
         self.rules_rect = card;
         rr(
@@ -1216,26 +1364,29 @@ impl App {
         let chess_rules = [
             "Ходы классические: пешка, конь, слон, ладья, ферзь, король.",
             "Без рокировки и взятия на проходе — только чистые ходы.",
-            "Пешка на последнем ряду становится ферзём.",
+            "Пешка на последнем ряду превращается в выбранную фигуру.",
             "Шах и мат работают: короля нельзя оставить под боем.",
             "Пат — ничья.",
         ];
         let checkers_rules = [
-            "Простые шашки ходят по диагонали вперёд, а бьют в любую сторону.",
+            "Простые шашки ходят по диагонали вперёд и назад.",
+            "Шашка остаётся на клетках своего цвета.",
+            "Можно подставляться под удар, если нет обязательного взятия.",
+            "Король в шашечной фазе помечен точкой.",
             "Дамки летят по диагонали на любое расстояние.",
             "Бить обязательно; серия взятий продолжается, пока есть цель.",
-            "Съеденная фигура-король в шашечной фазе — тоже дамка, её можно взять.",
-            "Если ходить нечем — ход переходит сопернику, ждём сумерки.",
+            "Съеденная фигура-король — тоже дамка, её можно взять.",
+            "Если ходить нечем — пропуск хода, ждём сумерки.",
         ];
         let mut yy = y;
         for line in chess_rules {
             dot_line(painter, chess_x, yy, col_w, line, Color32::from_rgb(232, 179, 106));
-            yy += 40.0;
+            yy += 36.0;
         }
         let mut yy2 = y;
         for line in checkers_rules {
             dot_line(painter, check_x, yy2, col_w, line, Color32::from_rgb(111, 217, 229));
-            yy2 += 40.0;
+            yy2 += 36.0;
         }
 
         y = yy.max(yy2) + 6.0;
@@ -1246,15 +1397,15 @@ impl App {
         y += 18.0;
 
         let shared = [
-            "Сумерки длятся 1,7 секунды: ходы замирают, фигуры перетекают друг в друга.",
+            "Сумерки длятся 1,7 секунды: ходы замирают, фигуры перетекают.",
             "Переход ждёт, пока игрок завершит серию взятий.",
-            "Победа: мат, съеденный король или у соперника не осталось фигур.",
-            "Темп превращений можно менять в панели справа — 15, 25 или 40 секунд.",
-            "С компьютером вы играете белыми: сложность меняет глубину его расчёта.",
+            "Победа: мат, съеденный король или истребление фигур.",
+            "Темп превращений: 15, 25 или 40 секунд — в панели справа.",
+            "С компьютером вы играете белыми; сложность меняет глубину.",
         ];
         for line in shared {
             dot_line(painter, x, y, w, line, Color32::from_rgb(150, 142, 162));
-            y += 30.0;
+            y += 26.0;
         }
 
         let close = Rect::from_min_size(
@@ -1429,6 +1580,35 @@ fn hash(v: f32) -> f32 {
 /// Партия начинается в шахматной фазе.
 fn initial_game() -> Game {
     Game::new(25.0)
+}
+
+/// Демо-позиции для скриншотов и ручной проверки.
+fn apply_demo(game: &mut Game, demo: Option<&str>) {
+    match demo {
+        Some("checkers") => {
+            game.phase = Phase::Checkers;
+            game.phase_left = 25.0;
+            game.board = [[None; 8]; 8];
+            game.board[3][3] = Some(Piece::new(Side::White, Kind::King)); // d4
+            game.board[5][2] = Some(Piece::new(Side::Black, Kind::King)); // c6
+            game.board[2][5] = Some(Piece::new(Side::White, Kind::Bishop)); // f3
+            game.board[6][6] = Some(Piece::new(Side::Black, Kind::Bishop)); // g7
+            game.board[1][1] = Some(Piece::new(Side::White, Kind::Pawn)); // b2
+            game.board[6][1] = Some(Piece::new(Side::Black, Kind::Pawn)); // b7
+            game.turn = Side::White;
+            game.log.push("демо: шашечная фаза".into());
+        }
+        Some("promotion") => {
+            game.board = [[None; 8]; 8];
+            game.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+            game.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
+            game.board[7][0] = Some(Piece::new(Side::White, Kind::Pawn)); // a8
+            game.turn = Side::White;
+            game.pending_promotion = Some((0, 7));
+            game.log.push("демо: превращение пешки".into());
+        }
+        _ => {}
+    }
 }
 
 fn bell(t: f32) -> f32 {

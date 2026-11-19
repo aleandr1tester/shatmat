@@ -381,8 +381,14 @@ impl App {
 
     fn new_game(&mut self) {
         let smooth = self.game.move_anim_secs;
-        self.game = Game::new(self.game.phase_len);
+        let promotion_choice = self.game.promotion_choice;
+        let chess_len = self.game.chess_len;
+        let checkers_len = self.game.checkers_len;
+        self.game = Game::new(chess_len);
+        self.game.checkers_len = checkers_len;
+        self.game.phase_left = chess_len;
         self.game.move_anim_secs = smooth;
+        self.game.promotion_choice = promotion_choice;
         self.ai_wait = 0.6;
         self.twilight_sounded = false;
         self.replay = 0.0;
@@ -1261,7 +1267,7 @@ impl App {
         let frac = if g.trans > 0.0 {
             1.0 - g.trans
         } else {
-            (g.phase_left / g.phase_len).clamp(0.0, 1.0)
+            (g.phase_left / g.len_for(g.phase)).clamp(0.0, 1.0)
         };
         let bar = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 4.0));
         painter.rect_filled(bar, 2.0, alpha(Color32::WHITE, 0.07));
@@ -1429,11 +1435,12 @@ impl App {
         );
         let chips_y = row_y - 30.0 - 30.0;
         let chips = [
+            (10.0, "10 с"),
             (15.0, "15 с"),
             (25.0, "25 с"),
             (40.0, "40 с"),
         ];
-        let chip_w = (w - 16.0) / 3.0;
+        let chip_w = (w - 24.0) / 4.0;
         let mut chip_rects = Vec::new();
         for (i, _) in chips.iter().enumerate() {
             chip_rects.push(Rect::from_min_size(
@@ -1489,7 +1496,7 @@ impl App {
             painter,
             Pos2::new(x, chips_y - 16.0),
             Align2::LEFT_TOP,
-            "РИТМ ПРЕВРАЩЕНИЯ",
+            "РИТМ ТЕКУЩЕЙ ФАЗЫ",
             8.5,
             alpha(cur.text_dim, 0.75),
         );
@@ -1519,11 +1526,11 @@ impl App {
             self.rules = false;
         }
         for (i, (secs, label)) in chips.iter().enumerate() {
-            let selected = (self.game.phase_len - secs).abs() < 0.5;
+            let cur_len = self.game.len_for(self.game.phase);
+            let selected = (cur_len - secs).abs() < 0.5;
             let clicked = chip(ui, chip_rects[i], label, selected, &cur);
             if clicked && self.game.trans == 0.0 && !self.game.is_over() {
-                self.game.phase_len = *secs;
-                self.game.phase_left = *secs;
+                self.game.set_len(self.game.phase, *secs);
             }
         }
     }
@@ -1532,7 +1539,7 @@ impl App {
 
     fn paint_settings(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(165));
-        let card = Rect::from_center_size(layout.full.center(), Vec2::new(560.0, 500.0));
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(680.0, 520.0));
         self.settings_rect = card;
         let pal = Palette::for_phase(self.game.phase);
         rr(
@@ -1542,25 +1549,31 @@ impl App {
             Color32::from_rgb(22, 20, 30),
             Stroke::new(1.0_f32, alpha(pal.accent, 0.35)),
         );
-        let pad = 30.0;
+        let pad = 28.0;
         let x = card.left() + pad;
         let w = card.width() - pad * 2.0;
-        let mut y = card.top() + 30.0;
+        let left_w = 300.0;
+        let right_x = x + left_w + 24.0;
+        let right_w = w - left_w - 24.0;
+        let mut y = card.top() + 26.0;
 
         spaced_text(painter, Pos2::new(x, y), "НАСТРОЙКИ", 22.0, pal.text, 2.4);
-        y += 46.0;
+        y += 42.0;
+        let top = y;
 
+        // левая колонка: звук и музыка
+        let mut ly = top;
         text(
             painter,
-            Pos2::new(x, y),
+            Pos2::new(x, ly),
             Align2::LEFT_TOP,
             "ЗВУКИ",
             9.5,
             alpha(pal.text_dim, 0.8),
         );
-        y += 18.0;
+        ly += 16.0;
         let sound_on = sound::enabled();
-        let sound_btn = Rect::from_min_size(Pos2::new(x, y), Vec2::new(230.0, 38.0));
+        let sound_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 36.0));
         if button(
             ui,
             sound_btn,
@@ -1575,31 +1588,40 @@ impl App {
         ) {
             sound::set_enabled(!sound_on);
         }
-        y += 48.0;
+        ly += 42.0;
 
         text(
             painter,
-            Pos2::new(x, y),
+            Pos2::new(x, ly),
             Align2::LEFT_TOP,
             "ИСТОЧНИК",
             9.0,
             alpha(pal.text_dim, 0.75),
         );
-        y += 18.0;
-        let chip_w = (w - 8.0) * 0.5;
-        let builtin = Rect::from_min_size(Pos2::new(x, y), Vec2::new(chip_w, 30.0));
-        let custom = Rect::from_min_size(Pos2::new(x + chip_w + 8.0, y), Vec2::new(chip_w, 30.0));
+        ly += 15.0;
+        let chip_w = (left_w - 8.0) * 0.5;
+        let builtin = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(chip_w, 28.0));
+        let custom = Rect::from_min_size(Pos2::new(x + chip_w + 8.0, ly), Vec2::new(chip_w, 28.0));
         if chip(ui, builtin, "Встроенные", !sound::use_files(), &pal) {
             sound::set_use_files(false);
         }
         if chip(ui, custom, "Из папки sounds", sound::use_files(), &pal) {
             sound::set_use_files(true);
         }
-        y += 46.0;
+        ly += 36.0;
 
+        text(
+            painter,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            "МУЗЫКА",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ly += 15.0;
         let music_avail = music::available();
         let music_on = music::enabled();
-        let music_btn = Rect::from_min_size(Pos2::new(x, y), Vec2::new(310.0, 38.0));
+        let music_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 36.0));
         let label = if !music_avail {
             "Музыка: нет music/theme.wav"
         } else if music_on {
@@ -1610,27 +1632,80 @@ impl App {
         if button(ui, music_btn, label, music_on && music_avail, &pal, 12.5) && music_avail {
             music::set_enabled(!music_on);
         }
-        y += 44.0;
+        ly += 40.0;
         text(
             painter,
-            Pos2::new(x, y),
+            Pos2::new(x, ly),
             Align2::LEFT_TOP,
             "Фоновая музыка не прерывается звуками ходов.",
-            10.5,
+            10.0,
             alpha(pal.text_dim, 0.8),
         );
-        y += 34.0;
+        ly += 26.0;
+
+        // правая колонка: превращение, время фаз, плавность
+        let mut ry = top;
+        text(
+            painter,
+            Pos2::new(right_x, ry),
+            Align2::LEFT_TOP,
+            "ПРЕВРАЩЕНИЕ",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ry += 15.0;
+        let promo_w = (right_w - 8.0) * 0.5;
+        let always = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(promo_w, 28.0));
+        let choose = Rect::from_min_size(
+            Pos2::new(right_x + promo_w + 8.0, ry),
+            Vec2::new(promo_w, 28.0),
+        );
+        if chip(ui, always, "Всегда ферзь", !self.game.promotion_choice, &pal) {
+            self.game.promotion_choice = false;
+        }
+        if chip(ui, choose, "Выбор фигуры", self.game.promotion_choice, &pal) {
+            self.game.promotion_choice = true;
+        }
+        ry += 36.0;
 
         text(
             painter,
-            Pos2::new(x, y),
+            Pos2::new(right_x, ry),
+            Align2::LEFT_TOP,
+            "ВРЕМЯ · ШАХМАТЫ",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ry += 15.0;
+        if let Some(secs) = time_chips(ui, right_x, ry, right_w, self.game.chess_len, &pal) {
+            self.game.set_len(Phase::Chess, secs);
+        }
+        ry += 36.0;
+
+        text(
+            painter,
+            Pos2::new(right_x, ry),
+            Align2::LEFT_TOP,
+            "ВРЕМЯ · ШАШКИ",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ry += 15.0;
+        if let Some(secs) = time_chips(ui, right_x, ry, right_w, self.game.checkers_len, &pal) {
+            self.game.set_len(Phase::Checkers, secs);
+        }
+        ry += 36.0;
+
+        text(
+            painter,
+            Pos2::new(right_x, ry),
             Align2::LEFT_TOP,
             "ПЛАВНОСТЬ ХОДА",
-            9.5,
-            alpha(pal.text_dim, 0.8),
+            9.0,
+            alpha(pal.text_dim, 0.75),
         );
-        y += 20.0;
-        let track = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w - 96.0, 6.0));
+        ry += 16.0;
+        let track = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(right_w - 72.0, 6.0));
         let slider = ui.interact(
             track.expand2(Vec2::new(0.0, 14.0)),
             ui.id().with("smooth_slider"),
@@ -1656,33 +1731,46 @@ impl App {
         );
         text(
             painter,
-            Pos2::new(track.right() + 14.0, track.center().y - 8.0),
+            Pos2::new(track.right() + 10.0, track.center().y - 8.0),
             Align2::LEFT_TOP,
             format!("{:.2} с", self.game.move_anim_secs),
-            12.0,
+            11.5,
             alpha(pal.text, 0.95),
         );
-        y += 42.0;
+        ry += 30.0;
 
+        let columns_end = ly.max(ry);
+        let summary_y = (columns_end + 16.0).max(card.bottom() - 132.0);
         text(
             painter,
-            Pos2::new(x, y),
+            Pos2::new(x, summary_y),
+            Align2::LEFT_TOP,
+            format!(
+                "Сейчас: шахматы {:.0} с · шашки {:.0} с",
+                self.game.chess_len, self.game.checkers_len
+            ),
+            12.0,
+            alpha(pal.text, 0.92),
+        );
+        text(
+            painter,
+            Pos2::new(x, summary_y + 26.0),
             Align2::LEFT_TOP,
             "Свои звуки — в папке sounds, музыка — music/theme.wav,",
-            10.5,
+            10.0,
             alpha(pal.text_dim, 0.75),
         );
         text(
             painter,
-            Pos2::new(x, y + 16.0),
+            Pos2::new(x, summary_y + 42.0),
             Align2::LEFT_TOP,
             "картинки фигур — в папке pieces (PNG с прозрачным фоном).",
-            10.5,
+            10.0,
             alpha(pal.text_dim, 0.75),
         );
 
         let close = Rect::from_min_size(
-            Pos2::new(card.right() - pad - 160.0, card.bottom() - 72.0),
+            Pos2::new(card.right() - pad - 160.0, card.bottom() - pad - 42.0),
             Vec2::new(160.0, 42.0),
         );
         if button(ui, close, "Готово", true, &pal, 14.0) {
@@ -1847,18 +1935,19 @@ impl App {
         let chess_rules = [
             "Ходы классические: пешка, конь, слон, ладья, ферзь, король.",
             "Без рокировки и взятия на проходе — только чистые ходы.",
-            "Пешка на последнем ряду превращается в выбранную фигуру.",
+            "Пешка на последнем ряду по умолчанию становится ферзём; выбор фигуры — в настройках.",
             "Шах и мат работают: короля нельзя оставить под боем.",
-            "Пат — ничья.",
+            "Пат не ничья: сумерки сразу продолжают бой.",
         ];
         let checkers_rules = [
-            "Простые шашки ходят по диагонали вперёд и назад.",
+            "В этом гибриде простые шашки ходят по диагонали вперёд и назад.",
             "Шашка остаётся на клетках своего цвета.",
-            "Можно подставляться под удар, если нет обязательного взятия.",
-            "Король в шашечной фазе помечен точкой.",
+            "Можно подставляться под удар, если обязательного взятия нет.",
+            "Король в шашечной фазе — обычная шашка с точкой.",
             "Дамки летят по диагонали на любое расстояние.",
             "Бить обязательно; серия взятий продолжается, пока есть цель.",
-            "Съеденная фигура-король — тоже дамка, её можно взять.",
+            "Шашка на последнем ряду становится дамкой и продолжает серию как дамка.",
+            "Короля можно съесть и победить.",
             "Если застряли оба — сумерки сразу выводят в шахматы.",
         ];
         let mut yy = y;
@@ -1883,7 +1972,7 @@ impl App {
             "Сумерки длятся 1,7 секунды: ходы замирают, фигуры перетекают.",
             "Переход ждёт, пока игрок завершит серию взятий.",
             "Победа: мат, съеденный король или истребление фигур.",
-            "Темп превращений: 15, 25 или 40 секунд — в панели справа.",
+            "Время шахмат и шашек задаётся отдельно в настройках.",
             "С компьютером вы играете белыми; сложность меняет глубину.",
         ];
         for line in shared {
@@ -1926,11 +2015,6 @@ impl App {
                 format!("ПОБЕДА {}", side.name_ru().to_uppercase()),
                 reason.clone(),
                 pal.accent,
-            ),
-            game::Status::Draw(reason) => (
-                "НИЧЬЯ".to_string(),
-                reason.clone(),
-                Color32::from_rgb(200, 190, 210),
             ),
             _ => ("ПАРТИЯ".to_string(), String::new(), pal.text),
         };
@@ -2188,6 +2272,7 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.board[7][7] = Some(h8); // h8
             game.turn = Side::White;
             game.trans = 0.9995;
+            game.promotion_choice = true;
             game.log.push("демо: две пешки на последнем ряду".into());
         }
         Some("win") => {
@@ -2279,6 +2364,31 @@ fn button(
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
     }
     resp.clicked()
+}
+
+fn time_chips(
+    ui: &mut egui::Ui,
+    x: f32,
+    y: f32,
+    w: f32,
+    current: f32,
+    pal: &Palette,
+) -> Option<f32> {
+    let values = [10.0, 15.0, 25.0, 40.0];
+    let gap = 8.0;
+    let cw = (w - gap * 3.0) / 4.0;
+    let mut picked = None;
+    for (i, secs) in values.iter().enumerate() {
+        let r = Rect::from_min_size(
+            Pos2::new(x + i as f32 * (cw + gap), y),
+            Vec2::new(cw, 28.0),
+        );
+        let selected = (current - *secs).abs() < 0.5;
+        if chip(ui, r, &format!("{:.0} с", secs), selected, pal) {
+            picked = Some(*secs);
+        }
+    }
+    picked
 }
 
 fn chip(ui: &mut egui::Ui, rect: Rect, label: &str, selected: bool, pal: &Palette) -> bool {

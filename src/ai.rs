@@ -80,7 +80,6 @@ fn negamax(g: &Game, depth: u8, mut alpha: f32, beta: f32, ply: u8) -> f32 {
                 -MATE + ply as f32
             };
         }
-        Status::Draw(_) => return 0.0,
         _ => {}
     }
     if depth == 0 {

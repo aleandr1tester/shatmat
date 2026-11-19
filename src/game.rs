@@ -145,7 +145,6 @@ pub enum Status {
     Playing,
     Check(Side),
     Win { side: Side, reason: String },
-    Draw(String),
 }
 
 #[derive(Clone)]
@@ -153,7 +152,10 @@ pub struct Game {
     pub board: Board,
     pub turn: Side,
     pub phase: Phase,
-    pub phase_len: f32,
+    /// Длительность шахматной фазы, секунды.
+    pub chess_len: f32,
+    /// Длительность шашечной фазы, секунды.
+    pub checkers_len: f32,
     pub phase_left: f32,
     /// 0..1 — прогресс сумеречного перехода (0 — обычная фаза).
     pub trans: f32,
@@ -181,6 +183,8 @@ pub struct Game {
     pub pending_promotion: Option<Square>,
     /// Превращение после смены фазы: это не ход, очередь не передаётся.
     pub promotion_free: bool,
+    /// true — пешка на последнем ряду ждёт выбора игрока; false — сразу ферзь.
+    pub promotion_choice: bool,
     royal_captured: Option<Side>,
     pending: String,
 }
@@ -208,7 +212,8 @@ impl Game {
             board,
             turn: Side::White,
             phase: Phase::Chess,
-            phase_len: phase_len.clamp(MIN_PHASE, MAX_PHASE),
+            chess_len: phase_len.clamp(MIN_PHASE, MAX_PHASE),
+            checkers_len: phase_len.clamp(MIN_PHASE, MAX_PHASE),
             phase_left: phase_len.clamp(MIN_PHASE, MAX_PHASE),
             trans: 0.0,
             paused: false,
@@ -229,6 +234,7 @@ impl Game {
             passes: 0,
             pending_promotion: None,
             promotion_free: false,
+            promotion_choice: false,
             royal_captured: None,
             pending: String::new(),
         }
@@ -237,7 +243,7 @@ impl Game {
     // ---------- состояние ----------
 
     pub fn is_over(&self) -> bool {
-        matches!(self.status, Status::Win { .. } | Status::Draw(_))
+        matches!(self.status, Status::Win { .. })
     }
 
     pub fn is_locked(&self) -> bool {
@@ -294,6 +300,25 @@ impl Game {
         match self.status {
             Status::Win { side, .. } => Some(side),
             _ => None,
+        }
+    }
+
+    pub fn len_for(&self, phase: Phase) -> f32 {
+        match phase {
+            Phase::Chess => self.chess_len,
+            Phase::Checkers => self.checkers_len,
+        }
+    }
+
+    /// Меняет длительность фазы; если она идёт сейчас — перезапускает отсчёт.
+    pub fn set_len(&mut self, phase: Phase, secs: f32) {
+        let secs = secs.clamp(MIN_PHASE, MAX_PHASE);
+        match phase {
+            Phase::Chess => self.chess_len = secs,
+            Phase::Checkers => self.checkers_len = secs,
+        }
+        if self.phase == phase && self.trans == 0.0 {
+            self.phase_left = secs;
         }
     }
 
@@ -457,29 +482,28 @@ impl Game {
             return;
         }
 
-        // Пешка на последнем ряду: превращение выбирает игрок.
+        // Пешка на последнем ряду: по умолчанию сразу ферзь,
+        // выбор фигуры включается в настройках.
         if self.phase == Phase::Chess && piece.kind == Kind::Pawn {
             let last = if piece.side == Side::White { 7 } else { 0 };
             if to.1 == last {
-                self.pending_promotion = Some(to);
-                self.promotion_free = false;
-                self.chain = None;
-                self.passes = 0;
-                return;
+                if self.promotion_choice {
+                    self.pending_promotion = Some(to);
+                    self.promotion_free = false;
+                    self.chain = None;
+                    self.passes = 0;
+                    return;
+                }
+                let mut queen = piece;
+                queen.kind = Kind::Queen;
+                self.board[to.1][to.0] = Some(queen);
+                self.pending.push_str("=Ф");
             }
         }
 
-        // шашечная фаза: продолжение цепочки взятий
-        if self.phase == Phase::Checkers && mv.captured.is_some() {
-            let more = self.checker_captures_from(to);
-            if !more.is_empty() {
-                self.chain = Some(to);
-                self.selected = Some(to);
-                self.legal = more;
-                return;
-            }
-        }
-
+        // Шашечная фаза: сначала коронация, затем продолжение серии.
+        // Шашка, дошедшая до последнего ряда, становится дамкой и
+        // продолжает серию уже как дамка.
         if self.phase == Phase::Checkers {
             if let Some(mut p) = self.board[to.1][to.0] {
                 let last = if p.side == Side::White { 7 } else { 0 };
@@ -488,6 +512,15 @@ impl Game {
                     self.board[to.1][to.0] = Some(p);
                     self.crowned_flash = Some((to, 1.0));
                     self.pending.push_str(" (дамка)");
+                }
+            }
+            if mv.captured.is_some() {
+                let more = self.checker_captures_from(to);
+                if !more.is_empty() {
+                    self.chain = Some(to);
+                    self.selected = Some(to);
+                    self.legal = more;
+                    return;
                 }
             }
         }
@@ -621,9 +654,23 @@ impl Game {
         }
     }
 
+    fn start_stalemate_twilight(&mut self) {
+        if self.trans > 0.0 {
+            return;
+        }
+        self.trans = 0.0001;
+        self.selected = None;
+        self.legal.clear();
+        self.chain = None;
+        self.log.push("— пат: сумерки продолжают бой".into());
+        if self.log.len() > 240 {
+            self.log.remove(0);
+        }
+    }
+
     fn flip_phase(&mut self) {
         self.phase = self.phase.other();
-        self.phase_left = self.phase_len;
+        self.phase_left = self.len_for(self.phase);
         self.trans = 0.0;
         self.selected = None;
         self.legal.clear();
@@ -659,7 +706,9 @@ impl Game {
                 if r != last {
                     continue;
                 }
-                if p.side == self.turn && prompt.is_none() {
+                let give_choice =
+                    self.promotion_choice && p.side == self.turn && prompt.is_none();
+                if give_choice {
                     prompt = Some((f, r));
                 } else {
                     let mut q = p;
@@ -712,7 +761,9 @@ impl Game {
                             reason: "мат".into(),
                         };
                     } else {
-                        self.status = Status::Draw("пат — ничья".into());
+                        // Пат — не ничья: сумерки переводят бой в шашки.
+                        self.status = Status::Playing;
+                        self.start_stalemate_twilight();
                     }
                 } else if checked {
                     self.status = Status::Check(self.turn);
@@ -1186,6 +1237,30 @@ mod tests {
     }
 
     #[test]
+    fn checker_crowns_and_continues_as_damka() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[5][1] = Some(Piece::new(Side::White, Kind::Pawn)); // b6
+        g.board[6][2] = Some(Piece::new(Side::Black, Kind::Pawn)); // c7
+        g.board[5][5] = Some(Piece::new(Side::Black, Kind::Pawn)); // f6
+        g.turn = Side::White;
+        let mv = Move {
+            from: (1, 5),
+            to: (3, 7),
+            captured: Some((2, 6)),
+        };
+        g.apply(mv);
+        let p = g.piece_at((3, 7)).unwrap();
+        assert!(p.crowned, "шашка стала дамкой на последнем ряду");
+        assert_eq!(g.chain, Some((3, 7)), "серия взятий продолжается");
+        assert!(
+            g.legal.iter().any(|m| m.to == (6, 4)),
+            "дамка продолжает серию дальним взятием f6"
+        );
+    }
+
+    #[test]
     fn pawn_cannot_jump_over_piece() {
         let mut g = test_game();
         g.board[1][4] = None; // e2 убрана
@@ -1254,6 +1329,26 @@ mod tests {
     }
 
     #[test]
+    fn phase_lengths_are_independent() {
+        let mut g = test_game();
+        assert_eq!(g.chess_len, 25.0);
+        assert_eq!(g.checkers_len, 25.0);
+        g.set_len(Phase::Chess, 10.0);
+        g.set_len(Phase::Checkers, 40.0);
+        assert_eq!(g.phase_left, 10.0, "текущая шахматная фаза перезапущена");
+        g.phase_left = 0.05;
+        g.tick(0.05);
+        while g.phase == Phase::Chess {
+            g.tick(0.1);
+        }
+        assert!(
+            (g.phase_left - 40.0).abs() < 0.2,
+            "после перехода включилось своё время шашек: {}",
+            g.phase_left
+        );
+    }
+
+    #[test]
     fn check_and_mate() {
         let mut g = test_game();
         g.board = [[None; 8]; 8];
@@ -1281,7 +1376,7 @@ mod tests {
     }
 
     #[test]
-    fn stalemate_is_a_draw() {
+    fn stalemate_starts_twilight() {
         let mut g = test_game();
         g.board = [[None; 8]; 8];
         g.board[7][0] = Some(Piece::new(Side::Black, Kind::King)); // a8
@@ -1289,12 +1384,15 @@ mod tests {
         g.board[5][1] = Some(Piece::new(Side::White, Kind::Queen)); // b6
         g.turn = Side::Black;
         g.refresh_status();
-        assert!(matches!(g.status, Status::Draw(_)), "пат: {:?}", g.status);
+        assert!(matches!(g.status, Status::Playing), "пат не ничья: {:?}", g.status);
+        assert!(g.trans > 0.0, "пат запускает сумерки");
+        assert_eq!(g.winner(), None);
     }
 
     #[test]
     fn pawn_promotes_to_queen() {
         let mut g = test_game();
+        g.promotion_choice = true;
         g.board = [[None; 8]; 8];
         g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
         g.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
@@ -1315,9 +1413,30 @@ mod tests {
     }
 
     #[test]
+    fn pawn_promotes_to_queen_by_default() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
+        g.board[6][0] = Some(Piece::new(Side::White, Kind::Pawn)); // a7
+        g.turn = Side::White;
+        let mv = Move {
+            from: (0, 6),
+            to: (0, 7),
+            captured: None,
+        };
+        g.apply(mv);
+        assert_eq!(g.pending_promotion, None, "по умолчанию без диалога");
+        assert_eq!(g.piece_at((0, 7)).unwrap().kind, Kind::Queen);
+        assert_eq!(g.turn, Side::Black);
+        assert!(g.log.last().unwrap().contains("=Ф"));
+    }
+
+    #[test]
     fn pawn_can_promote_to_any_piece() {
         for kind in [Kind::Queen, Kind::Rook, Kind::Bishop, Kind::Knight] {
             let mut g = test_game();
+            g.promotion_choice = true;
             g.board = [[None; 8]; 8];
             g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
             g.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
@@ -1336,8 +1455,29 @@ mod tests {
     }
 
     #[test]
+    fn flip_promotes_all_to_queens_by_default() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[0][7] = Some(Piece::new(Side::Black, Kind::King)); // a8
+        let mut e8 = Piece::new(Side::White, Kind::Pawn);
+        e8.crowned = true;
+        let mut h8 = Piece::new(Side::White, Kind::Pawn);
+        h8.crowned = true;
+        g.board[7][4] = Some(e8);
+        g.board[7][7] = Some(h8);
+        g.turn = Side::White;
+        g.flip_phase();
+        assert_eq!(g.pending_promotion, None, "по умолчанию без диалога");
+        assert_eq!(g.piece_at((4, 7)).unwrap().kind, Kind::Queen);
+        assert_eq!(g.piece_at((7, 7)).unwrap().kind, Kind::Queen);
+    }
+
+    #[test]
     fn flip_promotes_pawns_on_last_rank() {
         let mut g = test_game();
+        g.promotion_choice = true;
         g.board = [[None; 8]; 8];
         g.phase = Phase::Checkers;
         g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1

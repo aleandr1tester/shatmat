@@ -2,6 +2,7 @@
 
 mod ai;
 mod art;
+mod fonts;
 mod game;
 mod logging;
 mod music;
@@ -316,6 +317,8 @@ pub struct App {
     log_enabled: bool,
     show_checker_icons: bool,
     mate_lines: bool,
+    font_faces: Vec<fonts::FontFace>,
+    font_index: usize,
     game_start: Option<String>,
     log_written: bool,
     last_log: Option<PathBuf>,
@@ -351,6 +354,9 @@ impl App {
             Some("settings") | Some("settings_times") | Some("settings_auto")
         );
         let piece_tex = load_piece_textures(&cc.egui_ctx);
+        let font_faces = fonts::load();
+        let font_index = 0;
+        fonts::apply(&cc.egui_ctx, &font_faces, font_index);
         sound::prepare();
         if music::available() {
             music::set_enabled(true);
@@ -387,6 +393,8 @@ impl App {
             log_enabled: true,
             show_checker_icons: true,
             mate_lines: true,
+            font_faces,
+            font_index,
             game_start,
             log_written: false,
             last_log: None,
@@ -2134,6 +2142,49 @@ impl App {
             "Файлы — в папке logs рядом с игрой.",
             10.0,
             alpha(pal.text_dim, 0.8),
+        );
+        ly += 24.0;
+
+        text(
+            painter,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            "ШРИФТ",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ly += 15.0;
+        let mut font_name = self
+            .font_faces
+            .get(self.font_index)
+            .map(|f| f.name.clone())
+            .unwrap_or_else(|| "Prosto".to_string());
+        if font_name.chars().count() > 28 {
+            font_name = font_name.chars().take(27).collect::<String>() + "…";
+        }
+        let font_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 34.0));
+        let font_label = format!("Шрифт: {font_name}");
+        if button(
+            ui,
+            font_btn,
+            &font_label,
+            false,
+            &pal,
+            11.5,
+        ) {
+            if !self.font_faces.is_empty() {
+                self.font_index = (self.font_index + 1) % self.font_faces.len();
+                fonts::apply(ui.ctx(), &self.font_faces, self.font_index);
+            }
+        }
+        ly += 40.0;
+        text(
+            painter,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            "Свои .ttf/.otf — в папке fonts рядом с игрой.",
+            9.0,
+            alpha(pal.text_dim, 0.75),
         );
         ly += 24.0;
 

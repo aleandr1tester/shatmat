@@ -1579,7 +1579,7 @@ impl App {
                 painter,
                 Pos2::new(pill.center().x, pill.top() + 64.0),
                 Align2::CENTER_CENTER,
-                "Space — продолжить партию",
+                "Space (клавиша пробел) — продолжить партию",
                 12.5,
                 alpha(pal.text_dim, 0.95),
             );
@@ -2796,10 +2796,23 @@ impl App {
         );
         y += 88.0;
 
+        let figures = Rect::from_min_size(
+            Pos2::new(card.right() - pad - 170.0, card.top() + 24.0),
+            Vec2::new(136.0, 34.0),
+        );
         let close = Rect::from_min_size(
             Pos2::new(card.right() - pad - 150.0, card.bottom() - pad - 42.0),
             Vec2::new(150.0, 42.0),
         );
+
+        let pal = Palette::for_phase(self.game.phase);
+        if button(ui, figures, "Фигуры", false, &pal, 12.0) {
+            self.rules = false;
+            self.guide = true;
+            self.guide_kind = Kind::Pawn;
+            self.guide_checkers = false;
+            self.guide_demo = None;
+        }
 
         let chess_rules = [
             "Ходы классические: пешка, конь, слон, ладья, ферзь, король.",
@@ -2884,13 +2897,11 @@ impl App {
             },
         );
 
-        let pal = Palette::for_phase(self.game.phase);
         if button(ui, close, "Понятно", true, &pal, 14.0) {
             self.rules = false;
         }
         let _ = ctx;
     }
-
     // ------------------------- журнал партии -------------------------
 
     fn paint_journal(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {

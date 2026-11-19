@@ -3,6 +3,7 @@
 mod ai;
 mod art;
 mod game;
+mod music;
 mod sound;
 
 use std::path::PathBuf;
@@ -116,6 +117,121 @@ struct SoundMark {
     black: u32,
 }
 
+struct PieceArt {
+    color: egui::TextureHandle,
+    mask: egui::TextureHandle,
+}
+
+struct PieceTextures {
+    white: [Option<PieceArt>; 6],
+    black: [Option<PieceArt>; 6],
+}
+
+impl PieceTextures {
+    fn empty() -> Self {
+        Self {
+            white: std::array::from_fn(|_| None),
+            black: std::array::from_fn(|_| None),
+        }
+    }
+
+    fn get(&self, side: Side, kind: Kind) -> Option<&PieceArt> {
+        let arr = match side {
+            Side::White => &self.white,
+            Side::Black => &self.black,
+        };
+        arr[kind_index(kind)].as_ref()
+    }
+}
+
+fn kind_index(kind: Kind) -> usize {
+    match kind {
+        Kind::Pawn => 0,
+        Kind::Knight => 1,
+        Kind::Bishop => 2,
+        Kind::Rook => 3,
+        Kind::Queen => 4,
+        Kind::King => 5,
+    }
+}
+
+fn kind_file(kind: Kind) -> &'static str {
+    match kind {
+        Kind::Pawn => "pawn",
+        Kind::Knight => "knight",
+        Kind::Bishop => "bishop",
+        Kind::Rook => "rook",
+        Kind::Queen => "queen",
+        Kind::King => "king",
+    }
+}
+
+fn pieces_dir() -> PathBuf {
+    if let Some(dir) = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+    {
+        let p = dir.join("pieces");
+        if p.is_dir() {
+            return p;
+        }
+    }
+    PathBuf::from("pieces")
+}
+
+fn load_piece_textures(ctx: &egui::Context) -> PieceTextures {
+    let mut out = PieceTextures::empty();
+    let dir = pieces_dir();
+    for side in [Side::White, Side::Black] {
+        let prefix = if side == Side::White { "white" } else { "black" };
+        for kind in [
+            Kind::Pawn,
+            Kind::Knight,
+            Kind::Bishop,
+            Kind::Rook,
+            Kind::Queen,
+            Kind::King,
+        ] {
+            let path = dir.join(format!("{}_{}.png", prefix, kind_file(kind)));
+            let Ok(bytes) = std::fs::read(&path) else {
+                continue;
+            };
+            let Ok(img) = image::load_from_memory(&bytes) else {
+                continue;
+            };
+            let rgba = img.to_rgba8();
+            let size = [rgba.width() as usize, rgba.height() as usize];
+            let color = egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw());
+            let color_tex = ctx.load_texture(
+                format!("piece_{}_{}", prefix, kind_file(kind)),
+                color,
+                egui::TextureOptions::LINEAR,
+            );
+            let mut mask_rgba = rgba.as_raw().clone();
+            for px in mask_rgba.chunks_exact_mut(4) {
+                px[0] = 255;
+                px[1] = 255;
+                px[2] = 255;
+            }
+            let mask = egui::ColorImage::from_rgba_unmultiplied(size, &mask_rgba);
+            let mask_tex = ctx.load_texture(
+                format!("piece_{}_mask_{}", prefix, kind_file(kind)),
+                mask,
+                egui::TextureOptions::LINEAR,
+            );
+            let arr = match side {
+                Side::White => &mut out.white,
+                Side::Black => &mut out.black,
+            };
+            arr[kind_index(kind)] = Some(PieceArt {
+                color: color_tex,
+                mask: mask_tex,
+            });
+        }
+    }
+    out
+}
+
 struct Layout {
     full: Rect,
     header: Rect,
@@ -181,6 +297,9 @@ pub struct App {
     time: f32,
     rules: bool,
     rules_rect: Rect,
+    settings: bool,
+    settings_rect: Rect,
+    piece_tex: PieceTextures,
     mode: Mode,
     difficulty: Difficulty,
     ai_wait: f32,
@@ -201,13 +320,21 @@ impl App {
         let mut game = initial_game();
         apply_demo(&mut game, demo.as_deref());
         let rules_open = demo.as_deref() == Some("rules");
+        let settings_open = demo.as_deref() == Some("settings");
+        let piece_tex = load_piece_textures(&cc.egui_ctx);
         sound::prepare();
+        if music::available() {
+            music::set_enabled(true);
+        }
 
         App {
             game,
             time: 0.0,
             rules: rules_open,
             rules_rect: Rect::NOTHING,
+            settings: settings_open,
+            settings_rect: Rect::NOTHING,
+            piece_tex,
             mode: Mode::Hotseat,
             difficulty: Difficulty::Medium,
             ai_wait: 0.6,
@@ -233,25 +360,29 @@ impl App {
             )
         });
         if esc {
-            if self.rules {
+            if self.settings {
+                self.settings = false;
+            } else if self.rules {
                 self.rules = false;
             } else {
                 self.game.deselect();
             }
         }
-        if h {
+        if h && !self.settings {
             self.rules = !self.rules;
         }
-        if space && !self.rules {
+        if space && !self.rules && !self.settings {
             self.game.paused = !self.game.paused;
         }
-        if r && !self.rules {
+        if r && !self.rules && !self.settings {
             self.new_game();
         }
     }
 
     fn new_game(&mut self) {
+        let smooth = self.game.move_anim_secs;
         self.game = Game::new(self.game.phase_len);
+        self.game.move_anim_secs = smooth;
         self.ai_wait = 0.6;
         self.twilight_sounded = false;
         self.replay = 0.0;
@@ -280,7 +411,11 @@ impl App {
             self.ai_wait = 0.6;
             return;
         }
-        if self.rules || self.game.paused || self.game.is_over() || self.game.trans > 0.0
+        if self.rules
+            || self.settings
+            || self.game.paused
+            || self.game.is_over()
+            || self.game.trans > 0.0
             || self.game.pending_promotion.is_some()
         {
             return;
@@ -313,6 +448,12 @@ impl App {
             Some(p) => p,
             None => return,
         };
+        if self.settings {
+            if !self.settings_rect.contains(pos) {
+                self.settings = false;
+            }
+            return;
+        }
         if self.game.pending_promotion.is_some() {
             return;
         }
@@ -345,10 +486,13 @@ impl App {
                 self.paint_board(ctx, &painter, layout);
                 self.paint_panel(ui, &painter, layout);
                 self.paint_promotion(ui, &painter, layout);
-                if self.rules {
+                if self.settings {
+                    self.paint_settings(ui, &painter, layout);
+                }
+                if self.rules && !self.settings {
                     self.paint_rules(ui, ctx, &painter, layout);
                 }
-                if self.game.is_over() && !self.rules {
+                if self.game.is_over() && !self.rules && !self.settings {
                     self.paint_result(ui, ctx, &painter, layout);
                 }
             });
@@ -695,16 +839,65 @@ impl App {
                                 0.20 + 0.30 * pulse,
                             )
                         };
-                        art::draw_piece_glow(
-                            painter,
-                            center,
-                            size,
-                            piece.kind,
-                            piece.side,
-                            phase == Phase::Checkers,
-                            glow,
-                            strength,
-                        );
+                        if phase == Phase::Chess {
+                            if let Some(art) = self.piece_tex.get(piece.side, piece.kind) {
+                                let uv = Rect::from_min_max(
+                                    Pos2::new(0.0, 0.0),
+                                    Pos2::new(1.0, 1.0),
+                                );
+                                let rim = if piece.side == Side::White {
+                                    Color32::from_rgb(64, 46, 34)
+                                } else {
+                                    Color32::from_rgb(214, 218, 228)
+                                };
+                                let rim_tint = Color32::from_rgba_unmultiplied(
+                                    rim.r(),
+                                    rim.g(),
+                                    rim.b(),
+                                    (strength * 0.22 * 255.0) as u8,
+                                );
+                                painter.image(
+                                    art.mask.id(),
+                                    Rect::from_center_size(center, Vec2::splat(size * 1.18)),
+                                    uv,
+                                    rim_tint,
+                                );
+                                let tint = Color32::from_rgba_unmultiplied(
+                                    glow.r(),
+                                    glow.g(),
+                                    glow.b(),
+                                    (strength * 255.0) as u8,
+                                );
+                                painter.image(
+                                    art.mask.id(),
+                                    Rect::from_center_size(center, Vec2::splat(size * 1.12)),
+                                    uv,
+                                    tint,
+                                );
+                            } else {
+                                art::draw_piece_glow(
+                                    painter,
+                                    center,
+                                    size,
+                                    piece.kind,
+                                    piece.side,
+                                    false,
+                                    glow,
+                                    strength,
+                                );
+                            }
+                        } else {
+                            art::draw_piece_glow(
+                                painter,
+                                center,
+                                size,
+                                piece.kind,
+                                piece.side,
+                                true,
+                                glow,
+                                strength,
+                            );
+                        }
                     }
                     if g.trans > 0.0 {
                         let dn = (center - layout.board.center()).length() / (board_diag * 0.5);
@@ -943,6 +1136,14 @@ impl App {
     ) {
         if a <= 0.01 {
             return;
+        }
+        if !checkers_form {
+            if let Some(art) = self.piece_tex.get(side, kind) {
+                let rect = Rect::from_center_size(center, Vec2::splat(size));
+                let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
+                painter.image(art.color.id(), rect, uv, alpha(Color32::WHITE, a));
+                return;
+            }
         }
         if checkers_form {
             draw_checker(painter, center, size, damka, kind == Kind::King, side, pal, a);
@@ -1215,11 +1416,16 @@ impl App {
         // нижние элементы
         let new_btn = Rect::from_min_size(Pos2::new(x, p.bottom() - 46.0), Vec2::new(w, 46.0));
         let row_y = new_btn.top() - 12.0 - 36.0;
-        let half = (w - 10.0) * 0.5;
-        let rules_btn = Rect::from_min_size(Pos2::new(x, row_y), Vec2::new(half, 36.0));
+        let gap = 8.0;
+        let third = (w - gap * 2.0) / 3.0;
+        let rules_btn = Rect::from_min_size(Pos2::new(x, row_y), Vec2::new(third, 36.0));
         let pause_btn = Rect::from_min_size(
-            Pos2::new(x + half + 10.0, row_y),
-            Vec2::new(half, 36.0),
+            Pos2::new(x + third + gap, row_y),
+            Vec2::new(third, 36.0),
+        );
+        let settings_btn = Rect::from_min_size(
+            Pos2::new(x + (third + gap) * 2.0, row_y),
+            Vec2::new(third, 36.0),
         );
         let chips_y = row_y - 30.0 - 30.0;
         let chips = [
@@ -1292,18 +1498,25 @@ impl App {
         if self.game.is_over() {
             return;
         }
+        if self.settings || self.rules {
+            return;
+        }
         if self.game.pending_promotion.is_some() {
             return;
         }
         if button(ui, new_btn, "Новая партия", true, &cur, 15.0) {
             self.new_game();
         }
-        if button(ui, rules_btn, "Правила", false, &cur, 13.0) {
+        if button(ui, rules_btn, "Правила", false, &cur, 12.5) {
             self.rules = true;
         }
         let pause_label = if self.game.paused { "Дальше" } else { "Пауза" };
-        if button(ui, pause_btn, pause_label, false, &cur, 13.0) {
+        if button(ui, pause_btn, pause_label, false, &cur, 12.5) {
             self.game.paused = !self.game.paused;
+        }
+        if button(ui, settings_btn, "Настройки", false, &cur, 10.0) {
+            self.settings = true;
+            self.rules = false;
         }
         for (i, (secs, label)) in chips.iter().enumerate() {
             let selected = (self.game.phase_len - secs).abs() < 0.5;
@@ -1312,6 +1525,168 @@ impl App {
                 self.game.phase_len = *secs;
                 self.game.phase_left = *secs;
             }
+        }
+    }
+
+    // ------------------------- настройки -------------------------
+
+    fn paint_settings(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
+        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(165));
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(560.0, 500.0));
+        self.settings_rect = card;
+        let pal = Palette::for_phase(self.game.phase);
+        rr(
+            painter,
+            card,
+            24.0,
+            Color32::from_rgb(22, 20, 30),
+            Stroke::new(1.0_f32, alpha(pal.accent, 0.35)),
+        );
+        let pad = 30.0;
+        let x = card.left() + pad;
+        let w = card.width() - pad * 2.0;
+        let mut y = card.top() + 30.0;
+
+        spaced_text(painter, Pos2::new(x, y), "НАСТРОЙКИ", 22.0, pal.text, 2.4);
+        y += 46.0;
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            "ЗВУКИ",
+            9.5,
+            alpha(pal.text_dim, 0.8),
+        );
+        y += 18.0;
+        let sound_on = sound::enabled();
+        let sound_btn = Rect::from_min_size(Pos2::new(x, y), Vec2::new(230.0, 38.0));
+        if button(
+            ui,
+            sound_btn,
+            if sound_on {
+                "Звуки: включены"
+            } else {
+                "Звуки: выключены"
+            },
+            sound_on,
+            &pal,
+            13.0,
+        ) {
+            sound::set_enabled(!sound_on);
+        }
+        y += 48.0;
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            "ИСТОЧНИК",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        y += 18.0;
+        let chip_w = (w - 8.0) * 0.5;
+        let builtin = Rect::from_min_size(Pos2::new(x, y), Vec2::new(chip_w, 30.0));
+        let custom = Rect::from_min_size(Pos2::new(x + chip_w + 8.0, y), Vec2::new(chip_w, 30.0));
+        if chip(ui, builtin, "Встроенные", !sound::use_files(), &pal) {
+            sound::set_use_files(false);
+        }
+        if chip(ui, custom, "Из папки sounds", sound::use_files(), &pal) {
+            sound::set_use_files(true);
+        }
+        y += 46.0;
+
+        let music_avail = music::available();
+        let music_on = music::enabled();
+        let music_btn = Rect::from_min_size(Pos2::new(x, y), Vec2::new(310.0, 38.0));
+        let label = if !music_avail {
+            "Музыка: нет music/theme.wav"
+        } else if music_on {
+            "Музыка: включена"
+        } else {
+            "Музыка: выключена"
+        };
+        if button(ui, music_btn, label, music_on && music_avail, &pal, 12.5) && music_avail {
+            music::set_enabled(!music_on);
+        }
+        y += 44.0;
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            "Фоновая музыка не прерывается звуками ходов.",
+            10.5,
+            alpha(pal.text_dim, 0.8),
+        );
+        y += 34.0;
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            "ПЛАВНОСТЬ ХОДА",
+            9.5,
+            alpha(pal.text_dim, 0.8),
+        );
+        y += 20.0;
+        let track = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w - 96.0, 6.0));
+        let slider = ui.interact(
+            track.expand2(Vec2::new(0.0, 14.0)),
+            ui.id().with("smooth_slider"),
+            Sense::click_and_drag(),
+        );
+        if slider.dragged() || slider.clicked() {
+            if let Some(p) = slider.interact_pointer_pos() {
+                let t = ((p.x - track.left()) / track.width()).clamp(0.0, 1.0);
+                self.game.move_anim_secs = 0.05 + t * 0.55;
+            }
+        }
+        let frac = ((self.game.move_anim_secs - 0.05) / 0.55).clamp(0.0, 1.0);
+        painter.rect_filled(track, 3.0, alpha(Color32::WHITE, 0.10));
+        painter.rect_filled(
+            Rect::from_min_size(track.min, Vec2::new(track.width() * frac, 6.0)),
+            3.0,
+            pal.accent,
+        );
+        painter.circle_filled(
+            Pos2::new(track.left() + track.width() * frac, track.center().y),
+            8.0,
+            pal.accent,
+        );
+        text(
+            painter,
+            Pos2::new(track.right() + 14.0, track.center().y - 8.0),
+            Align2::LEFT_TOP,
+            format!("{:.2} с", self.game.move_anim_secs),
+            12.0,
+            alpha(pal.text, 0.95),
+        );
+        y += 42.0;
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            "Свои звуки — в папке sounds, музыка — music/theme.wav,",
+            10.5,
+            alpha(pal.text_dim, 0.75),
+        );
+        text(
+            painter,
+            Pos2::new(x, y + 16.0),
+            Align2::LEFT_TOP,
+            "картинки фигур — в папке pieces (PNG с прозрачным фоном).",
+            10.5,
+            alpha(pal.text_dim, 0.75),
+        );
+
+        let close = Rect::from_min_size(
+            Pos2::new(card.right() - pad - 160.0, card.bottom() - 72.0),
+            Vec2::new(160.0, 42.0),
+        );
+        if button(ui, close, "Готово", true, &pal, 14.0) {
+            self.settings = false;
         }
     }
 
@@ -1390,7 +1765,7 @@ impl App {
                 ),
             );
             let icon = Pos2::new(r.center().x, r.top() + 40.0);
-            draw_chess_piece(painter, icon, 56.0, *kind, self.game.turn, &cur, 1.0);
+            self.paint_piece(painter, icon, 56.0, *kind, false, self.game.turn, &cur, 1.0, false);
             text(
                 painter,
                 Pos2::new(r.center().x, r.bottom() - 18.0),
@@ -1711,7 +2086,7 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let dt = ctx.input(|i| i.stable_dt).min(0.1);
         self.time += dt;
-        if !self.rules {
+        if !self.rules && !self.settings {
             self.game.tick(dt);
         }
         if self.game.trans > 0.0 {

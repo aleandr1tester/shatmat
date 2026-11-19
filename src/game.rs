@@ -167,6 +167,8 @@ pub struct Game {
     pub last_capture: Option<(Square, Piece)>,
     /// Прогресс анимации последнего хода: 0 — начало, 1 — конец.
     pub move_anim: f32,
+    /// Длительность анимации хода в секундах (настраивается в меню).
+    pub move_anim_secs: f32,
     pub log: Vec<String>,
     pub ply: u32,
     pub captured_by_white: u32,
@@ -215,6 +217,7 @@ impl Game {
             last_move: None,
             last_capture: None,
             move_anim: 1.0,
+            move_anim_secs: MOVE_ANIM_SECS,
             log: Vec::new(),
             ply: 0,
             captured_by_white: 0,
@@ -517,7 +520,8 @@ impl Game {
         let dt = dt.clamp(0.0, 0.1);
         self.anim += dt;
         if self.move_anim < 1.0 {
-            self.move_anim = (self.move_anim + dt / MOVE_ANIM_SECS).min(1.0);
+            self.move_anim =
+                (self.move_anim + dt / self.move_anim_secs.max(0.03)).min(1.0);
         }
         if let Some((_, t)) = self.crowned_flash {
             let t = t - dt * 1.6;

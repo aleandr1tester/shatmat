@@ -4,6 +4,37 @@
 //! `move.wav`, `capture.wav` и `twilight.wav`, и они будут играть вместо
 //! встроенных. Если файла нет, звук синтезируется в памяти.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static ENABLED: AtomicBool = AtomicBool::new(true);
+static USE_FILES: AtomicBool = AtomicBool::new(true);
+
+/// Включает или выключает звуковые эффекты (музыка управляется отдельно).
+pub fn set_enabled(on: bool) {
+    ENABLED.store(on, Ordering::Relaxed);
+    if !on {
+        stop();
+    }
+}
+
+pub fn enabled() -> bool {
+    ENABLED.load(Ordering::Relaxed)
+}
+
+/// true — сначала пробовать файлы из `sounds`, false — только встроенные.
+pub fn set_use_files(on: bool) {
+    USE_FILES.store(on, Ordering::Relaxed);
+}
+
+pub fn use_files() -> bool {
+    USE_FILES.load(Ordering::Relaxed)
+}
+
+fn stop() {
+    #[cfg(windows)]
+    imp::stop();
+}
+
 #[cfg(windows)]
 mod imp {
     use std::os::windows::ffi::OsStrExt;
@@ -69,8 +100,11 @@ mod imp {
     }
 
     fn play(file: &str, cache: &'static OnceLock<Vec<u8>>, samples: fn() -> Vec<i16>) {
+        if !super::enabled() {
+            return;
+        }
         let path = sounds_dir().join(file);
-        if path.is_file() {
+        if super::use_files() && path.is_file() {
             let wide: Vec<u16> = path
                 .as_os_str()
                 .encode_wide()
@@ -92,6 +126,13 @@ mod imp {
                 core::ptr::null_mut(),
                 SND_MEMORY | SND_ASYNC | SND_NODEFAULT,
             );
+        }
+    }
+
+    /// Останавливает текущий звук (при выключении эффектов).
+    pub fn stop() {
+        unsafe {
+            PlaySoundW(core::ptr::null(), core::ptr::null_mut(), 0);
         }
     }
 

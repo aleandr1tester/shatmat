@@ -451,6 +451,35 @@ impl App {
             }
             return;
         }
+        if !self.started {
+            let (space, enter, h, esc) = ctx.input(|i| {
+                (
+                    i.key_pressed(egui::Key::Space),
+                    i.key_pressed(egui::Key::Enter),
+                    i.key_pressed(egui::Key::H) || i.key_pressed(egui::Key::Questionmark),
+                    i.key_pressed(egui::Key::Escape),
+                )
+            });
+            if esc {
+                if self.journal {
+                    self.journal = false;
+                } else if self.settings {
+                    self.settings = false;
+                } else if self.rules {
+                    self.rules = false;
+                }
+            }
+            if !self.settings && !self.rules && !self.journal {
+                if space || enter {
+                    self.start_game();
+                    return;
+                }
+                if h {
+                    self.rules = true;
+                }
+            }
+            return;
+        }
         let (space, r, h, esc) = ctx.input(|i| {
             (
                 i.key_pressed(egui::Key::Space),
@@ -573,7 +602,7 @@ impl App {
         self.review_ply = 0;
         self.twilight_sounded = false;
         self.replay = 0.0;
-        self.game_start = if self.logging_allowed {
+        self.game_start = if self.started && self.logging_allowed {
             Some(logging::now_string())
         } else {
             None
@@ -603,6 +632,12 @@ impl App {
 
     /// Компьютер играет чёрными: 2–3 секунды показывает цель, затем ходит.
     fn update_ai(&mut self, dt: f32) {
+        if !self.started {
+            self.ai_preview = None;
+            self.ai_preview_phase = None;
+            self.ai_wait = 0.6;
+            return;
+        }
         if self.mode != Mode::Computer {
             self.ai_preview = None;
             self.ai_preview_phase = None;
@@ -804,6 +839,16 @@ impl App {
             }
             return;
         }
+        if !self.started {
+            return;
+        }
+        if self.game.paused {
+            let pill = Rect::from_center_size(layout.board.center(), Vec2::new(320.0, 104.0));
+            if pill.contains(pos) {
+                self.game.paused = false;
+            }
+            return;
+        }
         if self.game.is_over() {
             return;
         }
@@ -823,13 +868,9 @@ impl App {
             .show(ctx, |ui| {
                 let painter = ui.painter().clone();
                 self.paint_background(ctx, &painter, layout);
-                if self.started {
-                    self.paint_header(&painter, layout);
-                }
+                self.paint_header(&painter, layout);
                 self.paint_board(ctx, &painter, layout);
-                if !self.started {
-                    self.paint_start(ui, &painter, layout);
-                } else if self.review {
+                if self.review {
                     self.paint_review(ui, &painter, layout);
                 } else {
                     self.paint_panel(ui, &painter, layout);
@@ -1128,14 +1169,12 @@ impl App {
         }
 
         // фигуры
-        let pulse_amp = 0.028 + 0.05 * bell(g.trans);
         let anim = self.active_move_anim(g);
         for r in 0..8usize {
             for f in 0..8usize {
                 let sq = (f, r);
                 let seed = f as f32 * 0.83 + r as f32 * 1.71;
-                let pulse = 1.0 + pulse_amp * (self.time * 2.0 + seed).sin();
-                let base_size = layout.cell * 1.08 * pulse;
+                let base_size = layout.cell * 1.08;
                 if let Some(piece) = g.piece_at(sq) {
                     let mut center = layout.square_rect(sq).center();
                     let mut size = base_size;
@@ -1635,136 +1674,6 @@ impl App {
 
     // ------------------------- панель -------------------------
 
-    fn paint_start(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
-        let full = layout.full;
-        painter.rect_filled(full, 0.0, Color32::from_black_alpha(155));
-        radial(
-            painter,
-            full.center(),
-            760.0,
-            Color32::from_rgb(160, 185, 240),
-            0.075,
-        );
-        radial(
-            painter,
-            full.center() + Vec2::new(-260.0, 120.0),
-            420.0,
-            Color32::from_rgb(255, 205, 150),
-            0.045,
-        );
-
-        let card = Rect::from_center_size(full.center(), Vec2::new(660.0, 400.0));
-        painter.rect_filled(
-            card.translate(Vec2::new(0.0, 22.0)),
-            40.0,
-            Color32::from_black_alpha(110),
-        );
-        rr(
-            painter,
-            card,
-            40.0,
-            Color32::from_rgba_unmultiplied(20, 19, 29, 198),
-            Stroke::new(1.0_f32, Color32::from_white_alpha(34)),
-        );
-        rr(
-            painter,
-            card.shrink(2.0),
-            38.0,
-            Color32::from_rgba_unmultiplied(255, 255, 255, 7),
-            Stroke::new(1.0_f32, Color32::from_white_alpha(16)),
-        );
-        painter.line_segment(
-            [
-                Pos2::new(card.left() + 46.0, card.top() + 2.0),
-                Pos2::new(card.right() - 46.0, card.top() + 2.0),
-            ],
-            Stroke::new(1.2_f32, Color32::from_white_alpha(55)),
-        );
-        // Мелкая «кристаллическая» крошка стекла.
-        for i in 0..90u32 {
-            let h1 = hash(i as f32 * 1.73);
-            let h2 = hash(i as f32 * 5.31 + 2.7);
-            let p = Pos2::new(
-                card.left() + 16.0 + h1 * (card.width() - 32.0),
-                card.top() + 16.0 + h2 * (card.height() - 32.0),
-            );
-            painter.circle_filled(
-                p,
-                0.6 + h1 * 1.2,
-                Color32::from_white_alpha(6 + (h2 * 10.0) as u8),
-            );
-        }
-
-        painter.text(
-            Pos2::new(card.center().x, card.top() + 78.0),
-            Align2::CENTER_CENTER,
-            "СУМЕРКИ",
-            FontId::proportional(40.0),
-            Color32::from_rgb(242, 232, 214),
-        );
-        painter.text(
-            Pos2::new(card.center().x, card.top() + 122.0),
-            Align2::CENTER_CENTER,
-            "гибрид шахмат и шашек",
-            FontId::proportional(13.0),
-            Color32::from_rgb(193, 187, 208),
-        );
-
-        let play = start_play_rect(layout);
-        let hover = ui.rect_contains_pointer(play);
-        if hover {
-            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-        }
-        painter.rect_filled(
-            play.translate(Vec2::new(0.0, 12.0)),
-            30.0,
-            Color32::from_black_alpha(105),
-        );
-        rr(
-            painter,
-            play,
-            30.0,
-            Color32::from_rgba_unmultiplied(24, 22, 32, 165),
-            Stroke::new(1.2_f32, Color32::from_white_alpha(115)),
-        );
-        rr(
-            painter,
-            play.shrink(2.0),
-            28.0,
-            Color32::from_rgba_unmultiplied(
-                255,
-                255,
-                255,
-                if hover { 28 } else { 14 },
-            ),
-            Stroke::new(1.0_f32, Color32::from_white_alpha(30)),
-        );
-        rr(
-            painter,
-            Rect::from_min_max(
-                Pos2::new(play.left() + 3.0, play.top() + 3.0),
-                Pos2::new(play.right() - 3.0, play.center().y),
-            ),
-            26.0,
-            Color32::from_white_alpha(if hover { 18 } else { 9 }),
-            Stroke::NONE,
-        );
-        painter.text(
-            play.center(),
-            Align2::CENTER_CENTER,
-            "Играть",
-            FontId::proportional(31.0),
-            Color32::from_rgb(255, 226, 178),
-        );
-        painter.text(
-            Pos2::new(card.center().x, card.bottom() - 42.0),
-            Align2::CENTER_CENTER,
-            "клик или Enter — начать",
-            FontId::proportional(10.5),
-            Color32::from_rgb(186, 180, 200),
-        );
-    }
-
     fn paint_panel(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         let g = &self.game;
         let forced_now = g.forced_capture_squares();
@@ -2181,9 +2090,19 @@ impl App {
             self.settings = true;
             self.rules = false;
         }
-        let pause_label = if self.game.paused { "Играть" } else { "Пауза" };
+        let pause_label = if !self.started {
+            "Играть"
+        } else if self.game.paused {
+            "Играть"
+        } else {
+            "Пауза"
+        };
         if button(ui, play_btn, pause_label, true, &cur, 14.5) {
-            self.game.paused = !self.game.paused;
+            if !self.started {
+                self.start_game();
+            } else {
+                self.game.paused = !self.game.paused;
+            }
         }
         if button(ui, new_btn, "Новая партия", false, &cur, 14.5) {
             self.new_game();
@@ -3696,26 +3615,6 @@ impl eframe::App for App {
         let dt = ctx.input(|i| i.stable_dt).min(0.1);
         self.time += dt;
         music::tick();
-        if !self.started {
-            let layout = Layout::new(ctx);
-            let play = start_play_rect(&layout);
-            let click = ctx.input(|i| {
-                i.pointer.primary_clicked()
-                    && i.pointer
-                        .interact_pos()
-                        .map_or(false, |p| play.contains(p))
-            });
-            let key = ctx.input(|i| i.key_pressed(egui::Key::Enter));
-            if click || key {
-                self.start_game();
-            }
-            if !self.started {
-                ctx.request_repaint();
-                self.draw(ctx, &layout);
-                self.handle_shot(ctx);
-                return;
-            }
-        }
         if self.review {
             self.game.move_anim = (self.game.move_anim
                 + dt / self.game.move_anim_secs.max(0.03))
@@ -3743,7 +3642,7 @@ impl eframe::App for App {
             self.handle_shot(ctx);
             return;
         }
-        if !self.rules && !self.settings {
+        if self.started && !self.rules && !self.settings {
             self.game.phase_hold = self.mode == Mode::Computer
                 && self.game.turn == Side::Black
                 && !self.game.is_over();
@@ -3797,13 +3696,6 @@ impl Drop for App {
 fn hash(v: f32) -> f32 {
     let x = (v * 12.9898).sin() * 43758.5453;
     x - x.floor()
-}
-
-fn start_play_rect(layout: &Layout) -> Rect {
-    Rect::from_center_size(
-        layout.full.center() + Vec2::new(0.0, 55.0),
-        Vec2::new(390.0, 96.0),
-    )
 }
 
 fn lerp_pos(a: Pos2, b: Pos2, t: f32) -> Pos2 {

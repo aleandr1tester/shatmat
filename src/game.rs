@@ -176,6 +176,8 @@ pub struct Game {
     pub crowned_flash: Option<(Square, f32)>,
     /// Сколько ходов подряд пропущено из-за отсутствия ходов в шашках.
     pub passes: u8,
+    /// Оба застряли в шашках: сумерки больше не включаются, играем только шахматы.
+    pub chess_only: bool,
     /// Пешка дошла до последнего ряда и ждёт, какую фигуру выбрать.
     pub pending_promotion: Option<Square>,
     royal_captured: Option<Side>,
@@ -221,6 +223,7 @@ impl Game {
             anim: 0.0,
             crowned_flash: None,
             passes: 0,
+            chess_only: false,
             pending_promotion: None,
             royal_captured: None,
             pending: String::new(),
@@ -238,7 +241,7 @@ impl Game {
     }
 
     pub fn twilight_pending(&self) -> bool {
-        self.trans == 0.0 && self.phase_left <= 0.0 && !self.is_over()
+        !self.chess_only && self.trans == 0.0 && self.phase_left <= 0.0 && !self.is_over()
     }
 
     pub fn count(&self, side: Side) -> usize {
@@ -522,6 +525,15 @@ impl Game {
         if self.paused || self.is_over() || self.pending_promotion.is_some() {
             return;
         }
+        if self.chess_only {
+            return;
+        }
+        // Сначала пропуски: если оба застряли, сумерки не запускаем.
+        self.auto_pass();
+        if self.phase == Phase::Checkers && self.passes >= 2 {
+            self.enter_chess_only();
+            return;
+        }
         if self.trans > 0.0 {
             self.trans += dt / TRANS_SECS;
             if self.trans >= 1.0 {
@@ -540,12 +552,10 @@ impl Game {
                 }
             }
         }
-
-        self.auto_pass();
     }
 
-    /// В шашках «нечем ходить» — это пропуск хода, а не поражение:
-    /// фигуры скоро снова станут шахматными. Если застряли оба, ждём сумерки.
+    /// В шашках «нечем ходить» — это пропуск хода, а не поражение.
+    /// Если застряли оба, переходим в шахматы без сумерек.
     fn auto_pass(&mut self) {
         if self.phase != Phase::Checkers
             || self.trans > 0.0
@@ -574,7 +584,29 @@ impl Game {
         self.refresh_status();
     }
 
+    /// Оба соперника не могут ходить в шашках: сумерки не запускаем,
+    /// партия остаётся в шахматном режиме.
+    fn enter_chess_only(&mut self) {
+        self.chess_only = true;
+        self.phase = Phase::Chess;
+        self.phase_left = self.phase_len;
+        self.trans = 0.0;
+        self.selected = None;
+        self.legal.clear();
+        self.chain = None;
+        self.pending_promotion = None;
+        self.passes = 0;
+        self.refresh_status();
+        self.log.push("— в шашках застряли оба: остаёмся в шахматах".into());
+        if self.log.len() > 240 {
+            self.log.remove(0);
+        }
+    }
+
     fn flip_phase(&mut self) {
+        if self.chess_only {
+            return;
+        }
         self.phase = self.phase.other();
         self.phase_left = self.phase_len;
         self.trans = 0.0;
@@ -1346,6 +1378,45 @@ mod tests {
         g.auto_pass();
         assert_eq!(g.turn, Side::Black, "после двух пропусков ждём сумерки");
         assert_eq!(g.passes, 2);
+    }
+
+    #[test]
+    fn both_stuck_switches_to_chess_only() {
+        let mut g = Game::new(25.0);
+        g.phase = Phase::Checkers;
+        for r in 0..8 {
+            for f in 0..8 {
+                let side = if (r + f) % 2 == 0 {
+                    Side::White
+                } else {
+                    Side::Black
+                };
+                g.board[r][f] = Some(Piece::new(side, Kind::Pawn));
+            }
+        }
+        g.turn = Side::White;
+        for _ in 0..4 {
+            g.tick(0.05);
+        }
+        assert!(g.chess_only, "оба застряли — только шахматы");
+        assert_eq!(g.phase, Phase::Chess);
+        assert_eq!(g.trans, 0.0, "сумерки не включаются");
+        assert_eq!(g.passes, 0);
+        assert!(g.log.iter().any(|l| l.contains("остаёмся в шахматах")));
+    }
+
+    #[test]
+    fn chess_only_does_not_flip_back() {
+        let mut g = Game::new(25.0);
+        g.chess_only = true;
+        g.phase = Phase::Chess;
+        g.phase_left = 0.0;
+        for _ in 0..200 {
+            g.tick(0.1);
+        }
+        assert_eq!(g.phase, Phase::Chess);
+        assert_eq!(g.trans, 0.0);
+        assert_eq!(g.phase_left, 0.0, "таймер сумерек выключен");
     }
 
     fn dump(g: &Game) -> String {

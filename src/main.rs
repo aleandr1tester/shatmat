@@ -369,9 +369,7 @@ impl App {
         let font_index = 0;
         fonts::apply(&cc.egui_ctx, &font_faces, font_index);
         sound::prepare();
-        if music::available() {
-            music::set_enabled(true);
-        }
+        // Музыка по умолчанию выключена; включается в настройках.
         let logging_allowed = shot.is_none() && demo.is_none();
         let game_start = None;
 
@@ -843,7 +841,7 @@ impl App {
             return;
         }
         if self.game.paused {
-            let pill = Rect::from_center_size(layout.board.center(), Vec2::new(320.0, 104.0));
+            let pill = Rect::from_center_size(layout.board.center(), Vec2::new(470.0, 104.0));
             if pill.contains(pos) {
                 self.game.paused = false;
             }
@@ -987,7 +985,7 @@ impl App {
             painter,
             Pos2::new(x + 1.0, layout.header.top() + 57.0),
             Align2::LEFT_TOP,
-            "гибрид шахмат и шашек · фигуры дышат и меняют природу",
+            "гибрид шахмат и шашек · фигуры меняют природу",
             12.0,
             alpha(pal.text_dim, 0.95),
         );
@@ -1560,7 +1558,7 @@ impl App {
         // пауза
         if g.paused && !g.is_over() {
             painter.rect_filled(layout.board, 10.0, Color32::from_black_alpha(130));
-            let pill = Rect::from_center_size(layout.board.center(), Vec2::new(320.0, 104.0));
+            let pill = Rect::from_center_size(layout.board.center(), Vec2::new(470.0, 104.0));
             rr(
                 painter,
                 pill,
@@ -1699,31 +1697,7 @@ impl App {
             Color32::from_rgb(255, 220, 190),
             0.05,
         );
-        // Матовая «крошка» и мягкие полосы — имитация размытого стекла.
-        for i in 0..140u32 {
-            let h1 = hash(i as f32 * 1.37);
-            let h2 = hash(i as f32 * 6.11 + 1.9);
-            let p = Pos2::new(
-                b.left() + 8.0 + h1 * (b.width() - 16.0),
-                b.top() + 8.0 + h2 * (b.height() - 16.0),
-            );
-            frost.circle_filled(
-                p,
-                0.7 + h1 * 1.8,
-                Color32::from_white_alpha(4 + (h2 * 9.0) as u8),
-            );
-        }
-        for k in 0..4 {
-            let y = b.top() + b.height() * (0.18 + k as f32 * 0.18);
-            frost.rect_filled(
-                Rect::from_min_max(
-                    Pos2::new(b.left() + 18.0, y),
-                    Pos2::new(b.right() - 18.0, y + 12.0),
-                ),
-                6.0,
-                Color32::from_white_alpha(4),
-            );
-        }
+        // Матовая вуаль: только мягкое размытие поля, без полос и точек.
         painter.rect_stroke(
             b,
             10.0,
@@ -3251,6 +3225,10 @@ impl App {
             Pos2::new(card.right() - pad - 82.0, card.top() + 18.0),
             Vec2::new(82.0, 28.0),
         );
+        let back_rules = Rect::from_min_size(
+            Pos2::new(close.left() - 92.0, card.top() + 18.0),
+            Vec2::new(84.0, 28.0),
+        );
 
         // Сначала тип игры, затем фигура.
         let mode_w = 190.0;
@@ -3428,6 +3406,10 @@ impl App {
         }
         if button(ui, close, "Закрыть", false, &pal, 10.5) {
             self.guide = false;
+        }
+        if button(ui, back_rules, "Правила", false, &pal, 10.5) {
+            self.guide = false;
+            self.rules = true;
         }
     }
 
@@ -4011,6 +3993,10 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.board[4][3] = Some(game::Piece::new(Side::Black, Kind::Pawn)); // d5
             game.turn = Side::White;
             game.log.push("демо: обязательное взятие".into());
+        }
+        Some("pause") => {
+            game.paused = true;
+            game.log.push("демо: пауза".into());
         }
         Some("review") => {
             for mv in [

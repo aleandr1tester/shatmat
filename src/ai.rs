@@ -4,7 +4,7 @@
 //! сложно — 3 полухода с отсечением. Оценка учитывает и шахматную, и шашечную
 //! силу фигур, потому что через несколько секунд природа фигур меняется.
 
-use crate::game::{Game, Kind, Move, Phase, Side, Status};
+use crate::game::{Board, Game, Kind, Move, Phase, Side, Status};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Difficulty {
@@ -42,10 +42,18 @@ const INF: f32 = 1_000_000.0;
 
 /// Лучший ход для стороны, которая сейчас ходит.
 pub fn best_move(g: &Game, difficulty: Difficulty, seed: &mut u64) -> Option<Move> {
-    let moves = g.all_moves();
-    if moves.is_empty() {
+    let all_moves = g.all_moves();
+    if all_moves.is_empty() {
         return None;
     }
+    // В шашках король — король: не разрешаем ИИ добровольно ставить его
+    // под удар, если есть хотя бы один безопасный ход.
+    let safe: Vec<Move> = all_moves
+        .iter()
+        .copied()
+        .filter(|mv| !move_leaves_king_attacked(g, *mv))
+        .collect();
+    let moves = if safe.is_empty() { all_moves } else { safe };
     if difficulty == Difficulty::Easy && moves.len() > 1 {
         let i = (next_rand(seed) as usize) % moves.len();
         return Some(moves[i]);
@@ -135,6 +143,10 @@ fn eval_white(g: &Game) -> f32 {
             let s = if p.side == Side::White { 1.0 } else { -1.0 };
             chess += s * chess_value(p.kind);
             checkers += s * if p.is_damka() { 3.2 } else { 1.0 };
+            if g.phase == Phase::Checkers && p.kind == Kind::King {
+                // Король в шашках — главная фигура, а не «ноль материала».
+                checkers += s * 18.0;
+            }
             if !p.is_damka() {
                 let adv = if p.side == Side::White {
                     r as f32
@@ -145,10 +157,23 @@ fn eval_white(g: &Game) -> f32 {
             }
         }
     }
-    match g.phase {
+    let mut score = match g.phase {
         Phase::Chess => chess + checkers * 0.45,
         Phase::Checkers => checkers * 1.6 + chess * 0.35,
+    };
+    if g.phase == Phase::Checkers {
+        if let Some(k) = g.king_sq(Side::White) {
+            if checker_attacked(&g.board, k, Side::Black) {
+                score -= 30.0;
+            }
+        }
+        if let Some(k) = g.king_sq(Side::Black) {
+            if checker_attacked(&g.board, k, Side::White) {
+                score += 30.0;
+            }
+        }
     }
+    score
 }
 
 fn chess_value(kind: Kind) -> f32 {
@@ -160,6 +185,84 @@ fn chess_value(kind: Kind) -> f32 {
         Kind::Queen => 9.0,
         Kind::King => 0.0,
     }
+}
+
+const DIAG: [(i32, i32); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
+
+fn inb(x: i32, y: i32) -> bool {
+    (0..8).contains(&x) && (0..8).contains(&y)
+}
+
+/// Атакован ли король в шашечной фазе: вражеская шашка или дамка
+/// может съесть его следующим ходом.
+fn checker_attacked(b: &Board, target: (usize, usize), by: Side) -> bool {
+    for r in 0..8 {
+        for f in 0..8 {
+            let Some(p) = b[r][f] else { continue };
+            if p.side != by {
+                continue;
+            }
+            let (xf, yr) = (f as i32, r as i32);
+            if p.is_damka() {
+                for (dx, dy) in DIAG {
+                    let (mut x, mut y) = (xf + dx, yr + dy);
+                    while inb(x, y) {
+                        if let Some(_) = b[y as usize][x as usize] {
+                            if (x as usize, y as usize) == target {
+                                let (lx, ly) = (x + dx, y + dy);
+                                if inb(lx, ly) && b[ly as usize][lx as usize].is_none() {
+                                    return true;
+                                }
+                            }
+                            break;
+                        }
+                        x += dx;
+                        y += dy;
+                    }
+                }
+            } else {
+                for (dx, dy) in DIAG {
+                    let (tx, ty) = (xf + dx, yr + dy);
+                    if (tx as usize, ty as usize) != target {
+                        continue;
+                    }
+                    let (lx, ly) = (tx + dx, ty + dy);
+                    if inb(lx, ly) && b[ly as usize][lx as usize].is_none() {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Останется ли король ходящей стороны под ударом после этого хода.
+fn move_leaves_king_attacked(g: &Game, mv: Move) -> bool {
+    if g.phase != Phase::Checkers {
+        return false;
+    }
+    let Some(king) = g.king_sq(g.turn) else {
+        return false;
+    };
+    if let Some(cap) = mv.captured {
+        if let Some(victim) = g.board[cap.1][cap.0] {
+            if victim.kind == Kind::King {
+                // Съесть короля соперника — это победа, можно.
+                return false;
+            }
+        }
+    }
+    let mut b = g.board;
+    let Some(piece) = b[mv.from.1][mv.from.0].take() else {
+        return false;
+    };
+    if let Some(cap) = mv.captured {
+        b[cap.1][cap.0] = None;
+    }
+    b[mv.to.1][mv.to.0] = Some(piece);
+    let king_after = if mv.from == king { mv.to } else { king };
+    checker_attacked(&b, king_after, g.turn.other())
 }
 
 /// Сначала взятия пожирнее — так отсечение работает заметно лучше.
@@ -228,6 +331,21 @@ mod tests {
         g.turn = Side::White;
         let mv = best_move(&g, Difficulty::Hard, &mut seed()).unwrap();
         assert_eq!(mv.captured, Some((4, 4)), "нужно съесть короля");
+    }
+
+    #[test]
+    fn ai_does_not_put_checkers_king_under_fire() {
+        let mut g = Game::new(25.0);
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[4][4] = Some(Piece::new(Side::Black, Kind::King)); // e5
+        g.board[4][2] = Some(Piece::new(Side::White, Kind::Pawn)); // c5
+        g.turn = Side::Black;
+        for d in ALL_DIFFICULTIES {
+            let mv = best_move(&g, d, &mut seed()).expect("есть ходы");
+            assert_ne!(mv.to, (3, 5), "король не идёт на d6 под бой: {d:?}");
+            assert_ne!(mv.to, (3, 3), "король не идёт на d4 под бой: {d:?}");
+        }
     }
 
     #[test]

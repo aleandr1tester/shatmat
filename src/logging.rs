@@ -127,9 +127,20 @@ pub fn format_game_log(
     s.push_str(&format!("Начало: {start}\n"));
     s.push_str(&format!("Окончание: {end}\n"));
     s.push_str(&format!("Режим: {mode}\n"));
+    if game.auto_phase {
+        s.push_str(&format!(
+            "Автосмена сумерек: случайно 10–{:.0} с\n",
+            game.auto_max
+        ));
+    } else {
+        s.push_str(&format!(
+            "Время фаз: шахматы {:.0} с, шашки {:.0} с\n",
+            game.chess_len, game.checkers_len
+        ));
+    }
     s.push_str(&format!(
-        "Время фаз: шахматы {:.0} с, шашки {:.0} с\n",
-        game.chess_len, game.checkers_len
+        "Обязательное взятие: {}\n",
+        if game.mandatory_capture { "вкл" } else { "выкл" }
     ));
     s.push_str(&format!("Результат: {result}\n"));
     s.push_str(&format!(

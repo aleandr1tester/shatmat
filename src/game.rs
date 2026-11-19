@@ -8,6 +8,7 @@ pub const TRANS_SECS: f32 = 1.7;
 pub const MOVE_ANIM_SECS: f32 = 0.22;
 pub const MIN_PHASE: f32 = 5.0;
 pub const MAX_PHASE: f32 = 60.0;
+pub const MIN_AUTO_SECS: f32 = 10.0;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Side {
@@ -170,6 +171,13 @@ pub struct Game {
     /// Длительность шашечной фазы, секунды.
     pub checkers_len: f32,
     pub phase_left: f32,
+    /// Длительность текущей фазы на момент её начала.
+    pub phase_total: f32,
+    /// Случайная автосмена сумерек.
+    pub auto_phase: bool,
+    pub auto_max: f32,
+    pub rng_state: u64,
+    pub last_phase_len: f32,
     /// 0..1 — прогресс сумеречного перехода (0 — обычная фаза).
     pub trans: f32,
     pub paused: bool,
@@ -200,6 +208,8 @@ pub struct Game {
     pub promotion_free: bool,
     /// true — пешка на последнем ряду ждёт выбора игрока; false — сразу ферзь.
     pub promotion_choice: bool,
+    /// true — бить обязательно; false — можно ходить без взятия.
+    pub mandatory_capture: bool,
     royal_captured: Option<Side>,
     pending: String,
 }
@@ -230,6 +240,11 @@ impl Game {
             chess_len: phase_len.clamp(MIN_PHASE, MAX_PHASE),
             checkers_len: phase_len.clamp(MIN_PHASE, MAX_PHASE),
             phase_left: phase_len.clamp(MIN_PHASE, MAX_PHASE),
+            phase_total: phase_len.clamp(MIN_PHASE, MAX_PHASE),
+            auto_phase: false,
+            auto_max: MAX_PHASE,
+            rng_state: 0x9E37_79B9_7F4A_7C15,
+            last_phase_len: phase_len.clamp(MIN_PHASE, MAX_PHASE),
             trans: 0.0,
             paused: false,
             status: Status::Playing,
@@ -251,6 +266,7 @@ impl Game {
             pending_promotion: None,
             promotion_free: false,
             promotion_choice: false,
+            mandatory_capture: true,
             royal_captured: None,
             pending: String::new(),
         }
@@ -335,7 +351,67 @@ impl Game {
         }
         if self.phase == phase && self.trans == 0.0 {
             self.phase_left = secs;
+            self.phase_total = secs;
         }
+    }
+
+    fn next_rand(&mut self) -> f32 {
+        let mut x = self.rng_state.max(1);
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.rng_state = x;
+        (x % 10_000) as f32 / 10_000.0
+    }
+
+    /// Случайная длительность следующей фазы: 10..auto_max секунд,
+    /// причём не совпадает с предыдущей, если диапазон это позволяет.
+    pub fn random_phase_len(&mut self) -> f32 {
+        let max = self.auto_max.clamp(MIN_AUTO_SECS, MAX_PHASE);
+        let min = MIN_AUTO_SECS;
+        if max <= min {
+            self.last_phase_len = min;
+            return min;
+        }
+        let mut value = min;
+        for _ in 0..10 {
+            value = (min + (max - min) * self.next_rand()).round();
+            if (value - self.last_phase_len).abs() >= 1.0 {
+                break;
+            }
+        }
+        if (value - self.last_phase_len).abs() < 1.0 {
+            value = if value + 1.0 <= max {
+                value + 1.0
+            } else {
+                (value - 1.0).max(min)
+            };
+        }
+        self.last_phase_len = value;
+        value
+    }
+
+    /// Запускает отсчёт текущей фазы: фиксированный или случайный.
+    pub fn refresh_phase_timer(&mut self) {
+        self.phase_left = if self.auto_phase {
+            self.random_phase_len()
+        } else {
+            self.len_for(self.phase)
+        };
+        self.phase_total = self.phase_left;
+    }
+
+    pub fn set_auto(&mut self, on: bool) {
+        self.auto_phase = on;
+        self.refresh_phase_timer();
+    }
+
+    pub fn set_auto_max(&mut self, secs: f32) {
+        self.auto_max = secs.clamp(MIN_AUTO_SECS, MAX_PHASE);
+    }
+
+    pub fn seed_rng(&mut self, seed: u64) {
+        self.rng_state = seed.max(1);
     }
 
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {
@@ -398,6 +474,11 @@ impl Game {
         match self.phase {
             Phase::Chess => self.chess_from(sq),
             Phase::Checkers => {
+                if !self.mandatory_capture {
+                    let mut moves = self.checker_quiet_from(sq);
+                    moves.extend(self.checker_captures_from(sq));
+                    return moves;
+                }
                 let caps = self.checker_all_captures();
                 if !caps.is_empty() {
                     caps.into_iter().filter(|m| m.from == sq).collect()
@@ -414,6 +495,11 @@ impl Game {
             Phase::Checkers => {
                 if let Some(c) = self.chain {
                     return self.checker_captures_from(c);
+                }
+                if !self.mandatory_capture {
+                    let mut moves = self.checker_all_quiet();
+                    moves.extend(self.checker_all_captures());
+                    return moves;
                 }
                 let caps = self.checker_all_captures();
                 if caps.is_empty() {
@@ -558,6 +644,19 @@ impl Game {
         self.refresh_status();
     }
 
+    /// Завершить серию взятий, не продолжая её (когда взятие необязательно).
+    pub fn end_chain(&mut self) {
+        if self.chain.is_none() {
+            return;
+        }
+        self.chain = None;
+        self.selected = None;
+        self.legal.clear();
+        self.passes = 0;
+        self.turn = self.turn.other();
+        self.refresh_status();
+    }
+
     /// Игрок выбрал фигуру для превращения пешки.
     pub fn choose_promotion(&mut self, kind: Kind) {
         let Some(sq) = self.pending_promotion else {
@@ -697,7 +796,7 @@ impl Game {
 
     fn flip_phase(&mut self) {
         self.phase = self.phase.other();
-        self.phase_left = self.len_for(self.phase);
+        self.refresh_phase_timer();
         self.trans = 0.0;
         self.selected = None;
         self.legal.clear();
@@ -1414,6 +1513,26 @@ mod tests {
     }
 
     #[test]
+    fn auto_phase_intervals_vary_and_stay_in_range() {
+        let mut g = test_game();
+        g.auto_max = 60.0;
+        g.seed_rng(0x1234_5678_9ABC_DEF1);
+        g.set_auto(true);
+        let mut prev = g.phase_left;
+        assert!((MIN_AUTO_SECS..=MAX_PHASE).contains(&prev), "{prev}");
+        for _ in 0..12 {
+            g.flip_phase();
+            let next = g.phase_left;
+            assert!((MIN_AUTO_SECS..=MAX_PHASE).contains(&next), "{next}");
+            assert!(
+                (next - prev).abs() >= 1.0 || g.auto_max <= MIN_AUTO_SECS,
+                "соседние интервалы разные: {prev} и {next}"
+            );
+            prev = next;
+        }
+    }
+
+    #[test]
     fn check_and_mate() {
         let mut g = test_game();
         g.board = [[None; 8]; 8];
@@ -1576,6 +1695,50 @@ mod tests {
             Side::White,
             "превращение после перехода не передаёт очередь"
         );
+    }
+
+    #[test]
+    fn optional_capture_allows_quiet_move() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[3][2] = Some(Piece::new(Side::White, Kind::Pawn)); // c4
+        g.board[4][3] = Some(Piece::new(Side::Black, Kind::Pawn)); // d5
+        g.turn = Side::White;
+        assert!(
+            g.all_moves().iter().all(|m| m.captured.is_some()),
+            "по умолчанию бить обязательно"
+        );
+        g.mandatory_capture = false;
+        assert!(
+            g.all_moves().iter().any(|m| m.captured.is_none()),
+            "без обязательного взятия можно тихо ходить"
+        );
+        assert!(
+            g.moves_for((2, 3)).iter().any(|m| m.captured.is_none()),
+            "у c4 есть тихие ходы"
+        );
+    }
+
+    #[test]
+    fn optional_capture_can_end_chain() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.mandatory_capture = false;
+        g.board[5][1] = Some(Piece::new(Side::White, Kind::Pawn)); // b6
+        g.board[6][2] = Some(Piece::new(Side::Black, Kind::Pawn)); // c7
+        g.board[5][5] = Some(Piece::new(Side::Black, Kind::Pawn)); // f6
+        g.turn = Side::White;
+        g.apply(Move {
+            from: (1, 5),
+            to: (3, 7),
+            captured: Some((2, 6)),
+        });
+        assert!(g.chain.is_some(), "серия продолжается");
+        g.end_chain();
+        assert!(g.chain.is_none());
+        assert_eq!(g.turn, Side::Black);
     }
 
     #[test]

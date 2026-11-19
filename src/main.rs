@@ -336,7 +336,10 @@ impl App {
         };
         apply_demo(&mut game, demo_game);
         let rules_open = demo.as_deref() == Some("rules");
-        let settings_open = matches!(demo.as_deref(), Some("settings") | Some("settings_times"));
+        let settings_open = matches!(
+            demo.as_deref(),
+            Some("settings") | Some("settings_times") | Some("settings_auto")
+        );
         let piece_tex = load_piece_textures(&cc.egui_ctx);
         sound::prepare();
         if music::available() {
@@ -474,9 +477,16 @@ impl App {
         let promotion_choice = self.game.promotion_choice;
         let chess_len = self.game.chess_len;
         let checkers_len = self.game.checkers_len;
+        let auto_phase = self.game.auto_phase;
+        let auto_max = self.game.auto_max;
+        let mandatory_capture = self.game.mandatory_capture;
         self.game = Game::new(chess_len);
         self.game.checkers_len = checkers_len;
-        self.game.phase_left = chess_len;
+        self.game.auto_phase = auto_phase;
+        self.game.auto_max = auto_max;
+        self.game.mandatory_capture = mandatory_capture;
+        self.game.seed_rng(random_seed());
+        self.game.refresh_phase_timer();
         self.game.move_anim_secs = smooth;
         self.game.promotion_choice = promotion_choice;
         self.ai_wait = 0.6;
@@ -705,16 +715,6 @@ impl App {
             "гибрид шахмат и шашек · фигуры дышат и меняют природу",
             12.0,
             alpha(pal.text_dim, 0.95),
-        );
-
-        let hint = "клик — ход · Space — пауза · R — новая партия · H — правила";
-        text(
-            painter,
-            Pos2::new(layout.panel.left() - 24.0, layout.header.top() + 34.0),
-            Align2::RIGHT_CENTER,
-            hint,
-            11.5,
-            alpha(pal.text_dim, 1.0),
         );
     }
 
@@ -1271,6 +1271,7 @@ impl App {
 
     fn paint_panel(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         let g = &self.game;
+        let mut end_chain_clicked = false;
         let pal = Palette::for_phase(g.phase);
         let next = Palette::for_phase(g.phase.other());
         let m = smooth(g.trans);
@@ -1376,7 +1377,7 @@ impl App {
         let frac = if g.trans > 0.0 {
             1.0 - g.trans
         } else {
-            (g.phase_left / g.len_for(g.phase)).clamp(0.0, 1.0)
+            (g.phase_left / g.phase_total.max(0.1)).clamp(0.0, 1.0)
         };
         let bar = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 4.0));
         painter.rect_filled(bar, 2.0, alpha(Color32::WHITE, 0.07));
@@ -1491,7 +1492,17 @@ impl App {
         if let game::Status::Check(_) = &g.status {
             badge(painter, Pos2::new(x + w, y - 2.0), "ШАХ", cur.danger, true, 11.0);
         } else if g.chain.is_some() {
-            badge(painter, Pos2::new(x + w, y - 2.0), "ВЗЯТИЕ", cur.accent, true, 11.0);
+            if !g.mandatory_capture && !self.settings && !self.rules {
+                let r = Rect::from_min_size(
+                    Pos2::new(x + w - 120.0, y - 2.0),
+                    Vec2::new(120.0, 28.0),
+                );
+                if button(ui, r, "Закончить", false, &cur, 10.5) {
+                    end_chain_clicked = true;
+                }
+            } else {
+                badge(painter, Pos2::new(x + w, y - 2.0), "ВЗЯТИЕ", cur.accent, true, 11.0);
+            }
         }
         y += 34.0;
 
@@ -1606,9 +1617,39 @@ impl App {
             painter,
             Pos2::new(x, chips_y - 16.0),
             Align2::LEFT_TOP,
-            "РИТМ ТЕКУЩЕЙ ФАЗЫ",
+            if g.auto_phase {
+                "АВТОСМЕНА СУМЕРЕК"
+            } else {
+                "РИТМ ТЕКУЩЕЙ ФАЗЫ"
+            },
             8.5,
             alpha(cur.text_dim, 0.75),
+        );
+        if g.auto_phase {
+            text(
+                painter,
+                Pos2::new(x, chips_y + 2.0),
+                Align2::LEFT_TOP,
+                format!("Случайно: 10–{:.0} с", g.auto_max),
+                11.5,
+                cur.accent,
+            );
+            text(
+                painter,
+                Pos2::new(x, chips_y + 18.0),
+                Align2::LEFT_TOP,
+                "Следующий интервал будет другим",
+                9.5,
+                alpha(cur.text_dim, 0.75),
+            );
+        }
+        text(
+            painter,
+            Pos2::new(x, chips_y + 36.0),
+            Align2::LEFT_TOP,
+            "клик — ход · Space — пауза · R — новая партия · H — правила",
+            9.2,
+            alpha(cur.text_dim, 0.85),
         );
 
         // --- взаимодействие ---
@@ -1635,13 +1676,18 @@ impl App {
         if button(ui, new_btn, "Новая партия", false, &cur, 14.5) {
             self.new_game();
         }
-        for (i, (secs, label)) in chips.iter().enumerate() {
-            let cur_len = self.game.len_for(self.game.phase);
-            let selected = (cur_len - secs).abs() < 0.5;
-            let clicked = chip(ui, chip_rects[i], label, selected, &cur);
-            if clicked && self.game.trans == 0.0 && !self.game.is_over() {
-                self.game.set_len(self.game.phase, *secs);
+        if !self.game.auto_phase {
+            for (i, (secs, label)) in chips.iter().enumerate() {
+                let cur_len = self.game.len_for(self.game.phase);
+                let selected = (cur_len - secs).abs() < 0.5;
+                let clicked = chip(ui, chip_rects[i], label, selected, &cur);
+                if clicked && self.game.trans == 0.0 && !self.game.is_over() {
+                    self.game.set_len(self.game.phase, *secs);
+                }
             }
+        }
+        if end_chain_clicked {
+            self.game.end_chain();
         }
     }
 
@@ -1649,7 +1695,7 @@ impl App {
 
     fn paint_settings(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(165));
-        let card = Rect::from_center_size(layout.full.center(), Vec2::new(680.0, 520.0));
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(680.0, 600.0));
         self.settings_rect = card;
         let pal = Palette::for_phase(self.game.phase);
         rr(
@@ -1830,29 +1876,150 @@ impl App {
             painter,
             Pos2::new(right_x, ry),
             Align2::LEFT_TOP,
-            "ВРЕМЯ · ШАХМАТЫ",
+            "АВТОСМЕНА СУМЕРЕК",
             9.0,
             alpha(pal.text_dim, 0.75),
         );
         ry += 15.0;
-        if let Some(secs) = time_slider(ui, painter, right_x, ry, right_w, self.game.chess_len, &pal, "chess_time") {
-            self.game.set_len(Phase::Chess, secs);
+        let auto_w = (right_w - 8.0) * 0.5;
+        let random_chip = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(auto_w, 28.0));
+        let fixed_chip = Rect::from_min_size(
+            Pos2::new(right_x + auto_w + 8.0, ry),
+            Vec2::new(auto_w, 28.0),
+        );
+        if chip(ui, random_chip, "Случайно", self.game.auto_phase, &pal) {
+            self.game.set_auto(true);
         }
-        ry += 30.0;
+        if chip(ui, fixed_chip, "Фиксированно", !self.game.auto_phase, &pal) {
+            self.game.set_auto(false);
+        }
+        ry += 36.0;
+
+        if self.game.auto_phase {
+            text(
+                painter,
+                Pos2::new(right_x, ry),
+                Align2::LEFT_TOP,
+                "МАКСИМУМ ИНТЕРВАЛА",
+                9.0,
+                alpha(pal.text_dim, 0.75),
+            );
+            ry += 15.0;
+            if let Some(secs) = time_slider(
+                ui,
+                painter,
+                right_x,
+                ry,
+                right_w,
+                self.game.auto_max,
+                &pal,
+                "auto_max",
+                game::MIN_AUTO_SECS,
+                game::MAX_PHASE,
+            ) {
+                self.game.set_auto_max(secs);
+            }
+            ry += 28.0;
+            text(
+                painter,
+                Pos2::new(right_x, ry),
+                Align2::LEFT_TOP,
+                "Каждая смена случайна; следующий интервал отличается.",
+                9.0,
+                alpha(pal.text_dim, 0.75),
+            );
+            ry += 24.0;
+        } else {
+            text(
+                painter,
+                Pos2::new(right_x, ry),
+                Align2::LEFT_TOP,
+                "ВРЕМЯ · ШАХМАТЫ",
+                9.0,
+                alpha(pal.text_dim, 0.75),
+            );
+            ry += 15.0;
+            if let Some(secs) = time_slider(
+                ui,
+                painter,
+                right_x,
+                ry,
+                right_w,
+                self.game.chess_len,
+                &pal,
+                "chess_time",
+                game::MIN_PHASE,
+                game::MAX_PHASE,
+            ) {
+                self.game.set_len(Phase::Chess, secs);
+            }
+            ry += 30.0;
+
+            text(
+                painter,
+                Pos2::new(right_x, ry),
+                Align2::LEFT_TOP,
+                "ВРЕМЯ · ШАШКИ",
+                9.0,
+                alpha(pal.text_dim, 0.75),
+            );
+            ry += 15.0;
+            if let Some(secs) = time_slider(
+                ui,
+                painter,
+                right_x,
+                ry,
+                right_w,
+                self.game.checkers_len,
+                &pal,
+                "checkers_time",
+                game::MIN_PHASE,
+                game::MAX_PHASE,
+            ) {
+                self.game.set_len(Phase::Checkers, secs);
+            }
+            ry += 30.0;
+        }
 
         text(
             painter,
             Pos2::new(right_x, ry),
             Align2::LEFT_TOP,
-            "ВРЕМЯ · ШАШКИ",
+            "ШАШКИ",
             9.0,
             alpha(pal.text_dim, 0.75),
         );
         ry += 15.0;
-        if let Some(secs) = time_slider(ui, painter, right_x, ry, right_w, self.game.checkers_len, &pal, "checkers_time") {
-            self.game.set_len(Phase::Checkers, secs);
+        let mandatory = self.game.mandatory_capture;
+        let capture_btn = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(right_w, 34.0));
+        if button(
+            ui,
+            capture_btn,
+            if mandatory {
+                "Обязательное взятие: вкл"
+            } else {
+                "Обязательное взятие: выкл"
+            },
+            mandatory,
+            &pal,
+            11.5,
+        ) {
+            self.game.mandatory_capture = !mandatory;
         }
-        ry += 30.0;
+        ry += 38.0;
+        text(
+            painter,
+            Pos2::new(right_x, ry),
+            Align2::LEFT_TOP,
+            if mandatory {
+                "Бить обязательно; серию нужно продолжать."
+            } else {
+                "Можно ходить без взятия; серию можно закончить."
+            },
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ry += 24.0;
 
         text(
             painter,
@@ -1899,14 +2066,22 @@ impl App {
 
         let columns_end = ly.max(ry);
         let summary_y = (columns_end + 16.0).max(card.bottom() - 132.0);
+        let summary = if self.game.auto_phase {
+            format!(
+                "Сейчас: автосмена, 10–{:.0} с (текущая фаза {:.0} с)",
+                self.game.auto_max, self.game.phase_left
+            )
+        } else {
+            format!(
+                "Сейчас: шахматы {:.0} с · шашки {:.0} с",
+                self.game.chess_len, self.game.checkers_len
+            )
+        };
         text(
             painter,
             Pos2::new(x, summary_y),
             Align2::LEFT_TOP,
-            format!(
-                "Сейчас: шахматы {:.0} с · шашки {:.0} с",
-                self.game.chess_len, self.game.checkers_len
-            ),
+            summary,
             12.0,
             alpha(pal.text, 0.92),
         );
@@ -2094,6 +2269,7 @@ impl App {
             "Король в шашечной фазе — обычная шашка с точкой.",
             "Дамки летят по диагонали на любое расстояние.",
             "Бить обязательно; серия взятий продолжается, пока есть цель.",
+            "Обязательное взятие можно отключить в настройках.",
             "Шашка на последнем ряду становится дамкой и продолжает серию как дамка.",
             "Короля можно съесть и победить.",
             "Если застряли оба — сумерки сразу выводят в шахматы.",
@@ -2103,6 +2279,7 @@ impl App {
             "Переход ждёт, пока игрок завершит серию взятий.",
             "Победа: мат, съеденный король или истребление фигур.",
             "Время шахмат и шашек задаётся отдельно в настройках.",
+            "Смена фаз: фиксированное время или автосмена 10–60 с.",
             "С компьютером вы играете белыми; сложность меняет глубину.",
         ];
 
@@ -2124,17 +2301,17 @@ impl App {
                 },
             );
         }
-        push_line(&mut job, "КОГДА ФИГУРЫ — ШАХМАТЫ\n", 11.0, chess_col);
+        push_line(&mut job, "КОГДА ФИГУРЫ — ШАХМАТЫ\n", 14.5, chess_col);
         for line in chess_rules {
             push_line(&mut job, &format!("• {line}\n"), 13.0, body);
         }
-        push_line(&mut job, "\n", 13.0, body);
-        push_line(&mut job, "КОГДА ФИГУРЫ — ШАШКИ\n", 11.0, check_col);
+        push_line(&mut job, "\n\n", 13.0, body);
+        push_line(&mut job, "КОГДА ФИГУРЫ — ШАШКИ\n", 14.5, check_col);
         for line in checkers_rules {
             push_line(&mut job, &format!("• {line}\n"), 13.0, body);
         }
-        push_line(&mut job, "\n", 13.0, body);
-        push_line(&mut job, "СУМЕРКИ\n", 11.0, shared_col);
+        push_line(&mut job, "\n\n", 13.0, body);
+        push_line(&mut job, "СУМЕРКИ\n", 14.5, shared_col);
         for line in shared {
             push_line(&mut job, &format!("• {line}\n"), 13.0, body);
         }
@@ -2170,8 +2347,8 @@ impl App {
         let card = Rect::from_center_size(
             layout.full.center(),
             Vec2::new(
-                (layout.full.width() * 0.64).clamp(680.0, 860.0),
-                (layout.full.height() * 0.78).clamp(520.0, 650.0),
+                (layout.full.width() * 0.54).clamp(620.0, 760.0),
+                (layout.full.height() * 0.55).clamp(360.0, 480.0),
             ),
         );
         self.journal_rect = card;
@@ -2179,20 +2356,19 @@ impl App {
         rr(
             painter,
             card,
-            24.0,
+            22.0,
             Color32::from_rgb(22, 20, 30),
             Stroke::new(1.0_f32, alpha(pal.accent, 0.35)),
         );
-        let pad = 28.0;
+        let pad = 22.0;
         let x = card.left() + pad;
-        let w = card.width() - pad * 2.0;
 
         text(
             painter,
-            Pos2::new(x, card.top() + 24.0),
+            Pos2::new(x, card.top() + 20.0),
             Align2::LEFT_TOP,
             "ЖУРНАЛ ПАРТИИ",
-            22.0,
+            20.0,
             pal.text,
         );
         let saved = if let Some(path) = &self.last_log {
@@ -2202,24 +2378,24 @@ impl App {
         };
         text(
             painter,
-            Pos2::new(x, card.top() + 56.0),
+            Pos2::new(x, card.top() + 48.0),
             Align2::LEFT_TOP,
             saved,
-            10.5,
+            10.0,
             alpha(pal.text_dim, 0.8),
         );
 
         let close = Rect::from_min_size(
-            Pos2::new(card.right() - pad - 150.0, card.bottom() - pad - 42.0),
-            Vec2::new(150.0, 42.0),
+            Pos2::new(card.right() - pad - 140.0, card.bottom() - pad - 36.0),
+            Vec2::new(140.0, 36.0),
         );
         let copy = Rect::from_min_size(
-            Pos2::new(x, card.bottom() - pad - 42.0),
-            Vec2::new(170.0, 42.0),
+            Pos2::new(x, card.bottom() - pad - 36.0),
+            Vec2::new(160.0, 36.0),
         );
         let text_rect = Rect::from_min_max(
-            Pos2::new(x, card.top() + 82.0),
-            Pos2::new(card.right() - pad, close.top() - 12.0),
+            Pos2::new(x, card.top() + 70.0),
+            Pos2::new(card.right() - pad, close.top() - 10.0),
         );
         let journal_text = self.journal_text.clone();
         let _ = ui.scope_builder(
@@ -2233,7 +2409,7 @@ impl App {
                         ui.add(
                             egui::Label::new(
                                 egui::RichText::new(journal_text)
-                                    .size(12.5)
+                                    .size(12.0)
                                     .color(Color32::from_rgb(214, 208, 222)),
                             )
                             .selectable(true)
@@ -2243,13 +2419,12 @@ impl App {
             },
         );
 
-        if button(ui, copy, "Копировать", false, &pal, 13.0) {
+        if button(ui, copy, "Копировать", false, &pal, 12.0) {
             ui.ctx().copy_text(self.journal_text.clone());
         }
-        if button(ui, close, "Закрыть", true, &pal, 14.0) {
+        if button(ui, close, "Закрыть", true, &pal, 13.0) {
             self.journal = false;
         }
-        let _ = w;
     }
 
     // ------------------------- результат -------------------------
@@ -2517,7 +2692,16 @@ fn initial_game() -> Game {
     let mut game = Game::new(20.0);
     game.checkers_len = 10.0;
     game.phase_left = 20.0;
+    game.phase_total = 20.0;
+    game.seed_rng(random_seed());
     game
+}
+
+fn random_seed() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0x9E37_79B9_7F4A_7C15)
 }
 
 /// Демо-позиции для скриншотов и ручной проверки.
@@ -2546,10 +2730,19 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.log.push("демо: превращение пешки".into());
         }
         Some("settings_times") => {
+            game.auto_phase = false;
             game.chess_len = 25.0;
             game.checkers_len = 10.0;
             game.phase_left = 25.0;
+            game.phase_total = 25.0;
             game.log.push("демо: шахматы 25 с, шашки 10 с".into());
+        }
+        Some("settings_auto") => {
+            game.auto_phase = true;
+            game.auto_max = 60.0;
+            game.seed_rng(0x51A7_4C0D_9B2E_7711);
+            game.refresh_phase_timer();
+            game.log.push("демо: автосмена сумерек".into());
         }
         Some("flip_promo") => {
             game.phase = Phase::Checkers;
@@ -2669,6 +2862,8 @@ fn time_slider(
     current: f32,
     pal: &Palette,
     id: &str,
+    min: f32,
+    max: f32,
 ) -> Option<f32> {
     let track = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w - 72.0, 6.0));
     let resp = ui.interact(
@@ -2680,14 +2875,11 @@ fn time_slider(
     if resp.dragged() || resp.clicked() {
         if let Some(p) = resp.interact_pointer_pos() {
             let t = ((p.x - track.left()) / track.width()).clamp(0.0, 1.0);
-            picked = Some(
-                (game::MIN_PHASE + t * (game::MAX_PHASE - game::MIN_PHASE)).round(),
-            );
+            picked = Some((min + t * (max - min)).round());
         }
     }
-    let value = picked.unwrap_or(current.clamp(game::MIN_PHASE, game::MAX_PHASE));
-    let frac = ((value - game::MIN_PHASE) / (game::MAX_PHASE - game::MIN_PHASE))
-        .clamp(0.0, 1.0);
+    let value = picked.unwrap_or(current.clamp(min, max));
+    let frac = ((value - min) / (max - min).max(0.001)).clamp(0.0, 1.0);
     painter.rect_filled(track, 3.0, alpha(Color32::WHITE, 0.10));
     painter.rect_filled(
         Rect::from_min_size(track.min, Vec2::new(track.width() * frac, 6.0)),

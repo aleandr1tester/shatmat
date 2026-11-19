@@ -296,6 +296,14 @@ impl Layout {
     }
 }
 
+#[derive(Clone, Copy)]
+struct GuideDemo {
+    from: Square,
+    to: Square,
+    victim: Option<Square>,
+    t: f32,
+}
+
 pub struct App {
     game: Game,
     time: f32,
@@ -332,7 +340,8 @@ pub struct App {
     guide: bool,
     guide_kind: Kind,
     guide_rect: Rect,
-    guide_demo: Option<(Square, Square, f32, bool)>,
+    guide_demo: Option<GuideDemo>,
+    guide_checkers: bool,
     started: bool,
 }
 
@@ -407,6 +416,7 @@ impl App {
             guide_kind: Kind::Pawn,
             guide_rect: Rect::NOTHING,
             guide_demo: None,
+            guide_checkers: false,
             started: demo.is_some(),
         };
         if demo.as_deref() == Some("journal") {
@@ -418,7 +428,14 @@ impl App {
         }
         if demo.as_deref() == Some("guide") {
             app.guide = true;
-            app.guide_kind = Kind::Knight;
+            app.guide_kind = Kind::Pawn;
+            app.guide_checkers = false;
+            app.guide_demo = None;
+        }
+        if demo.as_deref() == Some("guide_checkers") {
+            app.guide = true;
+            app.guide_kind = Kind::King;
+            app.guide_checkers = true;
             app.guide_demo = None;
         }
         app
@@ -2124,6 +2141,7 @@ impl App {
         if button(ui, guide_btn, "Фигуры", false, &cur, 11.0) {
             self.guide = true;
             self.guide_kind = Kind::Pawn;
+            self.guide_checkers = false;
             self.guide_demo = None;
             self.settings = false;
             self.rules = false;
@@ -3183,36 +3201,65 @@ impl App {
 
     fn paint_guide(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(180));
-        let card = Rect::from_center_size(layout.full.center(), Vec2::new(840.0, 620.0));
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(860.0, 650.0));
         self.guide_rect = card;
-        let pal = Palette::for_phase(Phase::Chess);
+        let pal = Palette::for_phase(if self.guide_checkers {
+            Phase::Checkers
+        } else {
+            Phase::Chess
+        });
         rr(
             painter,
             card,
-            24.0,
+            26.0,
             Color32::from_rgb(22, 20, 30),
             Stroke::new(1.0_f32, alpha(pal.accent, 0.40)),
         );
-        let pad = 24.0;
+        let pad = 30.0;
         let left_x = card.left() + pad;
         let right_x = left_x + 300.0;
         let right_w = card.right() - pad - right_x;
+
         text(
             painter,
             Pos2::new(left_x, card.top() + 20.0),
             Align2::LEFT_TOP,
             "ФИГУРЫ",
-            20.0,
+            21.0,
             pal.text,
         );
         text(
             painter,
-            Pos2::new(left_x, card.top() + 46.0),
+            Pos2::new(left_x, card.top() + 48.0),
             Align2::LEFT_TOP,
-            "Как ходят в шахматах и шашках",
+            "Сначала выберите игру, потом фигуру",
             10.0,
             alpha(pal.text_dim, 0.85),
         );
+        let close = Rect::from_min_size(
+            Pos2::new(card.right() - pad - 82.0, card.top() + 18.0),
+            Vec2::new(82.0, 28.0),
+        );
+
+        // Сначала тип игры, затем фигура.
+        let mode_w = 190.0;
+        let mode_y = card.top() + 78.0;
+        let chess_mode = Rect::from_min_size(
+            Pos2::new(left_x, mode_y),
+            Vec2::new(mode_w, 34.0),
+        );
+        let check_mode = Rect::from_min_size(
+            Pos2::new(left_x + mode_w + 10.0, mode_y),
+            Vec2::new(mode_w, 34.0),
+        );
+        if chip(ui, chess_mode, "ШАХМАТЫ", !self.guide_checkers, &pal) {
+            self.guide_checkers = false;
+            self.guide_demo = None;
+        }
+        if chip(ui, check_mode, "ШАШКИ", self.guide_checkers, &pal) {
+            self.guide_checkers = true;
+            self.guide_demo = None;
+        }
 
         let kinds = [
             Kind::Pawn,
@@ -3222,11 +3269,11 @@ impl App {
             Kind::Queen,
             Kind::King,
         ];
-        let tab_gap = 6.0;
+        let tab_gap = 8.0;
         let tab_w = (card.width() - pad * 2.0 - tab_gap * 5.0) / 6.0;
         for (i, kind) in kinds.iter().enumerate() {
             let r = Rect::from_min_size(
-                Pos2::new(left_x + i as f32 * (tab_w + tab_gap), card.top() + 56.0),
+                Pos2::new(left_x + i as f32 * (tab_w + tab_gap), card.top() + 124.0),
                 Vec2::new(tab_w, 30.0),
             );
             if chip(
@@ -3241,139 +3288,132 @@ impl App {
             }
         }
 
-        let close = Rect::from_min_size(
-            Pos2::new(card.right() - pad - 80.0, card.top() + 18.0),
-            Vec2::new(80.0, 28.0),
-        );
-
-        // Слева: шахматная фигура, шашка и мини-доска с демонстрацией.
         text(
             painter,
-            Pos2::new(left_x, card.top() + 100.0),
+            Pos2::new(
+                left_x,
+                card.top() + 190.0,
+            ),
             Align2::LEFT_TOP,
-            "В ШАХМАТАХ",
+            if self.guide_checkers {
+                "ФИГУРА В ШАШКАХ"
+            } else {
+                "ФИГУРА В ШАХМАТАХ"
+            },
             9.0,
             alpha(pal.text_dim, 0.75),
         );
         self.paint_piece(
             painter,
-            Pos2::new(left_x + 126.0, card.top() + 178.0),
-            100.0,
+            Pos2::new(left_x + 126.0, card.top() + 292.0),
+            116.0,
             self.guide_kind,
             false,
             Side::White,
             &pal,
             1.0,
-            false,
+            self.guide_checkers,
         );
         text(
             painter,
-            Pos2::new(left_x, card.top() + 238.0),
+            Pos2::new(left_x, card.top() + 372.0),
             Align2::LEFT_TOP,
-            "В ШАШКАХ",
-            9.0,
-            alpha(pal.text_dim, 0.75),
-        );
-        self.paint_piece(
-            painter,
-            Pos2::new(left_x + 126.0, card.top() + 306.0),
-            66.0,
-            self.guide_kind,
-            false,
-            Side::White,
-            &pal,
-            1.0,
-            true,
-        );
-        text(
-            painter,
-            Pos2::new(left_x, card.top() + 350.0),
-            Align2::LEFT_TOP,
-            "ДЕМОНСТРАЦИЯ ХОДА",
+            "ДЕМОНСТРАЦИЯ",
             8.5,
             alpha(pal.text_dim, 0.65),
         );
         let board = Rect::from_min_size(
-            Pos2::new(left_x + 18.0, card.top() + 368.0),
+            Pos2::new(left_x + 18.0, card.top() + 394.0),
             Vec2::splat(210.0),
         );
         self.paint_guide_board(painter, board, &pal);
 
-        // Справа: описание и кнопки демонстрации.
-        let (chess_text, checkers_text) = guide_text(self.guide_kind);
+        let (move_text, capture_text) = guide_text(self.guide_kind, self.guide_checkers);
         text(
             painter,
-            Pos2::new(right_x, card.top() + 100.0),
+            Pos2::new(right_x, card.top() + 190.0),
             Align2::LEFT_TOP,
             piece_title_ru(self.guide_kind),
-            24.0,
+            27.0,
             pal.text,
         );
+        let mut y = card.top() + 238.0;
         text(
             painter,
-            Pos2::new(right_x, card.top() + 140.0),
+            Pos2::new(right_x, y),
             Align2::LEFT_TOP,
-            "В ШАХМАТАХ",
+            "КАК ХОДИТ",
             9.0,
             pal.accent,
         );
-        let h1 = wrapped_text(
+        y += 19.0;
+        let h = wrapped_text(
             painter,
-            Pos2::new(right_x, card.top() + 158.0),
+            Pos2::new(right_x, y),
             right_w,
-            chess_text,
-            10.5,
+            move_text,
+            11.5,
             pal.text,
         );
+        y += h + 26.0;
         text(
             painter,
-            Pos2::new(right_x, card.top() + 158.0 + h1 + 20.0),
+            Pos2::new(right_x, y),
             Align2::LEFT_TOP,
-            "В ШАШКАХ",
+            "КАК БЬЁТ",
             9.0,
             pal.accent,
         );
+        y += 19.0;
         let _ = wrapped_text(
             painter,
-            Pos2::new(right_x, card.top() + 176.0 + h1 + 20.0),
+            Pos2::new(right_x, y),
             right_w,
-            checkers_text,
-            10.5,
+            capture_text,
+            11.5,
             pal.text,
         );
 
-        let btn_y = card.bottom() - 54.0;
-        let bw = (right_w - 8.0) * 0.5;
-        let demo_chess = Rect::from_min_size(Pos2::new(right_x, btn_y), Vec2::new(bw, 38.0));
-        let demo_check = Rect::from_min_size(
-            Pos2::new(right_x + bw + 8.0, btn_y),
-            Vec2::new(bw, 38.0),
+        let btn_y = card.bottom() - 62.0;
+        let bw = (right_w - 10.0) * 0.5;
+        let demo_move = Rect::from_min_size(Pos2::new(right_x, btn_y), Vec2::new(bw, 40.0));
+        let demo_capture = Rect::from_min_size(
+            Pos2::new(right_x + bw + 10.0, btn_y),
+            Vec2::new(bw, 40.0),
         );
         if button(
             ui,
-            demo_chess,
-            "Демо: шахматы",
-            self.guide_demo.map(|d| !d.3) == Some(true),
+            demo_move,
+            "Демо хода",
+            self.guide_demo.map(|d| d.victim.is_none()) == Some(true),
             &pal,
-            11.0,
+            11.5,
         ) {
-            let (start, dests) = guide_squares(self.guide_kind, false);
+            let (start, dests) = guide_squares(self.guide_kind, self.guide_checkers);
             if let Some(dest) = dests.first() {
-                self.guide_demo = Some((start, *dest, 0.0, false));
+                self.guide_demo = Some(GuideDemo {
+                    from: start,
+                    to: *dest,
+                    victim: None,
+                    t: 0.0,
+                });
             }
         }
         if button(
             ui,
-            demo_check,
-            "Демо: шашки",
-            self.guide_demo.map(|d| d.3) == Some(true),
+            demo_capture,
+            "Демо взятия",
+            self.guide_demo.map(|d| d.victim.is_some()) == Some(true),
             &pal,
-            11.0,
+            11.5,
         ) {
-            let (start, dests) = guide_squares(self.guide_kind, true);
-            if let Some(dest) = dests.first() {
-                self.guide_demo = Some((start, *dest, 0.0, true));
-            }
+            let (from, victim, to) = guide_capture(self.guide_kind, self.guide_checkers);
+            self.guide_demo = Some(GuideDemo {
+                from,
+                to,
+                victim: Some(victim),
+                t: 0.0,
+            });
         }
         if button(ui, close, "Закрыть", false, &pal, 10.5) {
             self.guide = false;
@@ -3382,12 +3422,15 @@ impl App {
 
     fn paint_guide_board(&self, painter: &egui::Painter, rect: Rect, pal: &Palette) {
         let cell = rect.width() / 8.0;
-        let checkers = self.guide_demo.map(|d| d.3).unwrap_or(false);
+        let checkers = self.guide_checkers;
         let (start, dests) = guide_squares(self.guide_kind, checkers);
         for y in 0..8 {
             for x in 0..8 {
                 let r = Rect::from_min_size(
-                    Pos2::new(rect.left() + x as f32 * cell, rect.top() + y as f32 * cell),
+                    Pos2::new(
+                        rect.left() + x as f32 * cell,
+                        rect.top() + y as f32 * cell,
+                    ),
                     Vec2::splat(cell),
                 );
                 let light = (x + y) % 2 == 0;
@@ -3401,7 +3444,10 @@ impl App {
         }
         let sq_rect = |(x, y): Square| {
             Rect::from_min_size(
-                Pos2::new(rect.left() + x as f32 * cell, rect.top() + y as f32 * cell),
+                Pos2::new(
+                    rect.left() + x as f32 * cell,
+                    rect.top() + y as f32 * cell,
+                ),
                 Vec2::splat(cell),
             )
         };
@@ -3413,23 +3459,42 @@ impl App {
         );
         for dest in &dests {
             let c = sq_rect(*dest).center();
-            painter.circle_filled(c, cell * 0.11, alpha(pal.accent, 0.85));
+            painter.circle_filled(c, cell * 0.10, alpha(pal.accent, 0.80));
             painter.circle_stroke(
                 c,
-                cell * 0.20,
+                cell * 0.19,
                 Stroke::new(1.0_f32, alpha(pal.accent, 0.35)),
             );
         }
-        let (piece_sq, to_sq, t) = match self.guide_demo {
-            Some((from, to, t, dc)) if dc == checkers => (from, to, t),
-            _ => (start, dests.first().copied().unwrap_or(start), 0.0),
+        let (from, to, t, victim) = match self.guide_demo {
+            Some(d) => (d.from, d.to, d.t, d.victim),
+            None => (
+                start,
+                dests.first().copied().unwrap_or(start),
+                0.0,
+                None,
+            ),
         };
-        let from_c = sq_rect(piece_sq).center();
-        let to_c = sq_rect(to_sq).center();
+        let from_c = sq_rect(from).center();
+        let to_c = sq_rect(to).center();
         if t > 0.0 {
             painter.line_segment(
                 [from_c, to_c],
                 Stroke::new(2.0_f32, alpha(pal.accent, 0.35)),
+            );
+        }
+        if let Some(v) = victim {
+            let fade = (1.0 - t).clamp(0.0, 1.0);
+            self.paint_piece(
+                painter,
+                sq_rect(v).center(),
+                cell * 0.82,
+                Kind::Pawn,
+                false,
+                Side::Black,
+                pal,
+                fade,
+                checkers,
             );
         }
         let c = lerp_pos(from_c, to_c, t);
@@ -3637,8 +3702,8 @@ impl eframe::App for App {
             return;
         }
         if self.guide {
-            if let Some((_, _, t, _)) = &mut self.guide_demo {
-                *t = (*t + dt / 1.1).min(1.0);
+            if let Some(demo) = &mut self.guide_demo {
+                demo.t = (demo.t + dt / 1.1).min(1.0);
             }
             if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
                 self.guide = false;
@@ -3758,32 +3823,60 @@ fn piece_title_ru(kind: Kind) -> &'static str {
     }
 }
 
-fn guide_text(kind: Kind) -> (&'static str, &'static str) {
+fn guide_text(kind: Kind, checkers: bool) -> (&'static str, &'static str) {
+    if checkers {
+        return match kind {
+            Kind::Pawn => (
+                "Обычная шашка ходит по диагонали на одну клетку вперёд и назад. На последнем ряду становится дамкой, которая летит по диагонали на любое расстояние.",
+                "Бьёт через соседнюю вражескую шашку, вставая на свободную клетку за ней. Серия взятий продолжается, пока есть цель. Обязательный бой можно отключить в настройках.",
+            ),
+            Kind::King => (
+                "Король в шашечной фазе — обычная шашка с короной: ходит по диагонали на одну клетку вперёд и назад, а после коронации становится дамкой.",
+                "Бьёт как шашка — через соседнюю фигуру на свободное поле за ней. Может стать дамкой, если включено «Дамки: все».",
+            ),
+            _ => (
+                "Иконка показывает вид фигуры, но правила шашечные: по диагонали на одну клетку вперёд и назад. Дамка летит по диагонали на любое расстояние.",
+                "Бьёт через соседнюю вражескую фигуру, вставая на свободную клетку за ней; серия продолжается. Может стать дамкой, если включено «Дамки: все».",
+            ),
+        };
+    }
     match kind {
         Kind::Pawn => (
-            "Идёт на одну клетку вперёд; с начальной позиции — на две. Бьёт по диагонали на одну клетку. На последнем ряду превращается в ферзя или выбранную фигуру.",
-            "Обычная шашка: ходит по диагонали на одну клетку вперёд и назад, бьёт через соседнюю шашку. На последнем ряду становится дамкой.",
+            "Идёт на одну клетку вперёд; с начальной позиции — на две, если путь свободен.",
+            "Бьёт по диагонали на одну клетку вперёд. Взятия на проходе в этой версии нет. На последнем ряду превращается в ферзя или выбранную фигуру.",
         ),
         Kind::Knight => (
             "Ходит буквой Г: две клетки по одной оси и одна по другой. Перепрыгивает фигуры.",
-            "Шашка с иконкой коня: ходит и бьёт по шашечным правилам. На последнем ряду может стать дамкой, если включено «Дамки: все».",
+            "Бьёт прыжком на вражескую фигуру в точке приземления; свои фигуры на пути не мешают.",
         ),
         Kind::Bishop => (
             "Ходит по диагонали на любое расстояние, пока путь свободен.",
-            "Шашка с иконкой слона: обычная шашка по диагонали. Может стать дамкой, если включено «Дамки: все».",
+            "Бьёт по диагонали: путь до вражеской фигуры должен быть свободен.",
         ),
         Kind::Rook => (
             "Ходит по вертикали и горизонтали на любое расстояние, пока путь свободен.",
-            "Шашка с иконкой ладьи: обычная шашка по диагонали. Может стать дамкой, если включено «Дамки: все».",
+            "Бьёт по вертикали или горизонтали: путь до вражеской фигуры должен быть свободен.",
         ),
         Kind::Queen => (
             "Ходит как ладья и слон: по вертикали, горизонтали и диагонали на любое расстояние.",
-            "Шашка с иконкой ферзя: обычная шашка по диагонали. Может стать дамкой, если включено «Дамки: все».",
+            "Бьёт по любой из этих линий, если путь до вражеской фигуры свободен.",
         ),
         Kind::King => (
-            "Ходит на одну клетку в любом направлении. Шах и мат; под бой оставлять нельзя.",
-            "Король-шашка с короной: ходит и бьёт как обычная шашка. Может стать дамкой, если разрешено.",
+            "Ходит на одну клетку в любом направлении.",
+            "Бьёт на одну клетку в любом направлении. Под бой оставлять нельзя: шах и мат.",
         ),
+    }
+}
+
+/// (откуда, где стоит жертва, куда встаёт атакующий)
+fn guide_capture(kind: Kind, checkers: bool) -> (Square, Square, Square) {
+    if checkers {
+        return ((2, 3), (3, 4), (4, 5));
+    }
+    match kind {
+        Kind::Knight => ((3, 3), (4, 5), (4, 5)),
+        Kind::Rook => ((3, 3), (3, 5), (3, 5)),
+        _ => ((3, 3), (4, 4), (4, 4)),
     }
 }
 

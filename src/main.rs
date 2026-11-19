@@ -903,9 +903,7 @@ impl App {
         );
         y += 34.0;
 
-        let countdown_text = if g.chess_only {
-            "∞".to_string()
-        } else if g.trans > 0.0 {
+        let countdown_text = if g.trans > 0.0 {
             "···".to_string()
         } else {
             let secs = g.phase_left.max(0.0).ceil() as i32;
@@ -936,16 +934,14 @@ impl App {
             painter,
             Pos2::new(x + 4.0, y + 50.0),
             Align2::LEFT_TOP,
-            if g.chess_only {
-                "шашки застряли — только шахматы".to_string()
-            } else if g.trans > 0.0 {
+            if g.trans > 0.0 {
                 "сумерки: фигуры меняются".to_string()
             } else if g.paused {
                 "пауза".to_string()
             } else if g.twilight_pending() {
                 "переход ждёт конца взятия".to_string()
             } else if g.passes >= 2 {
-                "нет ходов — ждём сумерки".to_string()
+                "нет ходов — сумерки выводят из тупика".to_string()
             } else if self.mode == Mode::Computer && g.turn == Side::Black {
                 "компьютер думает…".to_string()
             } else {
@@ -956,9 +952,7 @@ impl App {
         );
         y += 72.0;
 
-        let frac = if g.chess_only {
-            1.0
-        } else if g.trans > 0.0 {
+        let frac = if g.trans > 0.0 {
             1.0 - g.trans
         } else {
             (g.phase_left / g.phase_len).clamp(0.0, 1.0)
@@ -994,11 +988,7 @@ impl App {
                 painter,
                 pill.center(),
                 Align2::CENTER_CENTER,
-                if g.chess_only && *ph == Phase::Checkers {
-                    "выкл."
-                } else {
-                    ph.one_ru()
-                },
+                ph.one_ru(),
                 10.5,
                 if active {
                     col
@@ -1188,24 +1178,10 @@ impl App {
             painter,
             Pos2::new(x, chips_y - 16.0),
             Align2::LEFT_TOP,
-            if g.chess_only {
-                "СУМЕРКИ ВЫКЛЮЧЕНЫ"
-            } else {
-                "РИТМ ПРЕВРАЩЕНИЯ"
-            },
+            "РИТМ ПРЕВРАЩЕНИЯ",
             8.5,
             alpha(cur.text_dim, 0.75),
         );
-        if g.chess_only {
-            let note = "в шашках застряли оба — играем только в шахматы";
-            let galley = painter.layout(
-                note.to_string(),
-                FontId::proportional(11.0),
-                alpha(cur.text_dim, 0.8),
-                w,
-            );
-            painter.galley(Pos2::new(x, chips_y), galley, Color32::WHITE);
-        }
 
         // --- взаимодействие ---
         if self.game.pending_promotion.is_some() {
@@ -1221,14 +1197,12 @@ impl App {
         if button(ui, pause_btn, pause_label, false, &cur, 13.0) {
             self.game.paused = !self.game.paused;
         }
-        if !self.game.chess_only {
-            for (i, (secs, label)) in chips.iter().enumerate() {
-                let selected = (self.game.phase_len - secs).abs() < 0.5;
-                let clicked = chip(ui, chip_rects[i], label, selected, &cur);
-                if clicked && self.game.trans == 0.0 && !self.game.is_over() {
-                    self.game.phase_len = *secs;
-                    self.game.phase_left = *secs;
-                }
+        for (i, (secs, label)) in chips.iter().enumerate() {
+            let selected = (self.game.phase_len - secs).abs() < 0.5;
+            let clicked = chip(ui, chip_rects[i], label, selected, &cur);
+            if clicked && self.game.trans == 0.0 && !self.game.is_over() {
+                self.game.phase_len = *secs;
+                self.game.phase_left = *secs;
             }
         }
     }
@@ -1402,7 +1376,7 @@ impl App {
             "Дамки летят по диагонали на любое расстояние.",
             "Бить обязательно; серия взятий продолжается, пока есть цель.",
             "Съеденная фигура-король — тоже дамка, её можно взять.",
-            "Если ходить нечем — пропуск; застряли оба — только шахматы.",
+            "Если застряли оба — сумерки сразу выводят в шахматы.",
         ];
         let mut yy = y;
         for line in chess_rules {
@@ -1633,11 +1607,22 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.pending_promotion = Some((0, 7));
             game.log.push("демо: превращение пешки".into());
         }
-        Some("chess_only") => {
-            game.chess_only = true;
-            game.phase = Phase::Chess;
-            game.phase_left = game.phase_len;
-            game.log.push("демо: только шахматы".into());
+        Some("stuck") => {
+            game.phase = Phase::Checkers;
+            game.phase_left = 25.0;
+            game.board = [[None; 8]; 8];
+            for r in 0..8 {
+                for f in 0..8 {
+                    let side = if (r + f) % 2 == 0 {
+                        Side::White
+                    } else {
+                        Side::Black
+                    };
+                    game.board[r][f] = Some(Piece::new(side, Kind::Pawn));
+                }
+            }
+            game.turn = Side::White;
+            game.log.push("демо: тупик в шашках".into());
         }
         _ => {}
     }

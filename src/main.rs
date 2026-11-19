@@ -309,6 +309,7 @@ pub struct App {
     ai_wait: f32,
     ai_seed: u64,
     ai_preview: Option<Move>,
+    ai_preview_phase: Option<Phase>,
     shot: Option<Shot>,
     frames: u32,
     twilight_sounded: bool,
@@ -381,6 +382,7 @@ impl App {
             ai_wait: 0.6,
             ai_seed: 0x9E37_79B9_7F4A_7C15,
             ai_preview: None,
+            ai_preview_phase: None,
             shot: shot.map(|path| Shot {
                 path,
                 requested: false,
@@ -538,6 +540,7 @@ impl App {
         self.game.promotion_choice = promotion_choice;
         self.ai_wait = 0.6;
         self.ai_preview = None;
+        self.ai_preview_phase = None;
         self.review = false;
         self.review_saved = None;
         self.review_ply = 0;
@@ -575,6 +578,7 @@ impl App {
     fn update_ai(&mut self, dt: f32) {
         if self.mode != Mode::Computer {
             self.ai_preview = None;
+            self.ai_preview_phase = None;
             self.ai_wait = 0.6;
             return;
         }
@@ -589,7 +593,16 @@ impl App {
         }
         if self.game.turn != Side::Black {
             self.ai_preview = None;
+            self.ai_preview_phase = None;
             self.ai_wait = 0.6;
+            return;
+        }
+        if self.ai_preview.is_some() && self.ai_preview_phase != Some(self.game.phase) {
+            // Пока компьютер «думал», сумерки успели сменить фазу.
+            // Старый ход по правилам другой игры больше не годится.
+            self.ai_preview = None;
+            self.ai_preview_phase = None;
+            self.ai_wait = 0.35;
             return;
         }
         if self.ai_preview.is_none() {
@@ -598,6 +611,7 @@ impl App {
             self.ai_seed = seed;
             if let Some(mv) = chosen {
                 self.ai_preview = Some(mv);
+                self.ai_preview_phase = Some(self.game.phase);
                 let frac = (seed % 1000) as f32 / 1000.0;
                 self.ai_wait = 2.0 + frac;
             } else {
@@ -609,14 +623,24 @@ impl App {
             return;
         }
         if let Some(mv) = self.ai_preview.take() {
-            let mark = self.sound_mark();
-            self.game.apply(mv);
-            if self.game.pending_promotion.is_some() {
-                self.game.choose_promotion(Kind::Queen);
+            self.ai_preview_phase = None;
+            let still_legal = self.game.all_moves().iter().any(|m| {
+                m.from == mv.from && m.to == mv.to && m.captured == mv.captured
+            });
+            if still_legal {
+                let mark = self.sound_mark();
+                self.game.apply(mv);
+                if self.game.pending_promotion.is_some() {
+                    self.game.choose_promotion(Kind::Queen);
+                }
+                self.play_sound_since(mark);
+                self.ai_wait = 0.6;
+            } else {
+                self.ai_wait = 0.3;
             }
-            self.play_sound_since(mark);
+        } else {
+            self.ai_wait = 0.6;
         }
-        self.ai_wait = 0.6;
     }
 
     fn start_review(&mut self) {

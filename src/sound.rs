@@ -8,7 +8,8 @@
 mod imp {
     use std::os::windows::ffi::OsStrExt;
     use std::path::{Path, PathBuf};
-    use std::sync::OnceLock;
+    use std::sync::{Mutex, OnceLock};
+    use std::time::{Duration, Instant};
 
     #[link(name = "winmm")]
     extern "system" {
@@ -19,8 +20,10 @@ mod imp {
     const SND_NODEFAULT: u32 = 0x0002;
     const SND_MEMORY: u32 = 0x0004;
     const SND_FILENAME: u32 = 0x0008;
+    // SND_LOOP намеренно не используем: каждый звук играет один раз.
 
     const RATE: u32 = 22_050;
+    const TWILIGHT_SECS: f32 = 1.6;
     const MOVE_FILE: &str = "move.wav";
     const CAPTURE_FILE: &str = "capture.wav";
     const TWILIGHT_FILE: &str = "twilight.wav";
@@ -28,6 +31,7 @@ mod imp {
     static MOVE_WAV: OnceLock<Vec<u8>> = OnceLock::new();
     static CAPTURE_WAV: OnceLock<Vec<u8>> = OnceLock::new();
     static TWILIGHT_WAV: OnceLock<Vec<u8>> = OnceLock::new();
+    static TWILIGHT_LAST: OnceLock<Mutex<Option<(Instant, Duration)>>> = OnceLock::new();
 
     /// Короткий одиночный «тык» — фигуру поставили.
     pub fn piece_move() {
@@ -41,6 +45,26 @@ mod imp {
 
     /// Долгий шум-волна при сумерках.
     pub fn twilight() {
+        // Не перезапускаем длинный звук, пока он ещё играет: иначе при
+        // быстрой смене фаз он звучал бы повторно.
+        let path = sounds_dir().join(TWILIGHT_FILE);
+        let duration = if path.is_file() {
+            std::fs::read(&path)
+                .ok()
+                .and_then(|wav| wav_duration(&wav))
+                .unwrap_or_else(|| Duration::from_secs(2))
+        } else {
+            Duration::from_secs_f32(TWILIGHT_SECS)
+        };
+        let last = TWILIGHT_LAST.get_or_init(|| Mutex::new(None));
+        let mut guard = last.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((at, d)) = *guard {
+            if at.elapsed() < d {
+                return;
+            }
+        }
+        *guard = Some((Instant::now(), duration));
+        drop(guard);
         play(TWILIGHT_FILE, &TWILIGHT_WAV, twilight_samples);
     }
 
@@ -106,6 +130,33 @@ mod imp {
             }
         }
         PathBuf::from("sounds")
+    }
+
+    fn wav_duration(wav: &[u8]) -> Option<Duration> {
+        if wav.len() < 12 || &wav[0..4] != b"RIFF" || &wav[8..12] != b"WAVE" {
+            return None;
+        }
+        let mut pos = 12;
+        let mut byte_rate = None;
+        while pos + 8 <= wav.len() {
+            let id = &wav[pos..pos + 4];
+            let size = u32::from_le_bytes(wav[pos + 4..pos + 8].try_into().ok()?) as usize;
+            let body = pos + 8;
+            if id == b"fmt " && size >= 12 && body + 12 <= wav.len() {
+                byte_rate = Some(u32::from_le_bytes(
+                    wav[body + 8..body + 12].try_into().ok()?,
+                ));
+            } else if id == b"data" {
+                if let Some(br) = byte_rate {
+                    if br > 0 {
+                        return Some(Duration::from_secs_f32(size as f32 / br as f32));
+                    }
+                }
+                return None;
+            }
+            pos = body + size + (size & 1);
+        }
+        None
     }
 
     fn wav_bytes(samples: &[i16]) -> Vec<u8> {
@@ -174,7 +225,7 @@ mod imp {
 
     fn twilight_samples() -> Vec<i16> {
         // 1,6 с: нарастающая и стихающая шумовая волна с низким гулом.
-        let dur = 1.6f32;
+        let dur = TWILIGHT_SECS;
         let n = (RATE as f32 * dur) as usize;
         let mut v = Vec::with_capacity(n);
         let mut noise = 0x9E37_79B9_7F4A_7C15u64;

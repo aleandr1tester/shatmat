@@ -479,6 +479,53 @@ pub fn draw_chess_piece(
 // Шашки
 // ---------------------------------------------------------------------------
 
+/// Полупрозрачный контурный ореол фигуры: показывает, чей сейчас ход.
+pub fn draw_piece_glow(
+    painter: &Painter,
+    center: Pos2,
+    size: f32,
+    kind: Kind,
+    side: Side,
+    checkers_form: bool,
+    color: Color32,
+    a: f32,
+) {
+    if a <= 0.01 {
+        return;
+    }
+    // Тонкая контрастная кромка, чтобы дымка читалась и на близком фоне.
+    let rim = match side {
+        Side::White => Color32::from_rgb(64, 46, 34),
+        Side::Black => Color32::from_rgb(214, 218, 228),
+    };
+    if checkers_form {
+        // У шашки контур — круг: слои дают мягкую дымку и кромку.
+        painter.circle_filled(center, size * 0.475, alpha(rim, a * 0.22));
+        painter.circle_filled(center, size * 0.40, alpha(color, a));
+        painter.circle_filled(center, size * 0.455, alpha(color, a * 0.35));
+    } else {
+        // У шахматной фигуры контур повторяет её силуэт.
+        let pal = Palette {
+            bg_top: color,
+            bg_bottom: color,
+            accent: color,
+            square_light: color,
+            square_dark: color,
+            frame: color,
+            text: color,
+            text_dim: color,
+            white_fill: color,
+            white_line: color,
+            black_fill: color,
+            black_line: color,
+            danger: color,
+        };
+        draw_chess_piece(painter, center, size * 1.18, kind, side, &pal, a * 0.22);
+        draw_chess_piece(painter, center, size * 1.10, kind, side, &pal, a);
+        draw_chess_piece(painter, center, size * 1.16, kind, side, &pal, a * 0.30);
+    }
+}
+
 pub fn draw_checker(
     painter: &Painter,
     center: Pos2,

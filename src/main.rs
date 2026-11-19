@@ -187,7 +187,7 @@ pub struct App {
     ai_seed: u64,
     shot: Option<Shot>,
     frames: u32,
-    last_trans: f32,
+    twilight_sounded: bool,
     replay: f32,
 }
 
@@ -218,7 +218,7 @@ impl App {
                 saved: false,
             }),
             frames: 0,
-            last_trans: 0.0,
+            twilight_sounded: false,
             replay: 0.0,
         }
     }
@@ -253,7 +253,7 @@ impl App {
     fn new_game(&mut self) {
         self.game = Game::new(self.game.phase_len);
         self.ai_wait = 0.6;
-        self.last_trans = 0.0;
+        self.twilight_sounded = false;
         self.replay = 0.0;
     }
 
@@ -675,6 +675,35 @@ impl App {
                             layout.cell * 0.42,
                             pal.accent,
                             0.55,
+                        );
+                    }
+                    if piece.side == g.turn
+                        && g.trans == 0.0
+                        && !g.is_over()
+                        && g.pending_promotion.is_none()
+                    {
+                        // Мягкая пульсация по контуру фигур того, кто ходит.
+                        let pulse = 0.5 + 0.5 * (self.time * 3.6 + seed * 0.35).sin();
+                        let (glow, strength) = if piece.side == Side::White {
+                            (
+                                Color32::from_rgb(255, 248, 236),
+                                0.18 + 0.28 * pulse,
+                            )
+                        } else {
+                            (
+                                Color32::from_rgb(104, 108, 118),
+                                0.20 + 0.30 * pulse,
+                            )
+                        };
+                        art::draw_piece_glow(
+                            painter,
+                            center,
+                            size,
+                            piece.kind,
+                            piece.side,
+                            phase == Phase::Checkers,
+                            glow,
+                            strength,
                         );
                     }
                     if g.trans > 0.0 {
@@ -1685,10 +1714,14 @@ impl eframe::App for App {
         if !self.rules {
             self.game.tick(dt);
         }
-        if self.game.trans > 0.0 && self.last_trans == 0.0 {
-            sound::twilight();
+        if self.game.trans > 0.0 {
+            if !self.twilight_sounded {
+                sound::twilight();
+                self.twilight_sounded = true;
+            }
+        } else {
+            self.twilight_sounded = false;
         }
-        self.last_trans = self.game.trans;
         if self.game.is_over() {
             self.replay += dt;
         } else {

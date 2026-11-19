@@ -1607,23 +1607,6 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.pending_promotion = Some((0, 7));
             game.log.push("демо: превращение пешки".into());
         }
-        Some("stuck") => {
-            game.phase = Phase::Checkers;
-            game.phase_left = 25.0;
-            game.board = [[None; 8]; 8];
-            for r in 0..8 {
-                for f in 0..8 {
-                    let side = if (r + f) % 2 == 0 {
-                        Side::White
-                    } else {
-                        Side::Black
-                    };
-                    game.board[r][f] = Some(Piece::new(side, Kind::Pawn));
-                }
-            }
-            game.turn = Side::White;
-            game.log.push("демо: тупик в шашках".into());
-        }
         _ => {}
     }
 }

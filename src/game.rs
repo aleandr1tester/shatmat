@@ -1078,6 +1078,13 @@ mod tests {
     }
 
     #[test]
+    fn initial_position_has_16_pieces_each() {
+        let g = test_game();
+        assert_eq!(g.count(Side::White), 16, "у белых 16 фигур");
+        assert_eq!(g.count(Side::Black), 16, "у чёрных 16 фигур");
+    }
+
+    #[test]
     fn pawn_cannot_jump_over_piece() {
         let mut g = test_game();
         g.board[1][4] = None; // e2 убрана

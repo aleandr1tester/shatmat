@@ -224,6 +224,8 @@ pub struct Game {
     pub mandatory_capture: bool,
     /// true — не-пешки тоже становятся дамками; false — только пешки.
     pub crown_non_pawns: bool,
+    /// true — фаза ждёт: не тикает таймер (например, ход компьютера).
+    pub phase_hold: bool,
     royal_captured: Option<Side>,
     pending: String,
 }
@@ -289,6 +291,7 @@ impl Game {
             promotion_choice: false,
             mandatory_capture: true,
             crown_non_pawns: true,
+            phase_hold: false,
             royal_captured: None,
             pending: String::new(),
         }
@@ -764,7 +767,7 @@ impl Game {
                 self.trans = 0.0;
                 self.flip_phase();
             }
-        } else {
+        } else if !self.phase_hold && self.move_anim >= 1.0 && self.chain.is_none() {
             self.phase_left -= dt;
             if self.phase_left <= 0.0 {
                 self.phase_left = 0.0;
@@ -1782,6 +1785,32 @@ mod tests {
             Side::White,
             "превращение после перехода не передаёт очередь"
         );
+    }
+
+    #[test]
+    fn phase_timer_waits_for_move_animation() {
+        let mut g = test_game();
+        g.phase_left = 0.01;
+        g.move_anim = 0.0;
+        g.tick(0.03);
+        assert_eq!(g.trans, 0.0, "переход не начался во время анимации хода");
+        for _ in 0..6 {
+            g.tick(0.1);
+        }
+        assert!(g.trans > 0.0, "после анимации переход начался");
+    }
+
+    #[test]
+    fn phase_hold_stops_phase_timer() {
+        let mut g = test_game();
+        g.phase_left = 0.01;
+        g.move_anim = 1.0;
+        g.phase_hold = true;
+        g.tick(0.1);
+        assert_eq!(g.trans, 0.0, "на паузе фазы переход не начался");
+        g.phase_hold = false;
+        g.tick(0.1);
+        assert!(g.trans > 0.0, "после снятия паузы переход начался");
     }
 
     #[test]

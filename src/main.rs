@@ -3650,6 +3650,9 @@ impl eframe::App for App {
             return;
         }
         if !self.rules && !self.settings {
+            self.game.phase_hold = self.mode == Mode::Computer
+                && self.game.turn == Side::Black
+                && !self.game.is_over();
             self.game.tick(dt);
         }
         if self.game.trans > 0.0 {

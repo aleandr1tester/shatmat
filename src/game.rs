@@ -335,6 +335,25 @@ impl Game {
         n
     }
 
+    /// Клетки шашек, которые обязаны бить сейчас (для красной пульсации).
+    pub fn forced_capture_squares(&self) -> Vec<Square> {
+        if self.phase != Phase::Checkers
+            || !self.mandatory_capture
+            || self.is_over()
+            || self.trans > 0.0
+            || self.pending_promotion.is_some()
+        {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        for mv in self.all_moves() {
+            if mv.captured.is_some() && !out.contains(&mv.from) {
+                out.push(mv.from);
+            }
+        }
+        out
+    }
+
     pub fn king_sq(&self, side: Side) -> Option<Square> {
         find_king(&self.board, side)
     }
@@ -1846,6 +1865,19 @@ mod tests {
         let mv = g.all_moves()[0];
         g.apply(mv);
         assert_eq!(g.snapshots.len(), before + 1);
+    }
+
+    #[test]
+    fn forced_capture_squares_are_reported() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[3][2] = Some(Piece::new(Side::White, Kind::Pawn)); // c4
+        g.board[4][3] = Some(Piece::new(Side::Black, Kind::Pawn)); // d5
+        g.turn = Side::White;
+        assert_eq!(g.forced_capture_squares(), vec![(2, 3)]);
+        g.mandatory_capture = false;
+        assert!(g.forced_capture_squares().is_empty(), "без обязательного боя нет красной пульсации");
     }
 
     #[test]

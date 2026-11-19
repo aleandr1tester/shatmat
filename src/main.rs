@@ -1350,6 +1350,31 @@ impl App {
             );
         }
 
+        // Обязательное взятие: красная пульсация на шашке, которая должна бить.
+        let forced = g.forced_capture_squares();
+        if !forced.is_empty() {
+            let pulse = 0.5 + 0.5 * (self.time * 4.6).sin();
+            let red = Color32::from_rgb(255, 76, 76);
+            for sq in forced {
+                let center = layout.square_rect(sq).center();
+                painter.circle_filled(
+                    center,
+                    layout.cell * 0.50,
+                    alpha(red, 0.035 + 0.045 * pulse),
+                );
+                painter.circle_stroke(
+                    center,
+                    layout.cell * 0.47,
+                    Stroke::new(3.0_f32, alpha(red, 0.45 + 0.42 * pulse)),
+                );
+                painter.circle_stroke(
+                    center,
+                    layout.cell * 0.38,
+                    Stroke::new(1.5_f32, alpha(red, 0.30 + 0.35 * pulse)),
+                );
+            }
+        }
+
         // Компьютер выбрал ход: 2–3 секунды показываем, какую фигуру он берёт.
         if let Some(mv) = self.ai_preview {
             if self.mode == Mode::Computer && g.turn == Side::Black && !g.is_over() {
@@ -1742,6 +1767,7 @@ impl App {
 
     fn paint_panel(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         let g = &self.game;
+        let forced_now = g.forced_capture_squares();
         let mut end_chain_clicked = false;
         let pal = Palette::for_phase(g.phase);
         let next = Palette::for_phase(g.phase.other());
@@ -1974,6 +2000,8 @@ impl App {
             } else {
                 badge(painter, Pos2::new(x + w, y - 2.0), "ВЗЯТИЕ", cur.accent, true, 11.0);
             }
+        } else if !forced_now.is_empty() {
+            badge(painter, Pos2::new(x + w, y - 2.0), "БОЙ", cur.danger, true, 11.0);
         }
         y += 34.0;
 
@@ -4019,6 +4047,14 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.seed_rng(0x51A7_4C0D_9B2E_7711);
             game.refresh_phase_timer();
             game.log.push("демо: автосмена сумерек".into());
+        }
+        Some("force") => {
+            game.board = [[None; 8]; 8];
+            game.phase = Phase::Checkers;
+            game.board[3][2] = Some(game::Piece::new(Side::White, Kind::Pawn)); // c4
+            game.board[4][3] = Some(game::Piece::new(Side::Black, Kind::Pawn)); // d5
+            game.turn = Side::White;
+            game.log.push("демо: обязательное взятие".into());
         }
         Some("review") => {
             for mv in [

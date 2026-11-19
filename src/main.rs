@@ -320,7 +320,7 @@ impl App {
         let mut game = initial_game();
         apply_demo(&mut game, demo.as_deref());
         let rules_open = demo.as_deref() == Some("rules");
-        let settings_open = demo.as_deref() == Some("settings");
+        let settings_open = matches!(demo.as_deref(), Some("settings") | Some("settings_times"));
         let piece_tex = load_piece_textures(&cc.egui_ctx);
         sound::prepare();
         if music::available() {
@@ -1517,7 +1517,7 @@ impl App {
         if button(ui, rules_btn, "Правила", false, &cur, 12.5) {
             self.rules = true;
         }
-        let pause_label = if self.game.paused { "Дальше" } else { "Пауза" };
+        let pause_label = if self.game.paused { "Играть" } else { "Пауза" };
         if button(ui, pause_btn, pause_label, false, &cur, 12.5) {
             self.game.paused = !self.game.paused;
         }
@@ -1677,10 +1677,10 @@ impl App {
             alpha(pal.text_dim, 0.75),
         );
         ry += 15.0;
-        if let Some(secs) = time_chips(ui, right_x, ry, right_w, self.game.chess_len, &pal) {
+        if let Some(secs) = time_slider(ui, painter, right_x, ry, right_w, self.game.chess_len, &pal, "chess_time") {
             self.game.set_len(Phase::Chess, secs);
         }
-        ry += 36.0;
+        ry += 30.0;
 
         text(
             painter,
@@ -1691,10 +1691,10 @@ impl App {
             alpha(pal.text_dim, 0.75),
         );
         ry += 15.0;
-        if let Some(secs) = time_chips(ui, right_x, ry, right_w, self.game.checkers_len, &pal) {
+        if let Some(secs) = time_slider(ui, painter, right_x, ry, right_w, self.game.checkers_len, &pal, "checkers_time") {
             self.game.set_len(Phase::Checkers, secs);
         }
-        ry += 36.0;
+        ry += 30.0;
 
         text(
             painter,
@@ -1889,7 +1889,6 @@ impl App {
 
         let pad = 34.0;
         let x = card.left() + pad;
-        let w = card.width() - pad * 2.0;
         let mut y = card.top() + 30.0;
 
         text(
@@ -1908,29 +1907,20 @@ impl App {
             12.5,
             Color32::from_rgb(158, 150, 168),
         );
-        y += 72.0;
-
-        let col_w = (w - 28.0) * 0.5;
-        let chess_x = x;
-        let check_x = x + col_w + 28.0;
-
         text(
             painter,
-            Pos2::new(chess_x, y),
+            Pos2::new(x + 2.0, y + 52.0),
             Align2::LEFT_TOP,
-            "КОГДА ФИГУРЫ — ШАХМАТЫ",
-            10.5,
-            Color32::from_rgb(232, 179, 106),
+            "Текст можно выделять мышкой и копировать.",
+            11.0,
+            Color32::from_rgb(130, 123, 145),
         );
-        text(
-            painter,
-            Pos2::new(check_x, y),
-            Align2::LEFT_TOP,
-            "КОГДА ФИГУРЫ — ШАШКИ",
-            10.5,
-            Color32::from_rgb(111, 217, 229),
+        y += 88.0;
+
+        let close = Rect::from_min_size(
+            Pos2::new(card.right() - pad - 150.0, card.bottom() - pad - 42.0),
+            Vec2::new(150.0, 42.0),
         );
-        y += 26.0;
 
         let chess_rules = [
             "Ходы классические: пешка, конь, слон, ладья, ферзь, король.",
@@ -1950,24 +1940,6 @@ impl App {
             "Короля можно съесть и победить.",
             "Если застряли оба — сумерки сразу выводят в шахматы.",
         ];
-        let mut yy = y;
-        for line in chess_rules {
-            dot_line(painter, chess_x, yy, col_w, line, Color32::from_rgb(232, 179, 106));
-            yy += 36.0;
-        }
-        let mut yy2 = y;
-        for line in checkers_rules {
-            dot_line(painter, check_x, yy2, col_w, line, Color32::from_rgb(111, 217, 229));
-            yy2 += 36.0;
-        }
-
-        y = yy.max(yy2) + 6.0;
-        painter.line_segment(
-            [Pos2::new(x, y), Pos2::new(x + w, y)],
-            Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.08)),
-        );
-        y += 18.0;
-
         let shared = [
             "Сумерки длятся 1,7 секунды: ходы замирают, фигуры перетекают.",
             "Переход ждёт, пока игрок завершит серию взятий.",
@@ -1975,15 +1947,57 @@ impl App {
             "Время шахмат и шашек задаётся отдельно в настройках.",
             "С компьютером вы играете белыми; сложность меняет глубину.",
         ];
+
+        let chess_col = Color32::from_rgb(232, 179, 106);
+        let check_col = Color32::from_rgb(111, 217, 229);
+        let shared_col = Color32::from_rgb(150, 142, 162);
+        let body = Color32::from_rgb(214, 208, 222);
+
+        let mut job = egui::text::LayoutJob::default();
+        job.wrap.max_width = (card.right() - pad - x).max(200.0);
+        fn push_line(job: &mut egui::text::LayoutJob, line: &str, size: f32, color: Color32) {
+            job.append(
+                line,
+                0.0,
+                egui::TextFormat {
+                    font_id: egui::FontId::proportional(size),
+                    color,
+                    ..Default::default()
+                },
+            );
+        }
+        push_line(&mut job, "КОГДА ФИГУРЫ — ШАХМАТЫ\n", 11.0, chess_col);
+        for line in chess_rules {
+            push_line(&mut job, &format!("• {line}\n"), 13.0, body);
+        }
+        push_line(&mut job, "\n", 13.0, body);
+        push_line(&mut job, "КОГДА ФИГУРЫ — ШАШКИ\n", 11.0, check_col);
+        for line in checkers_rules {
+            push_line(&mut job, &format!("• {line}\n"), 13.0, body);
+        }
+        push_line(&mut job, "\n", 13.0, body);
+        push_line(&mut job, "СУМЕРКИ\n", 11.0, shared_col);
         for line in shared {
-            dot_line(painter, x, y, w, line, Color32::from_rgb(150, 142, 162));
-            y += 26.0;
+            push_line(&mut job, &format!("• {line}\n"), 13.0, body);
         }
 
-        let close = Rect::from_min_size(
-            Pos2::new(card.right() - pad - 150.0, card.bottom() - pad - 42.0),
-            Vec2::new(150.0, 42.0),
+        let text_rect = Rect::from_min_max(
+            Pos2::new(x, y),
+            Pos2::new(card.right() - pad, close.top() - 12.0),
         );
+        let _ = ui.scope_builder(
+            egui::UiBuilder::new().max_rect(text_rect),
+            |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("rules_scroll")
+                    .auto_shrink([false, false])
+                    .max_height(text_rect.height())
+                    .show(ui, |ui| {
+                        ui.add(egui::Label::new(job).selectable(true).wrap());
+                    });
+            },
+        );
+
         let pal = Palette::for_phase(self.game.phase);
         if button(ui, close, "Понятно", true, &pal, 14.0) {
             self.rules = false;
@@ -2259,6 +2273,12 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.pending_promotion = Some((0, 7));
             game.log.push("демо: превращение пешки".into());
         }
+        Some("settings_times") => {
+            game.chess_len = 25.0;
+            game.checkers_len = 10.0;
+            game.phase_left = 25.0;
+            game.log.push("демо: шахматы 25 с, шашки 10 с".into());
+        }
         Some("flip_promo") => {
             game.phase = Phase::Checkers;
             game.board = [[None; 8]; 8];
@@ -2319,17 +2339,6 @@ fn divider(painter: &egui::Painter, x: f32, y: f32, w: f32, c: Color32) {
     );
 }
 
-fn dot_line(painter: &egui::Painter, x: f32, y: f32, w: f32, line: &str, color: Color32) {
-    painter.circle_filled(Pos2::new(x + 3.0, y + 7.0), 2.0, alpha(color, 0.8));
-    let galley = painter.layout(
-        line.to_string(),
-        FontId::proportional(12.5),
-        alpha(Color32::from_rgb(214, 206, 220), 0.95),
-        w - 16.0,
-    );
-    painter.galley(Pos2::new(x + 14.0, y), galley, Color32::WHITE);
-}
-
 fn button(
     ui: &mut egui::Ui,
     rect: Rect,
@@ -2366,28 +2375,53 @@ fn button(
     resp.clicked()
 }
 
-fn time_chips(
+fn time_slider(
     ui: &mut egui::Ui,
+    painter: &egui::Painter,
     x: f32,
     y: f32,
     w: f32,
     current: f32,
     pal: &Palette,
+    id: &str,
 ) -> Option<f32> {
-    let values = [10.0, 15.0, 25.0, 40.0];
-    let gap = 8.0;
-    let cw = (w - gap * 3.0) / 4.0;
+    let track = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w - 72.0, 6.0));
+    let resp = ui.interact(
+        track.expand2(Vec2::new(0.0, 12.0)),
+        ui.id().with(("time_slider", id)),
+        Sense::click_and_drag(),
+    );
     let mut picked = None;
-    for (i, secs) in values.iter().enumerate() {
-        let r = Rect::from_min_size(
-            Pos2::new(x + i as f32 * (cw + gap), y),
-            Vec2::new(cw, 28.0),
-        );
-        let selected = (current - *secs).abs() < 0.5;
-        if chip(ui, r, &format!("{:.0} с", secs), selected, pal) {
-            picked = Some(*secs);
+    if resp.dragged() || resp.clicked() {
+        if let Some(p) = resp.interact_pointer_pos() {
+            let t = ((p.x - track.left()) / track.width()).clamp(0.0, 1.0);
+            picked = Some(
+                (game::MIN_PHASE + t * (game::MAX_PHASE - game::MIN_PHASE)).round(),
+            );
         }
     }
+    let value = picked.unwrap_or(current.clamp(game::MIN_PHASE, game::MAX_PHASE));
+    let frac = ((value - game::MIN_PHASE) / (game::MAX_PHASE - game::MIN_PHASE))
+        .clamp(0.0, 1.0);
+    painter.rect_filled(track, 3.0, alpha(Color32::WHITE, 0.10));
+    painter.rect_filled(
+        Rect::from_min_size(track.min, Vec2::new(track.width() * frac, 6.0)),
+        3.0,
+        pal.accent,
+    );
+    painter.circle_filled(
+        Pos2::new(track.left() + track.width() * frac, track.center().y),
+        8.0,
+        pal.accent,
+    );
+    text(
+        painter,
+        Pos2::new(track.right() + 10.0, track.center().y - 8.0),
+        Align2::LEFT_TOP,
+        format!("{:.0} с", value),
+        11.5,
+        alpha(pal.text, 0.95),
+    );
     picked
 }
 

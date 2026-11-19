@@ -141,6 +141,16 @@ pub struct Move {
     pub captured: Option<Square>,
 }
 
+/// Позиция после полухода — для пошагового просмотра партии.
+#[derive(Clone, Copy)]
+pub struct Snapshot {
+    pub board: Board,
+    pub turn: Side,
+    pub phase: Phase,
+    pub last_move: Option<(Square, Square)>,
+    pub last_capture: Option<(Square, Piece)>,
+}
+
 /// Один полуход для файла лога партии.
 #[derive(Clone, Debug)]
 pub struct MoveRecord {
@@ -195,6 +205,8 @@ pub struct Game {
     pub log: Vec<String>,
     /// Структурированная история полуходов для файла лога.
     pub history: Vec<MoveRecord>,
+    /// Позиции: начальная и после каждого полухода.
+    pub snapshots: Vec<Snapshot>,
     pub ply: u32,
     pub captured_by_white: u32,
     pub captured_by_black: u32,
@@ -210,6 +222,8 @@ pub struct Game {
     pub promotion_choice: bool,
     /// true — бить обязательно; false — можно ходить без взятия.
     pub mandatory_capture: bool,
+    /// true — не-пешки тоже становятся дамками; false — только пешки.
+    pub crown_non_pawns: bool,
     royal_captured: Option<Side>,
     pending: String,
 }
@@ -257,6 +271,13 @@ impl Game {
             move_anim_secs: MOVE_ANIM_SECS,
             log: Vec::new(),
             history: Vec::new(),
+            snapshots: vec![Snapshot {
+                board,
+                turn: Side::White,
+                phase: Phase::Chess,
+                last_move: None,
+                last_capture: None,
+            }],
             ply: 0,
             captured_by_white: 0,
             captured_by_black: 0,
@@ -267,12 +288,23 @@ impl Game {
             promotion_free: false,
             promotion_choice: false,
             mandatory_capture: true,
+            crown_non_pawns: true,
             royal_captured: None,
             pending: String::new(),
         }
     }
 
     // ---------- состояние ----------
+
+    fn push_snapshot(&mut self) {
+        self.snapshots.push(Snapshot {
+            board: self.board,
+            turn: self.turn,
+            phase: self.phase,
+            last_move: self.last_move,
+            last_capture: self.last_capture,
+        });
+    }
 
     pub fn is_over(&self) -> bool {
         matches!(self.status, Status::Win { .. })
@@ -591,6 +623,7 @@ impl Game {
             if self.count(Side::White) == 0 || self.count(Side::Black) == 0 {
                 // всё равно победа по королю
             }
+            self.push_snapshot();
             self.refresh_status();
             return;
         }
@@ -605,6 +638,7 @@ impl Game {
                     self.promotion_free = false;
                     self.chain = None;
                     self.passes = 0;
+                    self.push_snapshot();
                     return;
                 }
                 let mut queen = piece;
@@ -620,7 +654,7 @@ impl Game {
         if self.phase == Phase::Checkers {
             if let Some(mut p) = self.board[to.1][to.0] {
                 let last = if p.side == Side::White { 7 } else { 0 };
-                if to.1 == last {
+                if to.1 == last && (self.crown_non_pawns || p.kind == Kind::Pawn) {
                     p.crowned = true;
                     self.board[to.1][to.0] = Some(p);
                     self.crowned_flash = Some((to, 1.0));
@@ -633,11 +667,13 @@ impl Game {
                     self.chain = Some(to);
                     self.selected = Some(to);
                     self.legal = more;
+                    self.push_snapshot();
                     return;
                 }
             }
         }
 
+        self.push_snapshot();
         self.chain = None;
         self.passes = 0;
         self.turn = self.turn.other();
@@ -672,6 +708,9 @@ impl Game {
         if let Some(mut p) = self.board[sq.1][sq.0] {
             p.kind = kind;
             self.board[sq.1][sq.0] = Some(p);
+        }
+        if let Some(last) = self.snapshots.last_mut() {
+            last.board = self.board;
         }
         if free {
             self.log
@@ -1695,6 +1734,41 @@ mod tests {
             Side::White,
             "превращение после перехода не передаёт очередь"
         );
+    }
+
+    #[test]
+    fn crown_option_can_restrict_damki_to_pawns() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.crown_non_pawns = false;
+        g.board[6][1] = Some(Piece::new(Side::White, Kind::Knight)); // b7
+        g.turn = Side::White;
+        g.apply(Move {
+            from: (1, 6),
+            to: (0, 7),
+            captured: None,
+        });
+        assert!(!g.board[7][0].unwrap().crowned, "не-пешка не коронуется");
+        g.crown_non_pawns = true;
+        g.board[6][1] = Some(Piece::new(Side::White, Kind::Knight));
+        g.board[7][0] = None;
+        g.turn = Side::White;
+        g.apply(Move {
+            from: (1, 6),
+            to: (0, 7),
+            captured: None,
+        });
+        assert!(g.board[7][0].unwrap().crowned, "не-пешка коронуется");
+    }
+
+    #[test]
+    fn snapshots_grow_with_moves() {
+        let mut g = test_game();
+        let before = g.snapshots.len();
+        let mv = g.all_moves()[0];
+        g.apply(mv);
+        assert_eq!(g.snapshots.len(), before + 1);
     }
 
     #[test]

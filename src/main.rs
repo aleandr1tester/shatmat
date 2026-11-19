@@ -307,18 +307,23 @@ pub struct App {
     difficulty: Difficulty,
     ai_wait: f32,
     ai_seed: u64,
+    ai_preview: Option<Move>,
     shot: Option<Shot>,
     frames: u32,
     twilight_sounded: bool,
     replay: f32,
     logging_allowed: bool,
     log_enabled: bool,
+    show_checker_icons: bool,
     game_start: Option<String>,
     log_written: bool,
     last_log: Option<PathBuf>,
     journal: bool,
     journal_rect: Rect,
     journal_text: String,
+    review: bool,
+    review_saved: Option<Game>,
+    review_ply: usize,
 }
 
 impl App {
@@ -364,6 +369,7 @@ impl App {
             difficulty: Difficulty::Medium,
             ai_wait: 0.6,
             ai_seed: 0x9E37_79B9_7F4A_7C15,
+            ai_preview: None,
             shot: shot.map(|path| Shot {
                 path,
                 requested: false,
@@ -374,21 +380,31 @@ impl App {
             replay: 0.0,
             logging_allowed,
             log_enabled: true,
+            show_checker_icons: true,
             game_start,
             log_written: false,
             last_log: None,
             journal: false,
             journal_rect: Rect::NOTHING,
             journal_text: String::new(),
+            review: false,
+            review_saved: None,
+            review_ply: 0,
         };
         if demo.as_deref() == Some("journal") {
             app.journal_text = app.build_journal_text();
             app.journal = true;
         }
+        if demo.as_deref() == Some("review") {
+            app.start_review();
+        }
         app
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
+        if self.review {
+            return;
+        }
         let (space, r, h, esc) = ctx.input(|i| {
             (
                 i.key_pressed(egui::Key::Space),
@@ -480,16 +496,22 @@ impl App {
         let auto_phase = self.game.auto_phase;
         let auto_max = self.game.auto_max;
         let mandatory_capture = self.game.mandatory_capture;
+        let crown_non_pawns = self.game.crown_non_pawns;
         self.game = Game::new(chess_len);
         self.game.checkers_len = checkers_len;
         self.game.auto_phase = auto_phase;
         self.game.auto_max = auto_max;
         self.game.mandatory_capture = mandatory_capture;
+        self.game.crown_non_pawns = crown_non_pawns;
         self.game.seed_rng(random_seed());
         self.game.refresh_phase_timer();
         self.game.move_anim_secs = smooth;
         self.game.promotion_choice = promotion_choice;
         self.ai_wait = 0.6;
+        self.ai_preview = None;
+        self.review = false;
+        self.review_saved = None;
+        self.review_ply = 0;
         self.twilight_sounded = false;
         self.replay = 0.0;
         self.game_start = if self.logging_allowed {
@@ -520,9 +542,10 @@ impl App {
         }
     }
 
-    /// Компьютер играет чёрными: думает полсекунды и делает ход.
+    /// Компьютер играет чёрными: 2–3 секунды показывает цель, затем ходит.
     fn update_ai(&mut self, dt: f32) {
         if self.mode != Mode::Computer {
+            self.ai_preview = None;
             self.ai_wait = 0.6;
             return;
         }
@@ -536,14 +559,27 @@ impl App {
             return;
         }
         if self.game.turn != Side::Black {
+            self.ai_preview = None;
             self.ai_wait = 0.6;
             return;
+        }
+        if self.ai_preview.is_none() {
+            let mut seed = self.ai_seed;
+            let chosen = ai::best_move(&self.game, self.difficulty, &mut seed);
+            self.ai_seed = seed;
+            if let Some(mv) = chosen {
+                self.ai_preview = Some(mv);
+                let frac = (seed % 1000) as f32 / 1000.0;
+                self.ai_wait = 2.0 + frac;
+            } else {
+                self.ai_wait = 0.6;
+            }
         }
         self.ai_wait -= dt;
         if self.ai_wait > 0.0 {
             return;
         }
-        if let Some(mv) = ai::best_move(&self.game, self.difficulty, &mut self.ai_seed) {
+        if let Some(mv) = self.ai_preview.take() {
             let mark = self.sound_mark();
             self.game.apply(mv);
             if self.game.pending_promotion.is_some() {
@@ -551,10 +587,104 @@ impl App {
             }
             self.play_sound_since(mark);
         }
-        self.ai_wait = 0.55;
+        self.ai_wait = 0.6;
+    }
+
+    fn start_review(&mut self) {
+        if self.game.snapshots.len() < 2 {
+            return;
+        }
+        let saved = self.game.clone();
+        let mut view = saved.clone();
+        view.status = game::Status::Playing;
+        view.selected = None;
+        view.legal.clear();
+        view.chain = None;
+        view.trans = 0.0;
+        view.paused = false;
+        view.pending_promotion = None;
+        self.review_saved = Some(saved);
+        self.review = true;
+        self.game = view;
+        self.review_ply = 0;
+        self.ai_preview = None;
+        self.journal = false;
+        self.settings = false;
+        self.rules = false;
+        self.set_review_ply(0);
+    }
+
+    fn exit_review(&mut self) {
+        if let Some(saved) = self.review_saved.take() {
+            self.game = saved;
+        }
+        self.review = false;
+        self.review_ply = 0;
+    }
+
+    fn set_review_ply(&mut self, ply: usize) {
+        let snap = match &self.review_saved {
+            Some(saved) => saved.snapshots.get(ply).copied(),
+            None => None,
+        };
+        let Some(snap) = snap else {
+            return;
+        };
+        self.game.board = snap.board;
+        self.game.turn = snap.turn;
+        self.game.phase = snap.phase;
+        self.game.last_move = snap.last_move;
+        self.game.last_capture = snap.last_capture;
+        self.game.move_anim = 0.0;
+        self.game.status = game::Status::Playing;
+        self.game.selected = None;
+        self.game.legal.clear();
+        self.game.chain = None;
+        self.game.trans = 0.0;
+        self.game.paused = false;
+        self.game.pending_promotion = None;
+        self.review_ply = ply;
+    }
+
+    fn review_labels(&self) -> Vec<String> {
+        let Some(saved) = &self.review_saved else {
+            return Vec::new();
+        };
+        let mut labels = vec!["0. Начальная позиция".to_string()];
+        for (i, r) in saved.history.iter().enumerate() {
+            let side = if r.side == Side::White { "белые" } else { "чёрные" };
+            let piece = if r.phase == Phase::Checkers {
+                if r.damka {
+                    "дамка"
+                } else {
+                    "шашка"
+                }
+            } else {
+                piece_ru(r.kind)
+            };
+            let cap = if r.captured.is_some() { "×" } else { "–" };
+            labels.push(format!(
+                "{}. {} {} {}{}{} · {}",
+                i + 1,
+                side,
+                piece,
+                game::sq_name(r.from),
+                cap,
+                game::sq_name(r.to),
+                if r.phase == Phase::Checkers {
+                    "шашки"
+                } else {
+                    "шахматы"
+                }
+            ));
+        }
+        labels
     }
 
     fn handle_pointer(&mut self, ctx: &egui::Context, layout: &Layout) {
+        if self.review {
+            return;
+        }
         let clicked = ctx.input(|i| i.pointer.primary_clicked());
         if !clicked {
             return;
@@ -605,19 +735,23 @@ impl App {
                 self.paint_background(ctx, &painter, layout);
                 self.paint_header(&painter, layout);
                 self.paint_board(ctx, &painter, layout);
-                self.paint_panel(ui, &painter, layout);
-                self.paint_promotion(ui, &painter, layout);
-                if self.settings {
-                    self.paint_settings(ui, &painter, layout);
-                }
-                if self.rules && !self.settings {
-                    self.paint_rules(ui, ctx, &painter, layout);
-                }
-                if self.game.is_over() && !self.rules && !self.settings {
-                    self.paint_result(ui, ctx, &painter, layout);
-                }
-                if self.journal {
-                    self.paint_journal(ui, &painter, layout);
+                if self.review {
+                    self.paint_review(ui, &painter, layout);
+                } else {
+                    self.paint_panel(ui, &painter, layout);
+                    self.paint_promotion(ui, &painter, layout);
+                    if self.settings {
+                        self.paint_settings(ui, &painter, layout);
+                    }
+                    if self.rules && !self.settings {
+                        self.paint_rules(ui, ctx, &painter, layout);
+                    }
+                    if self.game.is_over() && !self.rules && !self.settings {
+                        self.paint_result(ui, ctx, &painter, layout);
+                    }
+                    if self.journal {
+                        self.paint_journal(ui, &painter, layout);
+                    }
                 }
             });
     }
@@ -939,6 +1073,7 @@ impl App {
                         && g.trans == 0.0
                         && !g.is_over()
                         && g.pending_promotion.is_none()
+                        && !g.moves_for(sq).is_empty()
                     {
                         // Мягкая пульсация по контуру фигур того, кто ходит.
                         let pulse = 0.5 + 0.5 * (self.time * 3.6 + seed * 0.35).sin();
@@ -1118,6 +1253,34 @@ impl App {
             );
         }
 
+        // Компьютер выбрал ход: 2–3 секунды показываем, какую фигуру он берёт.
+        if let Some(mv) = self.ai_preview {
+            if self.mode == Mode::Computer && g.turn == Side::Black && !g.is_over() {
+                let from_rect = layout.square_rect(mv.from);
+                let to_rect = layout.square_rect(mv.to);
+                painter.rect_filled(from_rect.shrink(1.0), 5.0, alpha(pal.accent, 0.18));
+                painter.rect_filled(to_rect.shrink(1.0), 5.0, alpha(pal.accent, 0.14));
+                if let Some(cap) = mv.captured {
+                    let rect = layout.square_rect(cap);
+                    let pulse = 0.5 + 0.5 * (self.time * 5.0).sin();
+                    painter.line_segment(
+                        [from_rect.center(), rect.center()],
+                        Stroke::new(2.0_f32, alpha(pal.danger, 0.30 + 0.25 * pulse)),
+                    );
+                    painter.circle_stroke(
+                        rect.center(),
+                        layout.cell * 0.46,
+                        Stroke::new(2.0_f32, alpha(pal.danger, 0.35 + 0.35 * pulse)),
+                    );
+                    painter.circle_stroke(
+                        rect.center(),
+                        layout.cell * 0.38,
+                        Stroke::new(1.5_f32, alpha(pal.danger, 0.25 + 0.30 * pulse)),
+                    );
+                }
+            }
+        }
+
         // подсказки ходов
         for mv in &g.legal {
             let rect = layout.square_rect(mv.to);
@@ -1261,7 +1424,20 @@ impl App {
             }
         }
         if checkers_form {
-            draw_checker(painter, center, size, damka, kind == Kind::King, side, pal, a);
+            let show_icon = self.show_checker_icons && kind != Kind::Pawn;
+            draw_checker(
+                painter,
+                center,
+                size,
+                damka,
+                kind == Kind::King && !show_icon,
+                side,
+                pal,
+                a,
+            );
+            if show_icon {
+                art::draw_checker_icon(painter, center, size, kind, side, a);
+            }
         } else {
             draw_chess_piece(painter, center, size, kind, side, pal, a);
         }
@@ -1991,22 +2167,58 @@ impl App {
         );
         ry += 15.0;
         let mandatory = self.game.mandatory_capture;
-        let capture_btn = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(right_w, 34.0));
-        if button(
+        let crown = self.game.crown_non_pawns;
+        let icons = self.show_checker_icons;
+        let cw = (right_w - 16.0) / 3.0;
+        let capture_chip = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(cw, 28.0));
+        let icons_chip = Rect::from_min_size(
+            Pos2::new(right_x + cw + 8.0, ry),
+            Vec2::new(cw, 28.0),
+        );
+        let crown_chip = Rect::from_min_size(
+            Pos2::new(right_x + (cw + 8.0) * 2.0, ry),
+            Vec2::new(cw, 28.0),
+        );
+        if chip(
             ui,
-            capture_btn,
+            capture_chip,
             if mandatory {
-                "Обязательное взятие: вкл"
+                "Взятие: да"
             } else {
-                "Обязательное взятие: выкл"
+                "Взятие: нет"
             },
             mandatory,
             &pal,
-            11.5,
         ) {
             self.game.mandatory_capture = !mandatory;
         }
-        ry += 38.0;
+        if chip(
+            ui,
+            icons_chip,
+            if icons {
+                "Иконки: да"
+            } else {
+                "Иконки: нет"
+            },
+            icons,
+            &pal,
+        ) {
+            self.show_checker_icons = !icons;
+        }
+        if chip(
+            ui,
+            crown_chip,
+            if crown {
+                "Дамки: все"
+            } else {
+                "Дамки: пешки"
+            },
+            crown,
+            &pal,
+        ) {
+            self.game.crown_non_pawns = !crown;
+        }
+        ry += 34.0;
         text(
             painter,
             Pos2::new(right_x, ry),
@@ -2014,12 +2226,20 @@ impl App {
             if mandatory {
                 "Бить обязательно; серию нужно продолжать."
             } else {
-                "Можно ходить без взятия; серию можно закончить."
+                "Можно без взятия; серию можно закончить."
             },
             9.0,
             alpha(pal.text_dim, 0.75),
         );
-        ry += 24.0;
+        text(
+            painter,
+            Pos2::new(right_x, ry + 13.0),
+            Align2::LEFT_TOP,
+            "Иконки — кроме пешек; дамки — все или только пешки.",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ry += 32.0;
 
         text(
             painter,
@@ -2270,6 +2490,8 @@ impl App {
             "Дамки летят по диагонали на любое расстояние.",
             "Бить обязательно; серия взятий продолжается, пока есть цель.",
             "Обязательное взятие можно отключить в настройках.",
+            "Иконки на шашках показывают вид фигуры; пешки — без иконок.",
+            "По умолчанию дамкой может стать любая фигура; «Дамки: пешки» — только пешки.",
             "Шашка на последнем ряду становится дамкой и продолжает серию как дамка.",
             "Короля можно съесть и победить.",
             "Если застряли оба — сумерки сразу выводят в шахматы.",
@@ -2280,6 +2502,8 @@ impl App {
             "Победа: мат, съеденный король или истребление фигур.",
             "Время шахмат и шашек задаётся отдельно в настройках.",
             "Смена фаз: фиксированное время или автосмена 10–60 с.",
+            "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт.",
+            "После партии «Просмотр» показывает ходы по шагам с анимацией.",
             "С компьютером вы играете белыми; сложность меняет глубину.",
         ];
 
@@ -2541,9 +2765,13 @@ impl App {
             Pos2::new(x + half + gap, card.bottom() - 104.0),
             Vec2::new(half, 42.0),
         );
-        let rules = Rect::from_min_size(
+        let review = Rect::from_min_size(
             Pos2::new(x, card.bottom() - 54.0),
-            Vec2::new(w, 38.0),
+            Vec2::new(half, 38.0),
+        );
+        let rules = Rect::from_min_size(
+            Pos2::new(x + half + gap, card.bottom() - 54.0),
+            Vec2::new(half, 38.0),
         );
         if button(ui, again, "Новая партия", true, &pal, 13.0) {
             self.new_game();
@@ -2552,10 +2780,108 @@ impl App {
             self.journal_text = self.build_journal_text();
             self.journal = true;
         }
+        if button(ui, review, "Просмотр", false, &pal, 13.0) {
+            self.start_review();
+        }
         if button(ui, rules, "Правила", false, &pal, 13.0) {
             self.rules = true;
         }
         let _ = ctx;
+    }
+
+    fn paint_review(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
+        let pal = Palette::for_phase(self.game.phase);
+        let card = layout.panel.shrink2(Vec2::new(10.0, 16.0));
+        rr(
+            painter,
+            card,
+            20.0,
+            alpha(Color32::from_rgb(20, 18, 27), 0.97),
+            Stroke::new(1.0_f32, alpha(pal.accent, 0.40)),
+        );
+        let pad = 16.0;
+        let x = card.left() + pad;
+        let w = card.width() - pad * 2.0;
+        text(
+            painter,
+            Pos2::new(x, card.top() + 14.0),
+            Align2::LEFT_TOP,
+            "ПРОСМОТР ПАРТИИ",
+            15.0,
+            pal.text,
+        );
+        text(
+            painter,
+            Pos2::new(x, card.top() + 38.0),
+            Align2::LEFT_TOP,
+            format!("Ход {} из {}", self.review_ply, self.review_labels().len().saturating_sub(1)),
+            10.0,
+            alpha(pal.text_dim, 0.8),
+        );
+        let close = Rect::from_min_size(
+            Pos2::new(card.right() - pad - 74.0, card.top() + 12.0),
+            Vec2::new(74.0, 28.0),
+        );
+
+        let prev = Rect::from_min_size(
+            Pos2::new(x, card.bottom() - 44.0),
+            Vec2::new((w - 8.0) * 0.5, 34.0),
+        );
+        let next = Rect::from_min_size(
+            Pos2::new(x + (w - 8.0) * 0.5 + 8.0, card.bottom() - 44.0),
+            Vec2::new((w - 8.0) * 0.5, 34.0),
+        );
+        let list_rect = Rect::from_min_max(
+            Pos2::new(x, card.top() + 62.0),
+            Pos2::new(card.right() - pad, prev.top() - 10.0),
+        );
+        let labels = self.review_labels();
+        let current = self.review_ply;
+        let mut clicked = None;
+        let _ = ui.scope_builder(
+            egui::UiBuilder::new().max_rect(list_rect),
+            |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("review_scroll")
+                    .auto_shrink([false, false])
+                    .max_height(list_rect.height())
+                    .show(ui, |ui| {
+                        ui.set_width(w);
+                        for (i, label) in labels.iter().enumerate() {
+                            let selected = i == current;
+                            let resp = ui.add(
+                                egui::Button::new(
+                                    egui::RichText::new(if selected {
+                                        format!("▶ {label}")
+                                    } else {
+                                        format!("   {label}")
+                                    })
+                                    .size(10.0)
+                                    .color(if selected { pal.accent } else { pal.text }),
+                                )
+                                .frame(false)
+                                .min_size(Vec2::new(w, 21.0)),
+                            );
+                            if resp.clicked() {
+                                clicked = Some(i);
+                            }
+                        }
+                    });
+            },
+        );
+        if button(ui, close, "Закрыть", false, &pal, 10.5) {
+            self.exit_review();
+        }
+        if button(ui, prev, "◀ Назад", false, &pal, 12.0) {
+            self.set_review_ply(self.review_ply.saturating_sub(1));
+        }
+        if button(ui, next, "Вперёд ▶", false, &pal, 12.0) {
+            let max = labels.len().saturating_sub(1);
+            self.set_review_ply((self.review_ply + 1).min(max));
+        }
+        if let Some(ply) = clicked {
+            self.set_review_ply(ply);
+        }
     }
 
     // ------------------------- скриншот -------------------------
@@ -2619,6 +2945,19 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let dt = ctx.input(|i| i.stable_dt).min(0.1);
         self.time += dt;
+        if self.review {
+            self.game.move_anim = (self.game.move_anim
+                + dt / self.game.move_anim_secs.max(0.03))
+            .min(1.0);
+            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+                self.exit_review();
+            }
+            ctx.request_repaint();
+            let layout = Layout::new(ctx);
+            self.draw(ctx, &layout);
+            self.handle_shot(ctx);
+            return;
+        }
         if !self.rules && !self.settings {
             self.game.tick(dt);
         }
@@ -2743,6 +3082,43 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.seed_rng(0x51A7_4C0D_9B2E_7711);
             game.refresh_phase_timer();
             game.log.push("демо: автосмена сумерек".into());
+        }
+        Some("review") => {
+            for mv in [
+                game::Move {
+                    from: (4, 1),
+                    to: (4, 3),
+                    captured: None,
+                },
+                game::Move {
+                    from: (4, 6),
+                    to: (4, 4),
+                    captured: None,
+                },
+                game::Move {
+                    from: (6, 0),
+                    to: (5, 2),
+                    captured: None,
+                },
+                game::Move {
+                    from: (1, 7),
+                    to: (2, 5),
+                    captured: None,
+                },
+                game::Move {
+                    from: (5, 0),
+                    to: (1, 4),
+                    captured: None,
+                },
+                game::Move {
+                    from: (0, 6),
+                    to: (0, 5),
+                    captured: None,
+                },
+            ] {
+                game.apply(mv);
+            }
+            game.log.push("демо: просмотр партии".into());
         }
         Some("flip_promo") => {
             game.phase = Phase::Checkers;

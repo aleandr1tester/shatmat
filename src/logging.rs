@@ -142,6 +142,10 @@ pub fn format_game_log(
         "Обязательное взятие: {}\n",
         if game.mandatory_capture { "вкл" } else { "выкл" }
     ));
+    s.push_str(&format!(
+        "Коронация не-пешек: {}\n",
+        if game.crown_non_pawns { "вкл" } else { "выкл" }
+    ));
     s.push_str(&format!("Результат: {result}\n"));
     s.push_str(&format!(
         "Всего ходов: {} (белые: {white}, чёрные: {black})\n",

@@ -637,3 +637,172 @@ pub fn text(
 ) {
     painter.text(pos, anchor, s.into(), FontId::proportional(size), color);
 }
+
+/// Маленькая эмблема шахматной фигуры на шашке (кроме пешки).
+pub fn draw_checker_icon(
+    painter: &Painter,
+    center: Pos2,
+    size: f32,
+    kind: Kind,
+    side: Side,
+    a: f32,
+) {
+    if a <= 0.01 || kind == Kind::Pawn {
+        return;
+    }
+    let (fill, line) = if side == Side::White {
+        (
+            Color32::from_rgb(62, 46, 30),
+            Color32::from_rgb(245, 222, 180),
+        )
+    } else {
+        (
+            Color32::from_rgb(238, 228, 208),
+            Color32::from_rgb(40, 32, 24),
+        )
+    };
+    let s = size * 0.44;
+    match kind {
+        Kind::King => {
+            fill_poly(
+                painter,
+                center,
+                s,
+                &[
+                    (-0.46, 0.26),
+                    (-0.46, -0.02),
+                    (-0.24, 0.10),
+                    (0.0, -0.24),
+                    (0.24, 0.10),
+                    (0.46, -0.02),
+                    (0.46, 0.26),
+                ],
+                fill,
+                line,
+                a,
+            );
+            fill_poly(
+                painter,
+                center,
+                s,
+                &[(-0.06, -0.48), (-0.06, -0.24), (0.06, -0.24), (0.06, -0.48)],
+                fill,
+                line,
+                a,
+            );
+            fill_poly(
+                painter,
+                center,
+                s,
+                &[(-0.20, -0.37), (0.20, -0.37), (0.20, -0.27), (-0.20, -0.27)],
+                fill,
+                line,
+                a,
+            );
+        }
+        Kind::Queen => {
+            fill_poly(
+                painter,
+                center,
+                s,
+                &[
+                    (-0.46, 0.26),
+                    (-0.46, -0.06),
+                    (-0.28, 0.06),
+                    (-0.14, -0.28),
+                    (0.0, 0.0),
+                    (0.14, -0.28),
+                    (0.28, 0.06),
+                    (0.46, -0.06),
+                    (0.46, 0.26),
+                ],
+                fill,
+                line,
+                a,
+            );
+        }
+        Kind::Rook => {
+            fill_poly(
+                painter,
+                center,
+                s,
+                &[(-0.40, 0.28), (-0.40, -0.14), (0.40, -0.14), (0.40, 0.28)],
+                fill,
+                line,
+                a,
+            );
+            for x in [-0.36_f32, -0.12, 0.12] {
+                fill_poly(
+                    painter,
+                    center,
+                    s,
+                    &[
+                        (x, -0.34),
+                        (x + 0.16, -0.34),
+                        (x + 0.16, -0.14),
+                        (x, -0.14),
+                    ],
+                    fill,
+                    line,
+                    a,
+                );
+            }
+        }
+        Kind::Bishop => {
+            fill_poly(
+                painter,
+                center,
+                s,
+                &[(-0.28, 0.26), (0.0, -0.32), (0.28, 0.26)],
+                fill,
+                line,
+                a,
+            );
+            fill_circle(painter, center, s, 0.0, -0.38, 0.09, fill, line, a);
+        }
+        Kind::Knight => {
+            fill_poly(
+                painter,
+                center,
+                s,
+                &[
+                    (-0.30, 0.28),
+                    (-0.30, 0.0),
+                    (-0.04, 0.08),
+                    (0.0, 0.28),
+                ],
+                fill,
+                line,
+                a,
+            );
+            fill_poly(
+                painter,
+                center,
+                s,
+                &[
+                    (-0.30, 0.02),
+                    (-0.38, -0.16),
+                    (-0.28, -0.34),
+                    (0.02, -0.40),
+                    (0.22, -0.20),
+                    (0.14, 0.04),
+                ],
+                fill,
+                line,
+                a,
+            );
+            fill_poly(
+                painter,
+                center,
+                s,
+                &[(0.02, -0.36), (0.08, -0.50), (0.15, -0.34)],
+                fill,
+                line,
+                a,
+            );
+            fill_circle(painter, center, s, -0.08, -0.24, 0.035, line, line, a);
+        }
+        Kind::Pawn => {}
+    }
+}
+

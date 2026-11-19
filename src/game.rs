@@ -576,6 +576,21 @@ impl Game {
         if self.is_locked() {
             return;
         }
+        if self.phase == Phase::Chess {
+            if let Some(cap) = mv.captured {
+                if self
+                    .board
+                    .get(cap.1)
+                    .and_then(|row| row.get(cap.0))
+                    .and_then(|p| *p)
+                    .map(|p| p.kind == Kind::King)
+                    .unwrap_or(false)
+                {
+                    // В шахматах короля не берут: это шах или мат.
+                    return;
+                }
+            }
+        }
         self.move_anim = 0.0;
         self.last_capture = None;
         let from = mv.from;
@@ -879,7 +894,24 @@ impl Game {
             self.promote_pawns_after_flip();
         }
         if !self.is_over() && self.pending_promotion.is_none() {
+            self.resolve_transition_check();
             self.refresh_status();
+        }
+    }
+
+    /// Если после перехода в шахматы под шахом оказался только что
+    /// ходивший король, передаём ему ход, чтобы он мог уйти из-под удара,
+    /// а не даём сопернику просто «съесть» короля.
+    fn resolve_transition_check(&mut self) {
+        if self.phase != Phase::Chess
+            || self.is_over()
+            || self.pending_promotion.is_some()
+        {
+            return;
+        }
+        let mover = self.turn;
+        if self.in_check(mover.other()) && !self.in_check(mover) {
+            self.turn = mover.other();
         }
     }
 
@@ -1029,7 +1061,7 @@ impl Game {
                 }
                 for dx in [-1, 1] {
                     if let Some(v) = self.at_i(f + dx, r + dir) {
-                        if v.side != p.side {
+                        if v.side != p.side && v.kind != Kind::King {
                             push_move(&mut pseudo, sq, (f + dx, r + dir), Some((f + dx, r + dir)));
                         }
                     }
@@ -1040,7 +1072,7 @@ impl Game {
                     if self.inb(f + dx, r + dy) {
                         match self.at_i(f + dx, r + dy) {
                             None => push_move(&mut pseudo, sq, (f + dx, r + dy), None),
-                            Some(v) if v.side != p.side => {
+                            Some(v) if v.side != p.side && v.kind != Kind::King => {
                                 push_move(&mut pseudo, sq, (f + dx, r + dy), Some((f + dx, r + dy)))
                             }
                             _ => {}
@@ -1053,7 +1085,7 @@ impl Game {
                     if self.inb(f + dx, r + dy) {
                         match self.at_i(f + dx, r + dy) {
                             None => push_move(&mut pseudo, sq, (f + dx, r + dy), None),
-                            Some(v) if v.side != p.side => {
+                            Some(v) if v.side != p.side && v.kind != Kind::King => {
                                 push_move(&mut pseudo, sq, (f + dx, r + dy), Some((f + dx, r + dy)))
                             }
                             _ => {}
@@ -1077,7 +1109,7 @@ impl Game {
                                 y += dy;
                             }
                             Some(v) => {
-                                if v.side != p.side {
+                                if v.side != p.side && v.kind != Kind::King {
                                     push_move(&mut pseudo, sq, (x, y), Some((x, y)));
                                 }
                                 break;
@@ -1516,21 +1548,39 @@ mod tests {
     }
 
     #[test]
-    fn king_capture_ends_game() {
+    fn chess_king_cannot_be_captured() {
         let mut g = test_game();
         g.board = [[None; 8]; 8];
         g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
         g.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
         g.board[6][5] = Some(Piece::new(Side::White, Kind::Knight)); // f7
         g.turn = Side::White;
+        assert!(
+            g.chess_from((5, 6)).iter().all(|m| m.to != (7, 7)),
+            "в шахматах короля не бьют — только шах/мат"
+        );
         g.apply(Move {
             from: (5, 6),
             to: (7, 7),
             captured: Some((7, 7)),
         });
-        assert!(g.is_over(), "победа по королю");
-        assert_eq!(g.winner(), Some(Side::White));
-        assert_eq!(g.captured_by_white, 1);
+        assert!(!g.is_over(), "король не может быть съеден");
+        assert!(g.piece_at((7, 7)).is_some(), "король остался на доске");
+    }
+
+    #[test]
+    fn transition_gives_checked_king_a_move() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.turn = Side::White;
+        g.board[0][0] = Some(Piece::new(Side::White, Kind::King)); // a1
+        g.board[7][6] = Some(Piece::new(Side::Black, Kind::King)); // g8
+        g.board[7][3] = Some(Piece::new(Side::White, Kind::Pawn)); // d8
+        g.flip_phase();
+        assert_eq!(g.phase, Phase::Chess);
+        assert_eq!(g.turn, Side::Black, "король под шахом получает ход");
+        assert!(matches!(g.status, Status::Check(Side::Black)));
     }
 
     #[test]

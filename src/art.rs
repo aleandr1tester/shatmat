@@ -3,7 +3,7 @@
 //! Фигуры рисуются векторами, чтобы не зависеть от шрифтов и выглядеть ровно
 //! при любом размере доски.
 
-use eframe::egui::{self, Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, StrokeKind, Vec2};
+use eframe::egui::{self, Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, StrokeKind};
 
 use crate::game::{Kind, Phase, Side};
 
@@ -294,13 +294,6 @@ pub fn draw_chess_piece(
         Side::Black => (pal.black_fill, pal.black_line),
     };
 
-    // мягкая тень под фигурой
-    let shadow = Rect::from_center_size(
-        Pos2::new(center.x + size * 0.01, center.y + size * 0.125),
-        Vec2::new(size * 0.56, size * 0.10),
-    );
-    painter.rect_filled(shadow, size * 0.05, Color32::from_black_alpha((38.0 * a) as u8));
-
     // общая база
     fill_rect(painter, center, size, 0.17, 0.815, 0.83, 0.90, 0.02, fill, line, a);
     fill_rect(painter, center, size, 0.245, 0.735, 0.755, 0.825, 0.015, fill, line, a);
@@ -550,12 +543,6 @@ pub fn draw_checker(
             Color32::from_rgb(196, 214, 238),
         ),
     };
-
-    let shadow = Rect::from_center_size(
-        Pos2::new(center.x, center.y + size * 0.12),
-        Vec2::new(size * 0.60, size * 0.12),
-    );
-    painter.rect_filled(shadow, size * 0.06, Color32::from_black_alpha((38.0 * a) as u8));
 
     painter.circle_filled(center, 0.355 * size, alpha(rim, a));
     painter.circle_filled(

@@ -870,6 +870,9 @@ impl App {
                 self.paint_background(ctx, &painter, layout);
                 self.paint_header(&painter, layout);
                 self.paint_board(ctx, &painter, layout);
+                if !self.started {
+                    self.paint_start_frost(&painter, layout);
+                }
                 if self.review {
                     self.paint_review(ui, &painter, layout);
                 } else {
@@ -1674,6 +1677,75 @@ impl App {
 
     // ------------------------- панель -------------------------
 
+    fn paint_start_frost(&self, painter: &egui::Painter, layout: &Layout) {
+        let b = layout.board;
+        let frost = painter.with_clip_rect(b);
+        frost.rect_filled(
+            b,
+            10.0,
+            Color32::from_rgba_unmultiplied(10, 12, 20, 156),
+        );
+        radial(
+            &frost,
+            b.center() + Vec2::new(-b.width() * 0.18, -b.height() * 0.10),
+            b.width() * 0.55,
+            Color32::from_rgb(178, 194, 235),
+            0.075,
+        );
+        radial(
+            &frost,
+            b.center() + Vec2::new(b.width() * 0.22, b.height() * 0.18),
+            b.width() * 0.45,
+            Color32::from_rgb(255, 220, 190),
+            0.05,
+        );
+        // Матовая «крошка» и мягкие полосы — имитация размытого стекла.
+        for i in 0..140u32 {
+            let h1 = hash(i as f32 * 1.37);
+            let h2 = hash(i as f32 * 6.11 + 1.9);
+            let p = Pos2::new(
+                b.left() + 8.0 + h1 * (b.width() - 16.0),
+                b.top() + 8.0 + h2 * (b.height() - 16.0),
+            );
+            frost.circle_filled(
+                p,
+                0.7 + h1 * 1.8,
+                Color32::from_white_alpha(4 + (h2 * 9.0) as u8),
+            );
+        }
+        for k in 0..4 {
+            let y = b.top() + b.height() * (0.18 + k as f32 * 0.18);
+            frost.rect_filled(
+                Rect::from_min_max(
+                    Pos2::new(b.left() + 18.0, y),
+                    Pos2::new(b.right() - 18.0, y + 12.0),
+                ),
+                6.0,
+                Color32::from_white_alpha(4),
+            );
+        }
+        painter.rect_stroke(
+            b,
+            10.0,
+            Stroke::new(1.0_f32, Color32::from_white_alpha(28)),
+            egui::StrokeKind::Inside,
+        );
+        painter.text(
+            b.center() + Vec2::new(0.0, -12.0),
+            Align2::CENTER_CENTER,
+            "ПАРТИЯ ЕЩЁ НЕ НАЧАТА",
+            FontId::proportional(19.0),
+            Color32::from_rgb(232, 228, 240),
+        );
+        painter.text(
+            b.center() + Vec2::new(0.0, 18.0),
+            Align2::CENTER_CENTER,
+            "Справа — «Играть», настройки и правила",
+            FontId::proportional(11.0),
+            Color32::from_rgb(166, 162, 182),
+        );
+    }
+
     fn paint_panel(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         let g = &self.game;
         let forced_now = g.forced_capture_squares();
@@ -1957,15 +2029,10 @@ impl App {
             Vec2::new(half, 46.0),
         );
         let row_y = bottom_y - 10.0 - 36.0;
-        let third = (w - 16.0) / 3.0;
-        let guide_btn = Rect::from_min_size(Pos2::new(x, row_y), Vec2::new(third, 36.0));
-        let rules_btn = Rect::from_min_size(
-            Pos2::new(x + third + 8.0, row_y),
-            Vec2::new(third, 36.0),
-        );
+        let rules_btn = Rect::from_min_size(Pos2::new(x, row_y), Vec2::new(half, 36.0));
         let settings_btn = Rect::from_min_size(
-            Pos2::new(x + (third + 8.0) * 2.0, row_y),
-            Vec2::new(third, 36.0),
+            Pos2::new(x + half + gap, row_y),
+            Vec2::new(half, 36.0),
         );
         let chips_y = row_y - 30.0 - 30.0;
         let chips = [
@@ -2075,18 +2142,10 @@ impl App {
         if self.game.pending_promotion.is_some() {
             return;
         }
-        if button(ui, guide_btn, "Фигуры", false, &cur, 11.0) {
-            self.guide = true;
-            self.guide_kind = Kind::Pawn;
-            self.guide_checkers = false;
-            self.guide_demo = None;
-            self.settings = false;
-            self.rules = false;
-        }
-        if button(ui, rules_btn, "Правила", false, &cur, 11.0) {
+        if button(ui, rules_btn, "Правила", false, &cur, 12.0) {
             self.rules = true;
         }
-        if button(ui, settings_btn, "Настройки", false, &cur, 10.5) {
+        if button(ui, settings_btn, "Настройки", false, &cur, 11.5) {
             self.settings = true;
             self.rules = false;
         }
@@ -2786,33 +2845,27 @@ impl App {
             12.5,
             Color32::from_rgb(158, 150, 168),
         );
-        text(
-            painter,
-            Pos2::new(x + 2.0, y + 52.0),
-            Align2::LEFT_TOP,
-            "Текст можно выделять мышкой и копировать.",
-            11.0,
-            Color32::from_rgb(130, 123, 145),
-        );
-        y += 88.0;
-
-        let figures = Rect::from_min_size(
-            Pos2::new(card.right() - pad - 170.0, card.top() + 24.0),
-            Vec2::new(136.0, 34.0),
+        let tabs_y = card.top() + 80.0;
+        let tab_w = 170.0;
+        let rules_tab = Rect::from_min_size(Pos2::new(x, tabs_y), Vec2::new(tab_w, 32.0));
+        let figures_tab = Rect::from_min_size(
+            Pos2::new(x + tab_w + 8.0, tabs_y),
+            Vec2::new(tab_w, 32.0),
         );
         let close = Rect::from_min_size(
             Pos2::new(card.right() - pad - 150.0, card.bottom() - pad - 42.0),
             Vec2::new(150.0, 42.0),
         );
-
         let pal = Palette::for_phase(self.game.phase);
-        if button(ui, figures, "Фигуры", false, &pal, 12.0) {
+        let _ = chip(ui, rules_tab, "ПРАВИЛА", true, &pal);
+        if chip(ui, figures_tab, "ФИГУРЫ", false, &pal) {
             self.rules = false;
             self.guide = true;
             self.guide_kind = Kind::Pawn;
             self.guide_checkers = false;
             self.guide_demo = None;
         }
+        y = card.top() + 132.0;
 
         let chess_rules = [
             "Ходы классические: пешка, конь, слон, ладья, ферзь, король.",

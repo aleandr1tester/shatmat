@@ -124,6 +124,7 @@ pub fn format_game_log(
         .count();
     let mut s = String::new();
     s.push_str("Партия «Сумерки»\n");
+    s.push_str(&format!("Версия: {}\n", env!("CARGO_PKG_VERSION")));
     s.push_str(&format!("Начало: {start}\n"));
     s.push_str(&format!("Окончание: {end}\n"));
     s.push_str(&format!("Режим: {mode}\n"));

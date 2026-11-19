@@ -2097,6 +2097,14 @@ impl eframe::App for App {
         } else {
             self.twilight_sounded = false;
         }
+        if !self.rules
+            && !self.settings
+            && self.mode == Mode::Computer
+            && self.game.turn == Side::Black
+            && self.game.pending_promotion.is_some()
+        {
+            self.game.choose_promotion(Kind::Queen);
+        }
         if self.game.is_over() {
             self.replay += dt;
         } else {
@@ -2166,6 +2174,21 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.turn = Side::White;
             game.pending_promotion = Some((0, 7));
             game.log.push("демо: превращение пешки".into());
+        }
+        Some("flip_promo") => {
+            game.phase = Phase::Checkers;
+            game.board = [[None; 8]; 8];
+            game.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+            game.board[0][7] = Some(Piece::new(Side::Black, Kind::King)); // a8
+            let mut e8 = Piece::new(Side::White, Kind::Pawn);
+            e8.crowned = true;
+            let mut h8 = Piece::new(Side::White, Kind::Pawn);
+            h8.crowned = true;
+            game.board[7][4] = Some(e8); // e8
+            game.board[7][7] = Some(h8); // h8
+            game.turn = Side::White;
+            game.trans = 0.9995;
+            game.log.push("демо: две пешки на последнем ряду".into());
         }
         Some("win") => {
             game.phase = Phase::Checkers;

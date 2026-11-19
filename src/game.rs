@@ -179,6 +179,8 @@ pub struct Game {
     pub passes: u8,
     /// Пешка дошла до последнего ряда и ждёт, какую фигуру выбрать.
     pub pending_promotion: Option<Square>,
+    /// Превращение после смены фазы: это не ход, очередь не передаётся.
+    pub promotion_free: bool,
     royal_captured: Option<Side>,
     pending: String,
 }
@@ -226,6 +228,7 @@ impl Game {
             crowned_flash: None,
             passes: 0,
             pending_promotion: None,
+            promotion_free: false,
             royal_captured: None,
             pending: String::new(),
         }
@@ -459,6 +462,7 @@ impl Game {
             let last = if piece.side == Side::White { 7 } else { 0 };
             if to.1 == last {
                 self.pending_promotion = Some(to);
+                self.promotion_free = false;
                 self.chain = None;
                 self.passes = 0;
                 return;
@@ -503,16 +507,25 @@ impl Game {
             return;
         }
         self.pending_promotion = None;
+        let free = self.promotion_free;
+        self.promotion_free = false;
         self.move_anim = 1.0;
         if let Some(mut p) = self.board[sq.1][sq.0] {
             p.kind = kind;
             self.board[sq.1][sq.0] = Some(p);
         }
-        self.pending.push('=');
-        self.pending.push_str(kind.letter());
+        if free {
+            self.log
+                .push(format!("{} — пешка {} стала {}", self.turn.name_ru(), sq_name(sq), kind.letter()));
+        } else {
+            self.pending.push('=');
+            self.pending.push_str(kind.letter());
+        }
         self.chain = None;
         self.passes = 0;
-        self.turn = self.turn.other();
+        if !free {
+            self.turn = self.turn.other();
+        }
         self.refresh_status();
     }
 
@@ -617,11 +630,57 @@ impl Game {
         self.chain = None;
         self.pending.clear();
         self.pending_promotion = None;
+        self.promotion_free = false;
         self.last_capture = None;
         self.move_anim = 1.0;
         self.passes = 0;
-        if !self.is_over() {
+        if self.phase == Phase::Chess && !self.is_over() {
+            self.promote_pawns_after_flip();
+        }
+        if !self.is_over() && self.pending_promotion.is_none() {
             self.refresh_status();
+        }
+    }
+
+    /// После перехода в шахматы пешки на последнем ряду не должны оставаться
+    /// пешками. Одну пешку ходящей стороны показываем в диалоге выбора,
+    /// остальные автоматически становятся ферзями.
+    fn promote_pawns_after_flip(&mut self) {
+        let mut prompt = None;
+        for r in 0..8 {
+            for f in 0..8 {
+                let Some(p) = self.board[r][f] else {
+                    continue;
+                };
+                if p.kind != Kind::Pawn {
+                    continue;
+                }
+                let last = if p.side == Side::White { 7 } else { 0 };
+                if r != last {
+                    continue;
+                }
+                if p.side == self.turn && prompt.is_none() {
+                    prompt = Some((f, r));
+                } else {
+                    let mut q = p;
+                    q.kind = Kind::Queen;
+                    self.board[r][f] = Some(q);
+                    self.log.push(format!(
+                        "{} — пешка {} стала ферзём",
+                        p.side.name_ru(),
+                        sq_name((f, r))
+                    ));
+                }
+            }
+        }
+        if self.log.len() > 240 {
+            self.log.remove(0);
+        }
+        if let Some(sq) = prompt {
+            self.pending_promotion = Some(sq);
+            self.promotion_free = true;
+            self.selected = None;
+            self.legal.clear();
         }
     }
 
@@ -1274,6 +1333,44 @@ mod tests {
             assert_eq!(g.piece_at((0, 7)).unwrap().kind, kind);
             assert_eq!(g.turn, Side::Black);
         }
+    }
+
+    #[test]
+    fn flip_promotes_pawns_on_last_rank() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[0][7] = Some(Piece::new(Side::Black, Kind::King)); // a8
+        let mut e8 = Piece::new(Side::White, Kind::Pawn);
+        e8.crowned = true;
+        let mut h8 = Piece::new(Side::White, Kind::Pawn);
+        h8.crowned = true;
+        g.board[7][4] = Some(e8); // e8
+        g.board[7][7] = Some(h8); // h8
+        g.turn = Side::White;
+
+        g.flip_phase(); // шашки -> шахматы
+        assert_eq!(g.phase, Phase::Chess);
+        assert_eq!(
+            g.pending_promotion,
+            Some((4, 7)),
+            "первая пешка на последнем ряду ждёт выбора"
+        );
+        assert_eq!(
+            g.piece_at((7, 7)).unwrap().kind,
+            Kind::Queen,
+            "вторая пешка сразу стала ферзём"
+        );
+        assert_eq!(g.turn, Side::White);
+
+        g.choose_promotion(Kind::Queen);
+        assert_eq!(g.piece_at((4, 7)).unwrap().kind, Kind::Queen);
+        assert_eq!(
+            g.turn,
+            Side::White,
+            "превращение после перехода не передаёт очередь"
+        );
     }
 
     #[test]

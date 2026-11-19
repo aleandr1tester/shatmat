@@ -136,7 +136,7 @@ fn eval_white(g: &Game) -> f32 {
             let s = if p.side == Side::White { 1.0 } else { -1.0 };
             chess += s * chess_value(p.kind);
             checkers += s * if p.is_damka() { 3.2 } else { 1.0 };
-            if p.kind.becomes_man() {
+            if !p.is_damka() {
                 let adv = if p.side == Side::White {
                     r as f32
                 } else {
@@ -223,7 +223,9 @@ mod tests {
         g.phase = Phase::Checkers;
         g.board[0][0] = Some(Piece::new(Side::White, Kind::King)); // a1
         g.board[4][4] = Some(Piece::new(Side::Black, Kind::King)); // e5 — под боем
-        g.board[3][3] = Some(Piece::new(Side::White, Kind::Rook)); // d4 — дамка
+        let mut damka = Piece::new(Side::White, Kind::Rook);
+        damka.crowned = true;
+        g.board[3][3] = Some(damka); // d4 — дамка
         g.turn = Side::White;
         let mv = best_move(&g, Difficulty::Hard, &mut seed()).unwrap();
         assert_eq!(mv.captured, Some((4, 4)), "нужно съесть короля");

@@ -1,11 +1,13 @@
-//! Короткие звуки хода и взятия.
+//! Короткие звуки игры.
 //!
-//! На Windows звук синтезируется в WAV прямо в памяти и играется через winmm —
-//! без внешних файлов и аудио-библиотек. На других платформах функция тихая,
-//! чтобы прототип собирался везде.
+//! Папка `sounds` рядом с программой — точка замены: положите туда свои
+//! `move.wav`, `capture.wav` и `twilight.wav`, и они будут играть вместо
+//! встроенных. Если файла нет, звук синтезируется в памяти.
 
 #[cfg(windows)]
 mod imp {
+    use std::os::windows::ffi::OsStrExt;
+    use std::path::{Path, PathBuf};
     use std::sync::OnceLock;
 
     #[link(name = "winmm")]
@@ -16,27 +18,50 @@ mod imp {
     const SND_ASYNC: u32 = 0x0001;
     const SND_NODEFAULT: u32 = 0x0002;
     const SND_MEMORY: u32 = 0x0004;
+    const SND_FILENAME: u32 = 0x0008;
 
     const RATE: u32 = 22_050;
+    const MOVE_FILE: &str = "move.wav";
+    const CAPTURE_FILE: &str = "capture.wav";
+    const TWILIGHT_FILE: &str = "twilight.wav";
 
     static MOVE_WAV: OnceLock<Vec<u8>> = OnceLock::new();
     static CAPTURE_WAV: OnceLock<Vec<u8>> = OnceLock::new();
+    static TWILIGHT_WAV: OnceLock<Vec<u8>> = OnceLock::new();
 
-    /// Лёгкий щелчок на ходу.
+    /// Короткий одиночный «тык» — фигуру поставили.
     pub fn piece_move() {
-        let wav = MOVE_WAV.get_or_init(|| wav_bytes(&move_samples()));
-        play(wav);
+        play(MOVE_FILE, &MOVE_WAV, move_samples);
     }
 
-    /// Низкий удар при взятии фигуры.
+    /// Низкий удар при взятии.
     pub fn capture() {
-        let wav = CAPTURE_WAV.get_or_init(|| wav_bytes(&capture_samples()));
-        play(wav);
+        play(CAPTURE_FILE, &CAPTURE_WAV, capture_samples);
     }
 
-    fn play(wav: &[u8]) {
-        // SND_MEMORY + SND_ASYNC: буфер живёт в OnceLock, поэтому не
-        // освобождается, пока звук ещё играет.
+    /// Долгий шум-волна при сумерках.
+    pub fn twilight() {
+        play(TWILIGHT_FILE, &TWILIGHT_WAV, twilight_samples);
+    }
+
+    fn play(file: &str, cache: &'static OnceLock<Vec<u8>>, samples: fn() -> Vec<i16>) {
+        let path = sounds_dir().join(file);
+        if path.is_file() {
+            let wide: Vec<u16> = path
+                .as_os_str()
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect();
+            unsafe {
+                PlaySoundW(
+                    wide.as_ptr(),
+                    core::ptr::null_mut(),
+                    SND_FILENAME | SND_ASYNC | SND_NODEFAULT,
+                );
+            }
+            return;
+        }
+        let wav = cache.get_or_init(|| wav_bytes(&samples()));
         unsafe {
             PlaySoundW(
                 wav.as_ptr() as *const u16,
@@ -44,6 +69,43 @@ mod imp {
                 SND_MEMORY | SND_ASYNC | SND_NODEFAULT,
             );
         }
+    }
+
+    /// Создаёт папку `sounds` и недостающие стандартные файлы.
+    pub fn prepare() {
+        let dir = sounds_dir();
+        let _ = std::fs::create_dir_all(&dir);
+        write_missing(&dir, MOVE_FILE, &move_samples());
+        write_missing(&dir, CAPTURE_FILE, &capture_samples());
+        write_missing(&dir, TWILIGHT_FILE, &twilight_samples());
+    }
+
+    /// Записывает все стандартные звуки (для сборки релиза).
+    pub fn write_defaults(dir: &Path) {
+        let _ = std::fs::create_dir_all(dir);
+        let _ = std::fs::write(dir.join(MOVE_FILE), wav_bytes(&move_samples()));
+        let _ = std::fs::write(dir.join(CAPTURE_FILE), wav_bytes(&capture_samples()));
+        let _ = std::fs::write(dir.join(TWILIGHT_FILE), wav_bytes(&twilight_samples()));
+    }
+
+    fn write_missing(dir: &Path, name: &str, samples: &[i16]) {
+        let path = dir.join(name);
+        if !path.exists() {
+            let _ = std::fs::write(path, wav_bytes(samples));
+        }
+    }
+
+    fn sounds_dir() -> PathBuf {
+        if let Some(dir) = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        {
+            let p = dir.join("sounds");
+            if p.is_dir() || std::fs::create_dir_all(&p).is_ok() {
+                return p;
+            }
+        }
+        PathBuf::from("sounds")
     }
 
     fn wav_bytes(samples: &[i16]) -> Vec<u8> {
@@ -58,7 +120,7 @@ mod imp {
         out.extend_from_slice(&RATE.to_le_bytes());
         out.extend_from_slice(&(RATE * 2).to_le_bytes()); // byte rate
         out.extend_from_slice(&2u16.to_le_bytes()); // block align
-        out.extend_from_slice(&16u16.to_le_bytes()); // bits per sample
+        out.extend_from_slice(&16u16.to_le_bytes()); // bits
         out.extend_from_slice(b"data");
         out.extend_from_slice(&data_len.to_le_bytes());
         for s in samples {
@@ -68,24 +130,27 @@ mod imp {
     }
 
     fn move_samples() -> Vec<i16> {
-        let dur = 0.065f32;
+        // 32 мс: щелчок + короткий тон с быстрым затуханием.
+        let dur = 0.032f32;
         let n = (RATE as f32 * dur) as usize;
         let mut v = Vec::with_capacity(n);
         for i in 0..n {
             let t = i as f32 / RATE as f32;
             let p = t / dur;
-            // короткий «клик» с чуть падающим тоном
-            let freq = 720.0 + 260.0 * (1.0 - p);
-            let env = (1.0 - p).powf(2.0);
-            let mut s = (t * freq * std::f32::consts::TAU).sin() * env * 0.28;
-            s += (t * freq * 2.0 * std::f32::consts::TAU).sin() * env * 0.10;
-            v.push((s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16);
+            let click = if p < 0.18 {
+                let x = ((i * 1_103_515_245 + 12_345) & 0x7fff) as f32 / 32767.0;
+                (x * 2.0 - 1.0) * (1.0 - p / 0.18) * 0.55
+            } else {
+                0.0
+            };
+            let tone = (t * 1_150.0 * std::f32::consts::TAU).sin() * (-t * 95.0).exp() * 0.38;
+            v.push(((click + tone).clamp(-1.0, 1.0) * i16::MAX as f32) as i16);
         }
         v
     }
 
     fn capture_samples() -> Vec<i16> {
-        let dur = 0.19f32;
+        let dur = 0.16f32;
         let n = (RATE as f32 * dur) as usize;
         let mut v = Vec::with_capacity(n);
         let mut noise = 0x1234_5678u32;
@@ -106,13 +171,46 @@ mod imp {
         }
         v
     }
+
+    fn twilight_samples() -> Vec<i16> {
+        // 1,6 с: нарастающая и стихающая шумовая волна с низким гулом.
+        let dur = 1.6f32;
+        let n = (RATE as f32 * dur) as usize;
+        let mut v = Vec::with_capacity(n);
+        let mut noise = 0x9E37_79B9_7F4A_7C15u64;
+        let mut lp = 0.0f32;
+        for i in 0..n {
+            let t = i as f32 / RATE as f32;
+            let p = t / dur;
+            noise = noise
+                .wrapping_mul(636_413_622_384_679_3005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            let white = ((noise >> 33) as f32 / 2_147_483_648.0) - 1.0;
+            lp += (white - lp) * 0.025;
+            let swell = (std::f32::consts::PI * p).sin().powf(1.3);
+            let gust = 0.65 + 0.35 * (t * 2.1).sin();
+            let low = (t * 65.0 * std::f32::consts::TAU).sin() * 0.14 * swell;
+            let s = (lp * 2.6 * swell * gust + low) * 0.9;
+            v.push((s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16);
+        }
+        v
+    }
 }
 
 #[cfg(windows)]
-pub use imp::{capture, piece_move};
+pub use imp::{capture, piece_move, prepare, twilight, write_defaults};
 
 #[cfg(not(windows))]
 pub fn piece_move() {}
 
 #[cfg(not(windows))]
 pub fn capture() {}
+
+#[cfg(not(windows))]
+pub fn twilight() {}
+
+#[cfg(not(windows))]
+pub fn prepare() {}
+
+#[cfg(not(windows))]
+pub fn write_defaults(_dir: &std::path::Path) {}

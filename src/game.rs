@@ -5,6 +5,7 @@
 //! по правилам шашек и наоборот. Ходы в момент перехода замирают.
 
 pub const TRANS_SECS: f32 = 1.7;
+pub const MOVE_ANIM_SECS: f32 = 0.22;
 pub const MIN_PHASE: f32 = 10.0;
 pub const MAX_PHASE: f32 = 45.0;
 
@@ -67,12 +68,6 @@ impl Kind {
         }
     }
 
-    /// В шашечной фазе пешки и кони становятся простыми шашками,
-    /// остальные фигуры — дамками.
-    pub fn becomes_man(self) -> bool {
-        matches!(self, Kind::Pawn | Kind::Knight)
-    }
-
     pub fn material(self) -> i32 {
         match self {
             Kind::Pawn => 1,
@@ -102,7 +97,7 @@ impl Piece {
     }
 
     pub fn is_damka(&self) -> bool {
-        self.crowned || !self.kind.becomes_man()
+        self.crowned
     }
 }
 
@@ -168,6 +163,10 @@ pub struct Game {
     pub legal: Vec<Move>,
     pub chain: Option<Square>,
     pub last_move: Option<(Square, Square)>,
+    /// Последнее взятие: клетка и съеденная фигура (для анимации и повтора).
+    pub last_capture: Option<(Square, Piece)>,
+    /// Прогресс анимации последнего хода: 0 — начало, 1 — конец.
+    pub move_anim: f32,
     pub log: Vec<String>,
     pub ply: u32,
     pub captured_by_white: u32,
@@ -214,6 +213,8 @@ impl Game {
             legal: Vec::new(),
             chain: None,
             last_move: None,
+            last_capture: None,
+            move_anim: 1.0,
             log: Vec::new(),
             ply: 0,
             captured_by_white: 0,
@@ -381,6 +382,8 @@ impl Game {
         if self.is_locked() {
             return;
         }
+        self.move_anim = 0.0;
+        self.last_capture = None;
         let from = mv.from;
         let to = mv.to;
         let piece = match self.board[from.1][from.0].take() {
@@ -398,6 +401,7 @@ impl Game {
                 if victim.kind == Kind::King {
                     self.royal_captured = Some(victim.side);
                 }
+                self.last_capture = Some((cap, victim));
             }
         }
 
@@ -472,7 +476,7 @@ impl Game {
         if self.phase == Phase::Checkers {
             if let Some(mut p) = self.board[to.1][to.0] {
                 let last = if p.side == Side::White { 7 } else { 0 };
-                if p.kind.becomes_man() && to.1 == last {
+                if to.1 == last {
                     p.crowned = true;
                     self.board[to.1][to.0] = Some(p);
                     self.crowned_flash = Some((to, 1.0));
@@ -496,6 +500,7 @@ impl Game {
             return;
         }
         self.pending_promotion = None;
+        self.move_anim = 1.0;
         if let Some(mut p) = self.board[sq.1][sq.0] {
             p.kind = kind;
             self.board[sq.1][sq.0] = Some(p);
@@ -511,6 +516,9 @@ impl Game {
     pub fn tick(&mut self, dt: f32) {
         let dt = dt.clamp(0.0, 0.1);
         self.anim += dt;
+        if self.move_anim < 1.0 {
+            self.move_anim = (self.move_anim + dt / MOVE_ANIM_SECS).min(1.0);
+        }
         if let Some((_, t)) = self.crowned_flash {
             let t = t - dt * 1.6;
             self.crowned_flash = if t > 0.0 {
@@ -605,6 +613,8 @@ impl Game {
         self.chain = None;
         self.pending.clear();
         self.pending_promotion = None;
+        self.last_capture = None;
+        self.move_anim = 1.0;
         self.passes = 0;
         if !self.is_over() {
             self.refresh_status();
@@ -1085,6 +1095,34 @@ mod tests {
     }
 
     #[test]
+    fn checkers_start_without_damki() {
+        let g = test_game();
+        assert!(
+            g.board.iter().flatten().flatten().all(|p| !p.is_damka()),
+            "в начале шашечной фазы дамок нет"
+        );
+    }
+
+    #[test]
+    fn checker_crowns_on_last_rank() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[6][0] = Some(Piece::new(Side::White, Kind::Pawn)); // a7
+        g.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
+        g.turn = Side::White;
+        let mv = Move {
+            from: (0, 6),
+            to: (1, 7),
+            captured: None,
+        };
+        g.apply(mv);
+        let p = g.piece_at((1, 7)).unwrap();
+        assert!(p.crowned, "простая шашка на последнем ряду стала дамкой");
+        assert!(p.is_damka());
+    }
+
+    #[test]
     fn pawn_cannot_jump_over_piece() {
         let mut g = test_game();
         g.board[1][4] = None; // e2 убрана
@@ -1112,7 +1150,9 @@ mod tests {
         let mut g = test_game();
         g.board = [[None; 8]; 8];
         g.phase = Phase::Checkers;
-        g.board[0][0] = Some(Piece::new(Side::White, Kind::Rook)); // a1 — дамка
+        let mut damka = Piece::new(Side::White, Kind::Rook);
+        damka.crowned = true;
+        g.board[0][0] = Some(damka); // a1 — дамка
         g.board[3][3] = Some(Piece::new(Side::Black, Kind::Pawn)); // d4
         g.turn = Side::White;
         let moves = g.all_moves();
@@ -1430,6 +1470,30 @@ mod tests {
             g.tick(0.05);
         }
         assert_eq!(g.phase, Phase::Checkers, "цикл продолжается");
+    }
+
+    #[test]
+    fn winning_capture_is_recorded() {
+        let mut g = test_game();
+        g.phase = Phase::Checkers;
+        g.board = [[None; 8]; 8];
+        let mut damka = Piece::new(Side::White, Kind::Rook);
+        damka.crowned = true;
+        g.board[3][3] = Some(damka); // d4
+        g.board[4][4] = Some(Piece::new(Side::Black, Kind::King)); // e5
+        g.turn = Side::White;
+        g.apply(Move {
+            from: (3, 3),
+            to: (5, 5),
+            captured: Some((4, 4)),
+        });
+        assert!(g.is_over());
+        assert_eq!(g.last_move, Some(((3, 3), (5, 5))));
+        assert_eq!(
+            g.last_capture.map(|(sq, p)| (sq, p.kind)),
+            Some(((4, 4), Kind::King))
+        );
+        assert!(g.piece_at((5, 5)).is_some());
     }
 
     fn dump(g: &Game) -> String {

@@ -13,7 +13,7 @@ use art::{
     sparkle, text, Palette,
 };
 use eframe::egui::{self, Align2, Color32, CursorIcon, FontId, Pos2, Rect, Sense, Stroke, Vec2};
-use game::{Game, Kind, Phase, Piece, Side, Square};
+use game::{Game, Kind, Move, Phase, Piece, Side, Square};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
@@ -29,6 +29,7 @@ fn main() -> eframe::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let mut shot_path: Option<PathBuf> = None;
     let mut demo: Option<String> = None;
+    let mut write_sounds: Option<PathBuf> = None;
     let mut i = 1;
     while i < args.len() {
         if args[i] == "--screenshot" {
@@ -43,7 +44,17 @@ fn main() -> eframe::Result<()> {
                 i += 1;
             }
         }
+        if args[i] == "--write-sounds" {
+            if let Some(p) = args.get(i + 1) {
+                write_sounds = Some(PathBuf::from(p));
+                i += 1;
+            }
+        }
         i += 1;
+    }
+    if let Some(dir) = write_sounds {
+        sound::write_defaults(&dir);
+        return Ok(());
     }
     let shot_mode = shot_path.is_some();
 
@@ -176,6 +187,8 @@ pub struct App {
     ai_seed: u64,
     shot: Option<Shot>,
     frames: u32,
+    last_trans: f32,
+    replay: f32,
 }
 
 impl App {
@@ -188,6 +201,7 @@ impl App {
         let mut game = initial_game();
         apply_demo(&mut game, demo.as_deref());
         let rules_open = demo.as_deref() == Some("rules");
+        sound::prepare();
 
         App {
             game,
@@ -204,6 +218,8 @@ impl App {
                 saved: false,
             }),
             frames: 0,
+            last_trans: 0.0,
+            replay: 0.0,
         }
     }
 
@@ -237,6 +253,8 @@ impl App {
     fn new_game(&mut self) {
         self.game = Game::new(self.game.phase_len);
         self.ai_wait = 0.6;
+        self.last_trans = 0.0;
+        self.replay = 0.0;
     }
 
     fn sound_mark(&self) -> SoundMark {
@@ -330,7 +348,7 @@ impl App {
                 if self.rules {
                     self.paint_rules(ui, ctx, &painter, layout);
                 }
-                if self.game.is_over() {
+                if self.game.is_over() && !self.rules {
                     self.paint_result(ui, ctx, &painter, layout);
                 }
             });
@@ -443,6 +461,22 @@ impl App {
     }
 
     // ------------------------- доска -------------------------
+
+    /// Активная анимация хода: (откуда, куда, прогресс 0..1).
+    fn active_move_anim(&self, g: &Game) -> Option<(Square, Square, f32)> {
+        let (from, to) = g.last_move?;
+        if g.is_over() {
+            let p = ((self.replay % 4.0) / 2.8).clamp(0.0, 1.0);
+            if p >= 1.0 {
+                return None;
+            }
+            Some((from, to, smooth(p)))
+        } else if g.move_anim < 1.0 {
+            Some((from, to, smooth(g.move_anim)))
+        } else {
+            None
+        }
+    }
 
     fn paint_board(&mut self, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
         let g = &self.game;
@@ -606,17 +640,34 @@ impl App {
 
         // фигуры
         let pulse_amp = 0.028 + 0.05 * bell(g.trans);
+        let anim = self.active_move_anim(g);
         for r in 0..8usize {
             for f in 0..8usize {
                 let sq = (f, r);
+                let seed = f as f32 * 0.83 + r as f32 * 1.71;
+                let pulse = 1.0 + pulse_amp * (self.time * 2.0 + seed).sin();
+                let base_size = layout.cell * 1.08 * pulse;
                 if let Some(piece) = g.piece_at(sq) {
                     let mut center = layout.square_rect(sq).center();
+                    let mut size = base_size;
+                    let mut moving = false;
+                    if let Some((from, to, t)) = anim {
+                        if sq == to {
+                            center = lerp_pos(
+                                layout.square_rect(from).center(),
+                                layout.square_rect(to).center(),
+                                t,
+                            );
+                            size *= 1.0 + 0.06 * (std::f32::consts::PI * t).sin();
+                            moving = true;
+                        }
+                    }
                     if g.selected == Some(sq) && g.trans == 0.0 {
                         center.y -= layout.cell * 0.035;
                     }
-                    let seed = f as f32 * 0.83 + r as f32 * 1.71;
-                    let pulse = 1.0 + pulse_amp * (self.time * 2.0 + seed).sin();
-                    let size = layout.cell * 1.08 * pulse;
+                    if moving {
+                        glow_dot(painter, center, layout.cell * 0.34, pal.accent, 0.32);
+                    }
                     if g.selected == Some(sq) {
                         glow_dot(
                             painter,
@@ -698,6 +749,31 @@ impl App {
                                 center,
                                 rr,
                                 Stroke::new(2.0_f32, alpha(pal.accent, t * 0.8)),
+                            );
+                        }
+                    }
+                } else if let Some((cap, victim)) = g.last_capture {
+                    if let Some((_, _, t)) = anim {
+                        if sq == cap {
+                            let center = layout.square_rect(sq).center();
+                            let ghost = (1.0 - t).clamp(0.0, 1.0);
+                            glow_dot(
+                                painter,
+                                center,
+                                layout.cell * 0.32,
+                                pal.danger,
+                                0.30 * ghost,
+                            );
+                            self.paint_piece(
+                                painter,
+                                center,
+                                base_size * (1.0 - 0.25 * t),
+                                victim.kind,
+                                victim.is_damka(),
+                                victim.side,
+                                &pal,
+                                ghost * 0.85,
+                                phase == Phase::Checkers,
                             );
                         }
                     }
@@ -1184,6 +1260,9 @@ impl App {
         );
 
         // --- взаимодействие ---
+        if self.game.is_over() {
+            return;
+        }
         if self.game.pending_promotion.is_some() {
             return;
         }
@@ -1422,18 +1501,19 @@ impl App {
     // ------------------------- результат -------------------------
 
     fn paint_result(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
-        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(160));
+        // Лёгкое затемнение: доска с повтором остаётся видимой.
+        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(70));
         let card = Rect::from_center_size(
-            layout.board.center(),
-            Vec2::new(460.0, 250.0),
+            layout.panel.center(),
+            Vec2::new((layout.panel.width() - 18.0).max(260.0), 320.0),
         );
         let pal = Palette::for_phase(self.game.phase);
         rr(
             painter,
             card,
-            24.0,
-            Color32::from_rgb(22, 20, 30),
-            Stroke::new(1.0_f32, alpha(pal.accent, 0.35)),
+            22.0,
+            alpha(Color32::from_rgb(22, 20, 30), 0.92),
+            Stroke::new(1.0_f32, alpha(pal.accent, 0.45)),
         );
 
         let g = &self.game;
@@ -1450,39 +1530,87 @@ impl App {
             ),
             _ => ("ПАРТИЯ".to_string(), String::new(), pal.text),
         };
+        let pad = 22.0;
+        let x = card.left() + pad;
+        let w = card.width() - pad * 2.0;
 
         spaced_text(
             painter,
-            Pos2::new(card.left() + 30.0, card.top() + 42.0),
+            Pos2::new(x, card.top() + 30.0),
             &title,
-            20.0,
+            17.0,
             color,
-            3.2,
+            2.0,
         );
         text(
             painter,
-            Pos2::new(card.left() + 30.0, card.top() + 76.0),
+            Pos2::new(x, card.top() + 58.0),
             Align2::LEFT_TOP,
             reason,
-            13.0,
+            12.5,
             alpha(pal.text_dim, 0.95),
         );
+
+        // Строка повтора: кто кого срубил и в каком режиме.
+        let replay_line = if let Some((_, to)) = g.last_move {
+            if let (Some(attacker), Some((_, victim))) = (g.piece_at(to), g.last_capture) {
+                let phase = if g.phase == Phase::Checkers {
+                    "шашки"
+                } else {
+                    "шахматы"
+                };
+                let side_ru = |s: Side| if s == Side::White { "белые" } else { "чёрные" };
+                let (att, vic) = if g.phase == Phase::Checkers {
+                    (
+                        if attacker.is_damka() { "дамка" } else { "шашка" },
+                        if victim.kind == Kind::King {
+                            "король"
+                        } else {
+                            "шашка"
+                        },
+                    )
+                } else {
+                    (piece_ru(attacker.kind), piece_ru(victim.kind))
+                };
+                format!(
+                    "Повтор: {} — {}, {} — {} · {}",
+                    side_ru(attacker.side),
+                    att,
+                    side_ru(victim.side),
+                    vic,
+                    phase
+                )
+            } else {
+                "Повтор последнего хода".to_string()
+            }
+        } else {
+            String::new()
+        };
+        if !replay_line.is_empty() {
+            let galley = painter.layout(
+                replay_line,
+                FontId::proportional(11.5),
+                alpha(pal.text, 0.9),
+                w,
+            );
+            painter.galley(Pos2::new(x, card.top() + 84.0), galley, Color32::WHITE);
+        }
         text(
             painter,
-            Pos2::new(card.left() + 30.0, card.top() + 104.0),
+            Pos2::new(x, card.top() + 126.0),
             Align2::LEFT_TOP,
             format!("Ходов в журнале: {}", g.log.len()),
-            11.5,
+            11.0,
             alpha(pal.text_dim, 0.7),
         );
 
         let again = Rect::from_min_size(
-            Pos2::new(card.left() + 30.0, card.bottom() - 72.0),
-            Vec2::new(200.0, 42.0),
+            Pos2::new(x, card.bottom() - 104.0),
+            Vec2::new(w, 42.0),
         );
         let rules = Rect::from_min_size(
-            Pos2::new(card.right() - 30.0 - 130.0, card.bottom() - 72.0),
-            Vec2::new(130.0, 42.0),
+            Pos2::new(x, card.bottom() - 54.0),
+            Vec2::new(w, 38.0),
         );
         if button(ui, again, "Новая партия", true, &pal, 14.0) {
             self.new_game();
@@ -1557,6 +1685,15 @@ impl eframe::App for App {
         if !self.rules {
             self.game.tick(dt);
         }
+        if self.game.trans > 0.0 && self.last_trans == 0.0 {
+            sound::twilight();
+        }
+        self.last_trans = self.game.trans;
+        if self.game.is_over() {
+            self.replay += dt;
+        } else {
+            self.replay = 0.0;
+        }
         self.update_ai(dt);
         ctx.request_repaint();
 
@@ -1575,6 +1712,21 @@ impl eframe::App for App {
 fn hash(v: f32) -> f32 {
     let x = (v * 12.9898).sin() * 43758.5453;
     x - x.floor()
+}
+
+fn lerp_pos(a: Pos2, b: Pos2, t: f32) -> Pos2 {
+    Pos2::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+}
+
+fn piece_ru(kind: Kind) -> &'static str {
+    match kind {
+        Kind::Pawn => "пешка",
+        Kind::Knight => "конь",
+        Kind::Bishop => "слон",
+        Kind::Rook => "ладья",
+        Kind::Queen => "ферзь",
+        Kind::King => "король",
+    }
 }
 
 /// Партия начинается в шахматной фазе.
@@ -1606,6 +1758,21 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.turn = Side::White;
             game.pending_promotion = Some((0, 7));
             game.log.push("демо: превращение пешки".into());
+        }
+        Some("win") => {
+            game.phase = Phase::Checkers;
+            game.board = [[None; 8]; 8];
+            let mut damka = Piece::new(Side::White, Kind::Rook);
+            damka.crowned = true;
+            game.board[3][3] = Some(damka); // d4
+            game.board[4][4] = Some(Piece::new(Side::Black, Kind::King)); // e5
+            game.turn = Side::White;
+            game.apply(Move {
+                from: (3, 3),
+                to: (5, 5),
+                captured: Some((4, 4)),
+            });
+            game.log.push("демо: победа по королю".into());
         }
         _ => {}
     }

@@ -328,18 +328,18 @@ pub fn draw_chess_piece(
             fill_rect(painter, center, size, 0.455, 0.50, 0.545, 0.615, 0.02, line, line, a * 0.9);
         }
         Kind::Knight => {
-            // Классический конь: шея, голова с мордой, ухо и грива.
+            // Классический конь смотрит влево, как на эталонной фигуре.
             fill_poly(
                 painter,
                 center,
                 size,
                 &[
-                    (0.30, 0.76),
-                    (0.66, 0.76),
-                    (0.64, 0.60),
-                    (0.60, 0.46),
-                    (0.46, 0.44),
-                    (0.36, 0.56),
+                    (0.68, 0.76),
+                    (0.34, 0.76),
+                    (0.38, 0.58),
+                    (0.44, 0.46),
+                    (0.56, 0.44),
+                    (0.66, 0.58),
                 ],
                 fill,
                 line,
@@ -350,14 +350,15 @@ pub fn draw_chess_piece(
                 center,
                 size,
                 &[
-                    (0.46, 0.44),
-                    (0.47, 0.33),
-                    (0.53, 0.26),
-                    (0.62, 0.28),
-                    (0.70, 0.34),
-                    (0.73, 0.42),
-                    (0.67, 0.49),
-                    (0.56, 0.49),
+                    (0.56, 0.44),
+                    (0.54, 0.31),
+                    (0.50, 0.24),
+                    (0.40, 0.25),
+                    (0.31, 0.30),
+                    (0.24, 0.37),
+                    (0.23, 0.44),
+                    (0.30, 0.50),
+                    (0.44, 0.50),
                 ],
                 fill,
                 line,
@@ -367,39 +368,38 @@ pub fn draw_chess_piece(
                 painter,
                 center,
                 size,
-                &[(0.50, 0.27), (0.52, 0.15), (0.58, 0.27)],
+                &[(0.49, 0.25), (0.51, 0.18), (0.55, 0.26)],
                 fill,
                 line,
                 a,
             );
-            // грива вдоль шеи
-            let mane = alpha(line, a * 0.8);
-            let mw = (size * 0.017).max(0.8);
-            for (x1, y1, x2, y2) in [
-                (0.345, 0.735, 0.285, 0.695),
-                (0.355, 0.655, 0.295, 0.615),
-                (0.375, 0.575, 0.315, 0.535),
-                (0.410, 0.495, 0.350, 0.455),
-            ] {
-                painter.line_segment(
-                    [
-                        u(painter, center, size, x1, y1),
-                        u(painter, center, size, x2, y2),
-                    ],
-                    Stroke::new(mw, mane),
-                );
-            }
+            // Грива по задней стороне шеи.
+            fill_poly(
+                painter,
+                center,
+                size,
+                &[
+                    (0.66, 0.74),
+                    (0.56, 0.46),
+                    (0.59, 0.45),
+                    (0.67, 0.55),
+                    (0.69, 0.72),
+                ],
+                fill,
+                line,
+                a,
+            );
             // глаз и ноздря
-            fill_circle(painter, center, size, 0.575, 0.350, 0.016, line, line, a);
-            fill_circle(painter, center, size, 0.705, 0.400, 0.009, line, line, a);
+            fill_circle(painter, center, size, 0.405, 0.350, 0.016, line, line, a);
+            fill_circle(painter, center, size, 0.265, 0.415, 0.009, line, line, a);
         }
         Kind::Bishop => {
-            // Классическая митра на трапециевидном теле.
+            // Классическая митра: высокий купол, шарик и прорезь.
             fill_poly(
                 painter,
                 center,
                 size,
-                &[(0.37, 0.75), (0.63, 0.75), (0.565, 0.55), (0.435, 0.55)],
+                &[(0.38, 0.75), (0.62, 0.75), (0.565, 0.55), (0.435, 0.55)],
                 fill,
                 line,
                 a,
@@ -409,49 +409,27 @@ pub fn draw_chess_piece(
                 painter,
                 center,
                 size,
-                &[(0.40, 0.52), (0.50, 0.15), (0.60, 0.52)],
+                &[
+                    (0.40, 0.52),
+                    (0.42, 0.34),
+                    (0.47, 0.20),
+                    (0.50, 0.14),
+                    (0.53, 0.20),
+                    (0.58, 0.34),
+                    (0.60, 0.52),
+                ],
                 fill,
                 line,
                 a,
             );
-            fill_circle(painter, center, size, 0.50, 0.52, 0.085, fill, line, a);
-            fill_circle(painter, center, size, 0.50, 0.145, 0.026, fill, line, a);
+            fill_circle(painter, center, size, 0.50, 0.125, 0.028, fill, line, a);
             painter.line_segment(
                 [
-                    u(painter, center, size, 0.548, 0.34),
-                    u(painter, center, size, 0.472, 0.47),
+                    u(painter, center, size, 0.548, 0.30),
+                    u(painter, center, size, 0.468, 0.44),
                 ],
-                Stroke::new((size * 0.024).max(1.0), alpha(line, a * 0.95)),
+                Stroke::new((size * 0.022).max(1.0), alpha(line, a * 0.95)),
             );
-            // Маленькая пиктограмма слона на теле: тело, голова, ухо, хобот, ноги.
-            let icon = alpha(line, a * 0.78);
-            let iw = (size * 0.013).max(0.8);
-            painter.circle_filled(u(painter, center, size, 0.478, 0.652), size * 0.048, icon);
-            painter.circle_filled(u(painter, center, size, 0.560, 0.635), size * 0.027, icon);
-            painter.circle_filled(u(painter, center, size, 0.528, 0.612), size * 0.026, icon);
-            painter.line_segment(
-                [
-                    u(painter, center, size, 0.582, 0.645),
-                    u(painter, center, size, 0.594, 0.676),
-                ],
-                Stroke::new(iw, icon),
-            );
-            painter.line_segment(
-                [
-                    u(painter, center, size, 0.594, 0.676),
-                    u(painter, center, size, 0.578, 0.692),
-                ],
-                Stroke::new(iw, icon),
-            );
-            for x in [0.452, 0.508] {
-                painter.line_segment(
-                    [
-                        u(painter, center, size, x, 0.684),
-                        u(painter, center, size, x, 0.708),
-                    ],
-                    Stroke::new(iw, icon),
-                );
-            }
         }
         Kind::Queen => {
             fill_poly(

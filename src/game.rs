@@ -153,6 +153,7 @@ pub enum Status {
     Draw(String),
 }
 
+#[derive(Clone)]
 pub struct Game {
     pub board: Board,
     pub turn: Side,
@@ -173,6 +174,8 @@ pub struct Game {
     pub captured_by_black: u32,
     pub anim: f32,
     pub crowned_flash: Option<(Square, f32)>,
+    /// Сколько ходов подряд пропущено из-за отсутствия ходов в шашках.
+    pub passes: u8,
     royal_captured: Option<Side>,
     pending: String,
 }
@@ -215,6 +218,7 @@ impl Game {
             captured_by_black: 0,
             anim: 0.0,
             crowned_flash: None,
+            passes: 0,
             royal_captured: None,
             pending: String::new(),
         }
@@ -423,6 +427,8 @@ impl Game {
             if self.turn == Side::White {
                 self.ply += 1;
                 s.push_str(&format!("{}. ", self.ply));
+            } else {
+                s.push_str(&format!("{}… ", self.ply.max(1)));
             }
             if orig_kind != Kind::Pawn {
                 s.push_str(orig_kind.letter());
@@ -471,6 +477,7 @@ impl Game {
         }
 
         self.chain = None;
+        self.passes = 0;
         self.turn = self.turn.other();
         self.refresh_status();
     }
@@ -507,6 +514,38 @@ impl Game {
                 }
             }
         }
+
+        self.auto_pass();
+    }
+
+    /// В шашках «нечем ходить» — это пропуск хода, а не поражение:
+    /// фигуры скоро снова станут шахматными. Если застряли оба, ждём сумерки.
+    fn auto_pass(&mut self) {
+        if self.phase != Phase::Checkers
+            || self.trans > 0.0
+            || self.chain.is_some()
+            || self.is_over()
+            || self.passes >= 2
+        {
+            return;
+        }
+        if !self.all_moves().is_empty() {
+            return;
+        }
+        let side = self.turn;
+        self.turn = self.turn.other();
+        self.passes = self.passes.saturating_add(1);
+        self.selected = None;
+        self.legal.clear();
+        let name = match side {
+            Side::White => "белым",
+            Side::Black => "чёрным",
+        };
+        self.log.push(format!("— {} нечем ходить: пропуск", name));
+        if self.log.len() > 240 {
+            self.log.remove(0);
+        }
+        self.refresh_status();
     }
 
     fn flip_phase(&mut self) {
@@ -517,6 +556,7 @@ impl Game {
         self.legal.clear();
         self.chain = None;
         self.pending.clear();
+        self.passes = 0;
         if !self.is_over() {
             self.refresh_status();
         }
@@ -559,14 +599,9 @@ impl Game {
                 }
             }
             Phase::Checkers => {
-                if moves.is_empty() {
-                    self.status = Status::Win {
-                        side: self.turn.other(),
-                        reason: "у соперника нет ходов".into(),
-                    };
-                } else {
-                    self.status = Status::Playing;
-                }
+                // Нет ходов — не поражение: ход просто переходит сопернику.
+                // Этим занимается tick().
+                self.status = Status::Playing;
             }
         }
         let checked = matches!(self.status, Status::Check(_));
@@ -1166,6 +1201,112 @@ mod tests {
                 let mv = moves[next() % moves.len()];
                 g.apply(mv);
                 assert!(g.count(Side::White) <= 16 && g.count(Side::Black) <= 16);
+            }
+        }
+    }
+
+    #[test]
+    fn checkers_no_moves_is_a_pass() {
+        let mut g = Game::new(25.0);
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[0][7] = Some(Piece::new(Side::White, Kind::King)); // h1 — дамка
+        g.board[0][0] = Some(Piece::new(Side::Black, Kind::Pawn)); // a1 — ходов нет
+        g.turn = Side::Black;
+        g.tick(0.05);
+        assert_eq!(g.turn, Side::White, "ход перешёл белым");
+        assert_eq!(g.passes, 1);
+        assert!(g.log.iter().any(|l| l.contains("пропуск")), "пропуск в журнале");
+        assert!(!g.is_over(), "это не поражение");
+    }
+
+    #[test]
+    fn both_stuck_wait_for_twilight() {
+        let mut g = Game::new(25.0);
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[0][0] = Some(Piece::new(Side::Black, Kind::Pawn)); // a1
+        g.board[7][7] = Some(Piece::new(Side::White, Kind::Pawn)); // h8
+        g.turn = Side::Black;
+        for _ in 0..5 {
+            g.tick(0.05);
+        }
+        assert_eq!(g.passes, 2, "оба пропустили — ждём сумерки");
+        assert!(!g.is_over(), "никто не проиграл");
+    }
+
+    fn dump(g: &Game) -> String {
+        let mut s = String::new();
+        for r in (0..8).rev() {
+            for f in 0..8 {
+                let c = match g.board[r][f] {
+                    None => '.',
+                    Some(p) => {
+                        let base = match p.kind {
+                            Kind::Pawn => 'p',
+                            Kind::Knight => 'n',
+                            Kind::Bishop => 'b',
+                            Kind::Rook => 'r',
+                            Kind::Queen => 'q',
+                            Kind::King => 'k',
+                        };
+                        if p.side == Side::White {
+                            base.to_ascii_uppercase()
+                        } else {
+                            base
+                        }
+                    }
+                };
+                s.push(c);
+                s.push(' ');
+            }
+            s.push('\n');
+        }
+        s.push_str(&format!(
+            "phase={:?} turn={:?} status={:?} chain={:?} trans={} left={}\n",
+            g.phase, g.turn, g.status, g.chain, g.trans, g.phase_left
+        ));
+        s
+    }
+
+    #[test]
+    fn checkers_moves_are_reachable() {
+        let mut seed = 0x1234_5678_9ABC_DEF0u64;
+        let mut next = move || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            (seed >> 33) as usize
+        };
+        for game_i in 0..200 {
+            let mut g = Game::new(25.0);
+            g.phase = Phase::Checkers;
+            for ply in 0..200 {
+                if g.is_over() {
+                    break;
+                }
+                let moves = g.all_moves();
+                if moves.is_empty() {
+                    assert!(
+                        g.passes > 0,
+                        "пусто без пропуска: партия {game_i}, полуход {ply}\n{}",
+                        dump(&g)
+                    );
+                    break;
+                }
+                for mv in &moves {
+                    let reachable = g
+                        .moves_for(mv.from)
+                        .iter()
+                        .any(|m| m.to == mv.to && m.captured == mv.captured);
+                    if !reachable {
+                        panic!(
+                            "ход не выбирается кликом: партия {game_i}, полуход {ply}, {mv:?}\n{}",
+                            dump(&g)
+                        );
+                    }
+                }
+                let mv = moves[next() % moves.len()];
+                g.apply(mv);
+                g.tick(0.0);
             }
         }
     }

@@ -1,16 +1,24 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ai;
 mod art;
 mod game;
 
 use std::path::PathBuf;
 
+use ai::{Difficulty, ALL_DIFFICULTIES};
 use art::{
     alpha, blend, draw_checker, draw_chess_piece, glow_dot, gradient, mix, rr, smooth, spaced_text,
     sparkle, text, Palette,
 };
 use eframe::egui::{self, Align2, Color32, CursorIcon, FontId, Pos2, Rect, Sense, Stroke, Vec2};
 use game::{Game, Kind, Phase, Side, Square};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    Hotseat,
+    Computer,
+}
 
 // ---------------------------------------------------------------------------
 // Точка входа
@@ -144,6 +152,10 @@ pub struct App {
     time: f32,
     rules: bool,
     rules_rect: Rect,
+    mode: Mode,
+    difficulty: Difficulty,
+    ai_wait: f32,
+    ai_seed: u64,
     shot: Option<Shot>,
     frames: u32,
 }
@@ -160,6 +172,10 @@ impl App {
             time: 0.0,
             rules: false,
             rules_rect: Rect::NOTHING,
+            mode: Mode::Hotseat,
+            difficulty: Difficulty::Medium,
+            ai_wait: 0.6,
+            ai_seed: 0x9E37_79B9_7F4A_7C15,
             shot: shot.map(|path| Shot {
                 path,
                 requested: false,
@@ -198,6 +214,30 @@ impl App {
 
     fn new_game(&mut self) {
         self.game = Game::new(self.game.phase_len);
+        self.ai_wait = 0.6;
+    }
+
+    /// Компьютер играет чёрными: думает полсекунды и делает ход.
+    fn update_ai(&mut self, dt: f32) {
+        if self.mode != Mode::Computer {
+            self.ai_wait = 0.6;
+            return;
+        }
+        if self.rules || self.game.paused || self.game.is_over() || self.game.trans > 0.0 {
+            return;
+        }
+        if self.game.turn != Side::Black {
+            self.ai_wait = 0.6;
+            return;
+        }
+        self.ai_wait -= dt;
+        if self.ai_wait > 0.0 {
+            return;
+        }
+        if let Some(mv) = ai::best_move(&self.game, self.difficulty, &mut self.ai_seed) {
+            self.game.apply(mv);
+        }
+        self.ai_wait = 0.55;
     }
 
     fn handle_pointer(&mut self, ctx: &egui::Context, layout: &Layout) {
@@ -216,6 +256,9 @@ impl App {
             return;
         }
         if self.game.is_over() {
+            return;
+        }
+        if self.mode == Mode::Computer && self.game.turn == Side::Black {
             return;
         }
         if let Some(sq) = layout.square_at(pos) {
@@ -845,6 +888,10 @@ impl App {
                 "пауза".to_string()
             } else if g.twilight_pending() {
                 "переход ждёт конца взятия".to_string()
+            } else if g.passes >= 2 {
+                "нет ходов — ждём сумерки".to_string()
+            } else if self.mode == Mode::Computer && g.turn == Side::Black {
+                "компьютер думает…".to_string()
             } else {
                 format!("до превращения в {}", g.phase.other().one_ru())
             },
@@ -898,7 +945,56 @@ impl App {
                 },
             );
         }
-        y += pill_h + 14.0;
+        y += pill_h + 12.0;
+
+        // соперник
+        text(
+            painter,
+            Pos2::new(x, y + 5.0),
+            Align2::LEFT_TOP,
+            "СОПЕРНИК",
+            8.5,
+            alpha(cur.text_dim, 0.75),
+        );
+        let label_w = 66.0;
+        let chip_h = 24.0;
+        let chips_x = x + label_w;
+        let chips_w = w - label_w;
+        let chip_half = (chips_w - 8.0) * 0.5;
+        let hot = Rect::from_min_size(Pos2::new(chips_x, y), Vec2::new(chip_half, chip_h));
+        let comp = Rect::from_min_size(
+            Pos2::new(chips_x + chip_half + 8.0, y),
+            Vec2::new(chip_half, chip_h),
+        );
+        if chip(ui, hot, "вдвоём", self.mode == Mode::Hotseat, &cur) {
+            self.mode = Mode::Hotseat;
+        }
+        if chip(ui, comp, "с компьютером", self.mode == Mode::Computer, &cur) {
+            self.mode = Mode::Computer;
+            self.ai_wait = 0.5;
+        }
+        y += chip_h + 8.0;
+        if self.mode == Mode::Computer {
+            text(
+                painter,
+                Pos2::new(x, y + 5.0),
+                Align2::LEFT_TOP,
+                "СЛОЖНОСТЬ",
+                8.5,
+                alpha(cur.text_dim, 0.75),
+            );
+            let cw = (chips_w - 16.0) / 3.0;
+            for (i, d) in ALL_DIFFICULTIES.iter().enumerate() {
+                let r = Rect::from_min_size(
+                    Pos2::new(chips_x + i as f32 * (cw + 8.0), y),
+                    Vec2::new(cw, chip_h),
+                );
+                if chip(ui, r, d.label_ru(), self.difficulty == *d, &cur) {
+                    self.difficulty = *d;
+                }
+            }
+            y += chip_h + 8.0;
+        }
 
         divider(painter, x, y, w, cur.text_dim);
         y += 20.0;
@@ -1129,7 +1225,7 @@ impl App {
             "Дамки летят по диагонали на любое расстояние.",
             "Бить обязательно; серия взятий продолжается, пока есть цель.",
             "Съеденная фигура-король в шашечной фазе — тоже дамка, её можно взять.",
-            "Нет ходов — поражение.",
+            "Если ходить нечем — ход переходит сопернику, ждём сумерки.",
         ];
         let mut yy = y;
         for line in chess_rules {
@@ -1154,6 +1250,7 @@ impl App {
             "Переход ждёт, пока игрок завершит серию взятий.",
             "Победа: мат, съеденный король или у соперника не осталось фигур.",
             "Темп превращений можно менять в панели справа — 15, 25 или 40 секунд.",
+            "С компьютером вы играете белыми: сложность меняет глубину его расчёта.",
         ];
         for line in shared {
             dot_line(painter, x, y, w, line, Color32::from_rgb(150, 142, 162));
@@ -1309,6 +1406,7 @@ impl eframe::App for App {
         if !self.rules {
             self.game.tick(dt);
         }
+        self.update_ai(dt);
         ctx.request_repaint();
 
         let layout = Layout::new(ctx);

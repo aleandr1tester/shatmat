@@ -140,6 +140,19 @@ pub struct Move {
     pub captured: Option<Square>,
 }
 
+/// Один полуход для файла лога партии.
+#[derive(Clone, Debug)]
+pub struct MoveRecord {
+    pub side: Side,
+    pub kind: Kind,
+    /// Был ли ходящий уже дамкой (для шашечной фазы).
+    pub damka: bool,
+    pub from: Square,
+    pub to: Square,
+    pub captured: Option<(Side, Kind)>,
+    pub phase: Phase,
+}
+
 #[derive(Clone, PartialEq, Debug)]
 pub enum Status {
     Playing,
@@ -172,6 +185,8 @@ pub struct Game {
     /// Длительность анимации хода в секундах (настраивается в меню).
     pub move_anim_secs: f32,
     pub log: Vec<String>,
+    /// Структурированная история полуходов для файла лога.
+    pub history: Vec<MoveRecord>,
     pub ply: u32,
     pub captured_by_white: u32,
     pub captured_by_black: u32,
@@ -226,6 +241,7 @@ impl Game {
             move_anim: 1.0,
             move_anim_secs: MOVE_ANIM_SECS,
             log: Vec::new(),
+            history: Vec::new(),
             ply: 0,
             captured_by_white: 0,
             captured_by_black: 0,
@@ -422,6 +438,7 @@ impl Game {
             None => return,
         };
         let orig_kind = piece.kind;
+        let mut captured_info = None;
 
         if let Some(cap) = mv.captured {
             if let Some(victim) = self.board[cap.1][cap.0].take() {
@@ -432,6 +449,7 @@ impl Game {
                 if victim.kind == Kind::King {
                     self.royal_captured = Some(victim.side);
                 }
+                captured_info = Some((victim.side, victim.kind));
                 self.last_capture = Some((cap, victim));
             }
         }
@@ -440,6 +458,15 @@ impl Game {
         self.last_move = Some((from, to));
         self.selected = None;
         self.legal.clear();
+        self.history.push(MoveRecord {
+            side: piece.side,
+            kind: orig_kind,
+            damka: piece.is_damka(),
+            from,
+            to,
+            captured: captured_info,
+            phase: self.phase,
+        });
 
         // запись хода
         if self.phase == Phase::Checkers {
@@ -1258,6 +1285,44 @@ mod tests {
             g.legal.iter().any(|m| m.to == (6, 4)),
             "дамка продолжает серию дальним взятием f6"
         );
+    }
+
+    #[test]
+    fn move_history_records_piece_and_coords() {
+        let mut g = test_game();
+        g.apply(Move {
+            from: (4, 1),
+            to: (4, 3),
+            captured: None,
+        });
+        assert_eq!(g.history.len(), 1);
+        let m = &g.history[0];
+        assert_eq!(m.side, Side::White);
+        assert_eq!(m.kind, Kind::Pawn);
+        assert_eq!(m.from, (4, 1));
+        assert_eq!(m.to, (4, 3));
+        assert_eq!(m.phase, Phase::Chess);
+        assert!(m.captured.is_none());
+        assert_eq!(sq_name(m.from), "e2");
+        assert_eq!(sq_name(m.to), "e4");
+    }
+
+    #[test]
+    fn king_capture_ends_game() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
+        g.board[6][5] = Some(Piece::new(Side::White, Kind::Knight)); // f7
+        g.turn = Side::White;
+        g.apply(Move {
+            from: (5, 6),
+            to: (7, 7),
+            captured: Some((7, 7)),
+        });
+        assert!(g.is_over(), "победа по королю");
+        assert_eq!(g.winner(), Some(Side::White));
+        assert_eq!(g.captured_by_white, 1);
     }
 
     #[test]

@@ -2,3 +2,4 @@
 /shots
 /dist
 /.cargo/config.toml
+/logs/game-*.txt

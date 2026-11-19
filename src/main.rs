@@ -3,6 +3,7 @@
 mod ai;
 mod art;
 mod game;
+mod logging;
 mod music;
 mod sound;
 
@@ -310,6 +311,14 @@ pub struct App {
     frames: u32,
     twilight_sounded: bool,
     replay: f32,
+    logging_allowed: bool,
+    log_enabled: bool,
+    game_start: Option<String>,
+    log_written: bool,
+    last_log: Option<PathBuf>,
+    journal: bool,
+    journal_rect: Rect,
+    journal_text: String,
 }
 
 impl App {
@@ -320,7 +329,12 @@ impl App {
         cc.egui_ctx.set_style(style);
 
         let mut game = initial_game();
-        apply_demo(&mut game, demo.as_deref());
+        let demo_game = if demo.as_deref() == Some("journal") {
+            Some("win")
+        } else {
+            demo.as_deref()
+        };
+        apply_demo(&mut game, demo_game);
         let rules_open = demo.as_deref() == Some("rules");
         let settings_open = matches!(demo.as_deref(), Some("settings") | Some("settings_times"));
         let piece_tex = load_piece_textures(&cc.egui_ctx);
@@ -328,8 +342,14 @@ impl App {
         if music::available() {
             music::set_enabled(true);
         }
+        let logging_allowed = shot.is_none() && demo.is_none();
+        let game_start = if logging_allowed {
+            Some(logging::now_string())
+        } else {
+            None
+        };
 
-        App {
+        let mut app = App {
             game,
             time: 0.0,
             rules: rules_open,
@@ -349,7 +369,20 @@ impl App {
             frames: 0,
             twilight_sounded: false,
             replay: 0.0,
+            logging_allowed,
+            log_enabled: true,
+            game_start,
+            log_written: false,
+            last_log: None,
+            journal: false,
+            journal_rect: Rect::NOTHING,
+            journal_text: String::new(),
+        };
+        if demo.as_deref() == Some("journal") {
+            app.journal_text = app.build_journal_text();
+            app.journal = true;
         }
+        app
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
@@ -362,7 +395,9 @@ impl App {
             )
         });
         if esc {
-            if self.settings {
+            if self.journal {
+                self.journal = false;
+            } else if self.settings {
                 self.settings = false;
             } else if self.rules {
                 self.rules = false;
@@ -370,18 +405,71 @@ impl App {
                 self.game.deselect();
             }
         }
-        if h && !self.settings {
+        if h && !self.settings && !self.journal {
             self.rules = !self.rules;
         }
-        if space && !self.rules && !self.settings {
+        if space && !self.rules && !self.settings && !self.journal {
             self.game.paused = !self.game.paused;
         }
-        if r && !self.rules && !self.settings {
+        if r && !self.rules && !self.settings && !self.journal {
             self.new_game();
         }
     }
 
+    fn finalize_log(&mut self, interrupted: &str) {
+        if !self.logging_allowed || !self.log_enabled || self.log_written {
+            return;
+        }
+        let Some(start) = self.game_start.clone() else {
+            return;
+        };
+        let result = if !interrupted.is_empty() {
+            interrupted.to_string()
+        } else {
+            match &self.game.status {
+                game::Status::Win { side, reason } => {
+                    format!("победа {} — {}", side.name_ru().to_lowercase(), reason)
+                }
+                _ => "не завершена".to_string(),
+            }
+        };
+        let mode = self.mode_label();
+        if let Some(path) = logging::write_game_log(&self.game, &start, &mode, &result) {
+            self.last_log = Some(path);
+        }
+        self.log_written = true;
+        self.game_start = None;
+    }
+
+    fn mode_label(&self) -> String {
+        match self.mode {
+            Mode::Hotseat => "вдвоём".to_string(),
+            Mode::Computer => format!("с компьютером ({})", self.difficulty.label_ru()),
+        }
+    }
+
+    fn build_journal_text(&self) -> String {
+        if let Some(path) = &self.last_log {
+            if let Ok(text) = std::fs::read_to_string(path) {
+                return text;
+            }
+        }
+        let start = self
+            .game_start
+            .clone()
+            .unwrap_or_else(|| "—".to_string());
+        let end = logging::now_string();
+        let result = match &self.game.status {
+            game::Status::Win { side, reason } => {
+                format!("победа {} — {}", side.name_ru().to_lowercase(), reason)
+            }
+            _ => "не завершена".to_string(),
+        };
+        logging::format_game_log(&self.game, &start, &end, &self.mode_label(), &result)
+    }
+
     fn new_game(&mut self) {
+        self.finalize_log("прервана (новая партия)");
         let smooth = self.game.move_anim_secs;
         let promotion_choice = self.game.promotion_choice;
         let chess_len = self.game.chess_len;
@@ -394,6 +482,15 @@ impl App {
         self.ai_wait = 0.6;
         self.twilight_sounded = false;
         self.replay = 0.0;
+        self.game_start = if self.logging_allowed {
+            Some(logging::now_string())
+        } else {
+            None
+        };
+        self.log_written = false;
+        self.last_log = None;
+        self.journal = false;
+        self.journal_text.clear();
     }
 
     fn sound_mark(&self) -> SoundMark {
@@ -456,6 +553,12 @@ impl App {
             Some(p) => p,
             None => return,
         };
+        if self.journal {
+            if !self.journal_rect.contains(pos) {
+                self.journal = false;
+            }
+            return;
+        }
         if self.settings {
             if !self.settings_rect.contains(pos) {
                 self.settings = false;
@@ -502,6 +605,9 @@ impl App {
                 }
                 if self.game.is_over() && !self.rules && !self.settings {
                     self.paint_result(ui, ctx, &painter, layout);
+                }
+                if self.journal {
+                    self.paint_journal(ui, &painter, layout);
                 }
             });
     }
@@ -982,33 +1088,34 @@ impl App {
                             );
                         }
                     }
-                } else if let Some((cap, victim)) = g.last_capture {
-                    if let Some((_, _, t)) = anim {
-                        if sq == cap {
-                            let center = layout.square_rect(sq).center();
-                            let ghost = (1.0 - t).clamp(0.0, 1.0);
-                            glow_dot(
-                                painter,
-                                center,
-                                layout.cell * 0.32,
-                                pal.danger,
-                                0.30 * ghost,
-                            );
-                            self.paint_piece(
-                                painter,
-                                center,
-                                base_size * (1.0 - 0.25 * t),
-                                victim.kind,
-                                victim.is_damka(),
-                                victim.side,
-                                &pal,
-                                ghost * 0.85,
-                                phase == Phase::Checkers,
-                            );
-                        }
-                    }
                 }
             }
+        }
+
+        // Срубленная фигура плавно тает. В шахматах клетка взятия совпадает
+        // с клеткой назначения, поэтому призрак рисуем поверх фигур:
+        // атакующий постепенно проявляется сквозь исчезающего противника.
+        if let (Some((cap, victim)), Some((_, _, t))) = (g.last_capture, anim) {
+            let center = layout.square_rect(cap).center();
+            let ghost = (1.0 - t).powf(0.65);
+            glow_dot(
+                painter,
+                center,
+                layout.cell * 0.32,
+                pal.danger,
+                0.30 * ghost,
+            );
+            self.paint_piece(
+                painter,
+                center,
+                layout.cell * 1.08 * (1.0 - 0.25 * t),
+                victim.kind,
+                victim.is_damka(),
+                victim.side,
+                &pal,
+                ghost * 0.9,
+                g.phase == Phase::Checkers,
+            );
         }
 
         // подсказки ходов
@@ -1440,7 +1547,7 @@ impl App {
         let chips = [
             (10.0, "10 с"),
             (15.0, "15 с"),
-            (25.0, "25 с"),
+            (20.0, "20 с"),
             (40.0, "40 с"),
         ];
         let chip_w = (w - 24.0) / 4.0;
@@ -1653,6 +1760,46 @@ impl App {
             alpha(pal.text_dim, 0.8),
         );
         ly += 26.0;
+
+        text(
+            painter,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            "ЛОГИ ПАРТИЙ",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ly += 15.0;
+        let log_on = self.log_enabled;
+        let log_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 36.0));
+        if button(
+            ui,
+            log_btn,
+            if log_on {
+                "Логи: включены"
+            } else {
+                "Логи: выключены"
+            },
+            log_on,
+            &pal,
+            12.5,
+        ) {
+            self.log_enabled = !log_on;
+            if self.log_enabled && self.logging_allowed && self.game_start.is_none() {
+                self.game_start = Some(logging::now_string());
+                self.log_written = false;
+            }
+        }
+        ly += 38.0;
+        text(
+            painter,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            "Файлы — в папке logs рядом с игрой.",
+            10.0,
+            alpha(pal.text_dim, 0.8),
+        );
+        ly += 24.0;
 
         // правая колонка: превращение, время фаз, плавность
         let mut ry = top;
@@ -2016,6 +2163,95 @@ impl App {
         let _ = ctx;
     }
 
+    // ------------------------- журнал партии -------------------------
+
+    fn paint_journal(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
+        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(170));
+        let card = Rect::from_center_size(
+            layout.full.center(),
+            Vec2::new(
+                (layout.full.width() * 0.64).clamp(680.0, 860.0),
+                (layout.full.height() * 0.78).clamp(520.0, 650.0),
+            ),
+        );
+        self.journal_rect = card;
+        let pal = Palette::for_phase(self.game.phase);
+        rr(
+            painter,
+            card,
+            24.0,
+            Color32::from_rgb(22, 20, 30),
+            Stroke::new(1.0_f32, alpha(pal.accent, 0.35)),
+        );
+        let pad = 28.0;
+        let x = card.left() + pad;
+        let w = card.width() - pad * 2.0;
+
+        text(
+            painter,
+            Pos2::new(x, card.top() + 24.0),
+            Align2::LEFT_TOP,
+            "ЖУРНАЛ ПАРТИИ",
+            22.0,
+            pal.text,
+        );
+        let saved = if let Some(path) = &self.last_log {
+            format!("Файл: {}", path.display())
+        } else {
+            "Файл не сохранён — журнал показан из памяти.".to_string()
+        };
+        text(
+            painter,
+            Pos2::new(x, card.top() + 56.0),
+            Align2::LEFT_TOP,
+            saved,
+            10.5,
+            alpha(pal.text_dim, 0.8),
+        );
+
+        let close = Rect::from_min_size(
+            Pos2::new(card.right() - pad - 150.0, card.bottom() - pad - 42.0),
+            Vec2::new(150.0, 42.0),
+        );
+        let copy = Rect::from_min_size(
+            Pos2::new(x, card.bottom() - pad - 42.0),
+            Vec2::new(170.0, 42.0),
+        );
+        let text_rect = Rect::from_min_max(
+            Pos2::new(x, card.top() + 82.0),
+            Pos2::new(card.right() - pad, close.top() - 12.0),
+        );
+        let journal_text = self.journal_text.clone();
+        let _ = ui.scope_builder(
+            egui::UiBuilder::new().max_rect(text_rect),
+            |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("journal_scroll")
+                    .auto_shrink([false, false])
+                    .max_height(text_rect.height())
+                    .show(ui, |ui| {
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(journal_text)
+                                    .size(12.5)
+                                    .color(Color32::from_rgb(214, 208, 222)),
+                            )
+                            .selectable(true)
+                            .wrap(),
+                        );
+                    });
+            },
+        );
+
+        if button(ui, copy, "Копировать", false, &pal, 13.0) {
+            ui.ctx().copy_text(self.journal_text.clone());
+        }
+        if button(ui, close, "Закрыть", true, &pal, 14.0) {
+            self.journal = false;
+        }
+        let _ = w;
+    }
+
     // ------------------------- результат -------------------------
 
     fn paint_result(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
@@ -2112,21 +2348,34 @@ impl App {
             painter,
             Pos2::new(x, card.top() + 126.0),
             Align2::LEFT_TOP,
-            format!("Ходов в журнале: {}", g.log.len()),
+            format!("Ходов: {}", g.history.len()),
             11.0,
             alpha(pal.text_dim, 0.7),
         );
 
+        if self.journal {
+            return;
+        }
+        let gap = 8.0;
+        let half = (w - gap) * 0.5;
         let again = Rect::from_min_size(
             Pos2::new(x, card.bottom() - 104.0),
-            Vec2::new(w, 42.0),
+            Vec2::new(half, 42.0),
+        );
+        let journal = Rect::from_min_size(
+            Pos2::new(x + half + gap, card.bottom() - 104.0),
+            Vec2::new(half, 42.0),
         );
         let rules = Rect::from_min_size(
             Pos2::new(x, card.bottom() - 54.0),
             Vec2::new(w, 38.0),
         );
-        if button(ui, again, "Новая партия", true, &pal, 14.0) {
+        if button(ui, again, "Новая партия", true, &pal, 13.0) {
             self.new_game();
+        }
+        if button(ui, journal, "Журнал", false, &pal, 13.0) {
+            self.journal_text = self.build_journal_text();
+            self.journal = true;
         }
         if button(ui, rules, "Правила", false, &pal, 13.0) {
             self.rules = true;
@@ -2220,6 +2469,9 @@ impl eframe::App for App {
             self.replay = 0.0;
         }
         self.update_ai(dt);
+        if self.game.is_over() && !self.log_written {
+            self.finalize_log("");
+        }
         ctx.request_repaint();
 
         let layout = Layout::new(ctx);
@@ -2227,6 +2479,12 @@ impl eframe::App for App {
         self.handle_pointer(ctx, &layout);
         self.draw(ctx, &layout);
         self.handle_shot(ctx);
+    }
+}
+
+impl Drop for App {
+    fn drop(&mut self) {
+        self.finalize_log("прервана (приложение закрыто)");
     }
 }
 
@@ -2256,7 +2514,10 @@ fn piece_ru(kind: Kind) -> &'static str {
 
 /// Партия начинается в шахматной фазе.
 fn initial_game() -> Game {
-    Game::new(25.0)
+    let mut game = Game::new(20.0);
+    game.checkers_len = 10.0;
+    game.phase_left = 20.0;
+    game
 }
 
 /// Демо-позиции для скриншотов и ручной проверки.
@@ -2305,6 +2566,19 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.trans = 0.9995;
             game.promotion_choice = true;
             game.log.push("демо: две пешки на последнем ряду".into());
+        }
+        Some("chess_capture") => {
+            game.board = [[None; 8]; 8];
+            game.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+            game.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
+            game.board[6][5] = Some(Piece::new(Side::White, Kind::Knight)); // f7
+            game.turn = Side::White;
+            game.apply(Move {
+                from: (5, 6),
+                to: (7, 7),
+                captured: Some((7, 7)),
+            });
+            game.log.push("демо: взятие короля в шахматах".into());
         }
         Some("win") => {
             game.phase = Phase::Checkers;

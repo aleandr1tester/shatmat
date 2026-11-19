@@ -333,16 +333,23 @@ impl Game {
     }
 
     pub fn king_sq(&self, side: Side) -> Option<Square> {
-        for (r, row) in self.board.iter().enumerate() {
-            for (f, cell) in row.iter().enumerate() {
-                if let Some(p) = cell {
-                    if p.side == side && p.kind == Kind::King {
-                        return Some((f, r));
+        find_king(&self.board, side)
+    }
+
+    /// Клетки фигур стороны `by`, которые атакуют клетку `target` по
+    /// шахматным правилам (для линий мата).
+    pub fn attackers_to(&self, target: Square, by: Side) -> Vec<(Square, Kind)> {
+        let mut out = Vec::new();
+        for r in 0..8 {
+            for f in 0..8 {
+                if let Some(p) = self.board[r][f] {
+                    if p.side == by && piece_attacks(&self.board, (f, r), p, target) {
+                        out.push(((f, r), p.kind));
                     }
                 }
             }
         }
-        None
+        out
     }
 
     pub fn in_check(&self, side: Side) -> bool {
@@ -1283,6 +1290,47 @@ fn find_king(b: &Board, side: Side) -> Option<Square> {
         }
     }
     None
+}
+
+fn piece_attacks(b: &Board, from: Square, p: Piece, target: Square) -> bool {
+    if from == target {
+        return false;
+    }
+    let (f, r) = (from.0 as i32, from.1 as i32);
+    let (tf, tr) = (target.0 as i32, target.1 as i32);
+    let dx = tf - f;
+    let dy = tr - r;
+    match p.kind {
+        Kind::Pawn => {
+            dy == p.side.forward() && dx.abs() == 1
+        }
+        Kind::Knight => KNIGHT.contains(&(dx, dy)),
+        Kind::King => dx.abs() <= 1 && dy.abs() <= 1,
+        Kind::Bishop | Kind::Rook | Kind::Queen => {
+            let diag = dx.abs() == dy.abs() && dx != 0;
+            let ortho = (dx == 0) != (dy == 0);
+            let ok = match p.kind {
+                Kind::Bishop => diag,
+                Kind::Rook => ortho,
+                _ => diag || ortho,
+            };
+            if !ok {
+                return false;
+            }
+            let sx = dx.signum();
+            let sy = dy.signum();
+            let mut x = f + sx;
+            let mut y = r + sy;
+            while (x, y) != (tf, tr) {
+                if b[y as usize][x as usize].is_some() {
+                    return false;
+                }
+                x += sx;
+                y += sy;
+            }
+            true
+        }
+    }
 }
 
 fn attacked(b: &Board, sq: Square, by: Side) -> bool {

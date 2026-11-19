@@ -315,6 +315,7 @@ pub struct App {
     logging_allowed: bool,
     log_enabled: bool,
     show_checker_icons: bool,
+    mate_lines: bool,
     game_start: Option<String>,
     log_written: bool,
     last_log: Option<PathBuf>,
@@ -385,6 +386,7 @@ impl App {
             logging_allowed,
             log_enabled: true,
             show_checker_icons: true,
+            mate_lines: true,
             game_start,
             log_written: false,
             last_log: None,
@@ -1309,6 +1311,74 @@ impl App {
                         layout.cell * 0.38,
                         Stroke::new(1.5_f32, alpha(pal.danger, 0.25 + 0.30 * pulse)),
                     );
+                }
+            }
+        }
+
+        // Финальная демонстрация мата: линии от атакующих фигур к королю.
+        if self.mate_lines && g.is_over() && g.phase == Phase::Chess {
+            if let game::Status::Win { side, reason } = &g.status {
+                if reason.contains("мат") {
+                    if let Some(king) = g.king_sq(side.other()) {
+                        let kc = layout.square_rect(king).center();
+                        let attackers = g.attackers_to(king, *side);
+                        let pulse = 0.5 + 0.5 * (self.time * 3.2).sin();
+                        painter.circle_stroke(
+                            kc,
+                            layout.cell * (0.48 + 0.04 * pulse),
+                            Stroke::new(2.5_f32, alpha(pal.danger, 0.65)),
+                        );
+                        painter.circle_stroke(
+                            kc,
+                            layout.cell * 0.36,
+                            Stroke::new(1.5_f32, alpha(pal.danger, 0.45)),
+                        );
+                        for (from, kind) in attackers {
+                            let fc = layout.square_rect(from).center();
+                            let path: Vec<Pos2> = if kind == Kind::Knight {
+                                let corner = if (from.0 as i32 - king.0 as i32).abs() == 1 {
+                                    (king.0, from.1)
+                                } else {
+                                    (from.0, king.1)
+                                };
+                                vec![fc, layout.square_rect(corner).center(), kc]
+                            } else {
+                                vec![fc, kc]
+                            };
+                            for pair in path.windows(2) {
+                                painter.line_segment(
+                                    [pair[0], pair[1]],
+                                    Stroke::new(7.0_f32, Color32::from_black_alpha(80)),
+                                );
+                                painter.line_segment(
+                                    [pair[0], pair[1]],
+                                    Stroke::new(3.0_f32, alpha(pal.danger, 0.30 + 0.25 * pulse)),
+                                );
+                                painter.line_segment(
+                                    [pair[0], pair[1]],
+                                    Stroke::new(1.2_f32, alpha(Color32::WHITE, 0.55)),
+                                );
+                            }
+                            painter.circle_stroke(
+                                fc,
+                                layout.cell * 0.38,
+                                Stroke::new(2.0_f32, alpha(pal.danger, 0.75)),
+                            );
+                            let dir = (kc - fc).normalized();
+                            let perp = Vec2::new(-dir.y, dir.x);
+                            let tip = kc - dir * layout.cell * 0.34;
+                            let base = tip - dir * layout.cell * 0.26;
+                            painter.add(egui::Shape::convex_polygon(
+                                vec![
+                                    tip,
+                                    base + perp * layout.cell * 0.16,
+                                    base - perp * layout.cell * 0.16,
+                                ],
+                                alpha(pal.danger, 0.85),
+                                Stroke::NONE,
+                            ));
+                        }
+                    }
                 }
             }
         }
@@ -2328,6 +2398,34 @@ impl App {
         );
         ry += 30.0;
 
+        text(
+            painter,
+            Pos2::new(right_x, ry),
+            Align2::LEFT_TOP,
+            "МАТ · ТРАЕКТОРИИ",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ry += 15.0;
+        let mate_chip = Rect::from_min_size(
+            Pos2::new(right_x, ry),
+            Vec2::new((right_w - 8.0) * 0.5, 28.0),
+        );
+        if chip(
+            ui,
+            mate_chip,
+            if self.mate_lines {
+                "Показывать: да"
+            } else {
+                "Показывать: нет"
+            },
+            self.mate_lines,
+            &pal,
+        ) {
+            self.mate_lines = !self.mate_lines;
+        }
+        ry += 32.0;
+
         let columns_end = ly.max(ry);
         let summary_y = (columns_end + 16.0).max(card.bottom() - 132.0);
         let summary = if self.game.auto_phase {
@@ -2548,6 +2646,7 @@ impl App {
             "Смена фаз: фиксированное время или автосмена 10–60 с.",
             "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт.",
             "После партии «Просмотр» показывает ходы по шагам с анимацией.",
+            "При мате видны линии атак на короля и список матующих фигур.",
             "С компьютером вы играете белыми; сложность меняет глубину.",
         ];
 
@@ -2795,6 +2894,36 @@ impl App {
             11.0,
             alpha(pal.text_dim, 0.7),
         );
+        if self.mate_lines && g.phase == Phase::Chess {
+            if let game::Status::Win { side, reason } = &g.status {
+                if reason.contains("мат") {
+                    if let Some(king) = g.king_sq(side.other()) {
+                        let attackers = g.attackers_to(king, *side);
+                        if !attackers.is_empty() {
+                            let names = attackers
+                                .iter()
+                                .map(|(sq, kind)| {
+                                    format!("{} {}", piece_ru(*kind), game::sq_name(*sq))
+                                })
+                                .collect::<Vec<_>>()
+                                .join(" · ");
+                            let line = format!("Мат ставят: {names}");
+                            let galley = painter.layout(
+                                line,
+                                FontId::proportional(10.5),
+                                alpha(pal.danger, 0.95),
+                                w,
+                            );
+                            painter.galley(
+                                Pos2::new(x, card.top() + 146.0),
+                                galley,
+                                Color32::WHITE,
+                            );
+                        }
+                    }
+                }
+            }
+        }
 
         if self.journal {
             return;
@@ -3584,6 +3713,22 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
                 game.apply(mv);
             }
             game.log.push("демо: просмотр партии".into());
+        }
+        Some("mate") => {
+            game.board = [[None; 8]; 8];
+            game.board[7][7] = Some(game::Piece::new(Side::Black, Kind::King)); // h8
+            game.board[0][7] = Some(game::Piece::new(Side::White, Kind::Rook)); // h1
+            game.board[1][1] = Some(game::Piece::new(Side::White, Kind::Bishop)); // b2
+            game.board[5][6] = Some(game::Piece::new(Side::White, Kind::Knight)); // g6
+            game.board[6][5] = Some(game::Piece::new(Side::White, Kind::Pawn)); // f7
+            game.board[0][0] = Some(game::Piece::new(Side::White, Kind::King)); // a1
+            game.phase = Phase::Chess;
+            game.turn = Side::Black;
+            game.status = game::Status::Win {
+                side: Side::White,
+                reason: "мат".into(),
+            };
+            game.log.push("демо: мат".into());
         }
         Some("flip_promo") => {
             game.phase = Phase::Checkers;

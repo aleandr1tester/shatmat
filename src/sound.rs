@@ -37,6 +37,7 @@ fn stop() {
 
 #[cfg(windows)]
 mod imp {
+    use std::collections::HashMap;
     use std::os::windows::ffi::OsStrExt;
     use std::path::{Path, PathBuf};
     use std::sync::{Mutex, OnceLock};
@@ -63,6 +64,7 @@ mod imp {
     static CAPTURE_WAV: OnceLock<Vec<u8>> = OnceLock::new();
     static TWILIGHT_WAV: OnceLock<Vec<u8>> = OnceLock::new();
     static TWILIGHT_LAST: OnceLock<Mutex<Option<(Instant, Duration)>>> = OnceLock::new();
+    static FILE_WAVS: OnceLock<Mutex<HashMap<String, Vec<u8>>>> = OnceLock::new();
 
     /// Короткий одиночный «тык» — фигуру поставили.
     pub fn piece_move() {
@@ -105,6 +107,22 @@ mod imp {
         }
         let path = sounds_dir().join(file);
         if super::use_files() && path.is_file() {
+            // Играем пользовательский файл из памяти, а не по имени: так
+            // PlaySound не может зациклить файл по loop-метаданным WAV.
+            if let Ok(raw) = std::fs::read(&path) {
+                if let Some(clean) = sanitize_wav(&raw) {
+                    let files = FILE_WAVS.get_or_init(|| Mutex::new(HashMap::new()));
+                    let mut guard = files.lock().unwrap_or_else(|e| e.into_inner());
+                    guard
+                        .entry(file.to_string())
+                        .or_insert(clean);
+                    if let Some(bytes) = guard.get(file) {
+                        play_memory(bytes);
+                    }
+                    return;
+                }
+            }
+            // Если это не RIFF/WAV, всё равно пробуем как файл — один раз.
             let wide: Vec<u16> = path
                 .as_os_str()
                 .encode_wide()
@@ -120,13 +138,49 @@ mod imp {
             return;
         }
         let wav = cache.get_or_init(|| wav_bytes(&samples()));
+        play_memory(wav);
+    }
+
+    fn play_memory(bytes: &[u8]) {
         unsafe {
             PlaySoundW(
-                wav.as_ptr() as *const u16,
+                bytes.as_ptr() as *const u16,
                 core::ptr::null_mut(),
                 SND_MEMORY | SND_ASYNC | SND_NODEFAULT,
             );
         }
+    }
+
+    /// Убирает из WAV chunk'и smpl/inst с точками цикла, чтобы файл
+    /// гарантированно играл один раз, как встроенный звук.
+    fn sanitize_wav(bytes: &[u8]) -> Option<Vec<u8>> {
+        if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
+            return None;
+        }
+        let mut out = Vec::with_capacity(bytes.len());
+        out.extend_from_slice(&bytes[0..12]);
+        let mut pos = 12;
+        while pos + 8 <= bytes.len() {
+            let id = &bytes[pos..pos + 4];
+            let size = u32::from_le_bytes(bytes[pos + 4..pos + 8].try_into().ok()?) as usize;
+            let end = pos + 8 + size;
+            if end > bytes.len() {
+                break;
+            }
+            if id != b"smpl" && id != b"inst" {
+                out.extend_from_slice(&bytes[pos..end]);
+                if size & 1 == 1 && end < bytes.len() {
+                    out.push(bytes[end]);
+                }
+            }
+            pos = end + (size & 1);
+        }
+        if out.len() < 12 {
+            return None;
+        }
+        let riff_size = (out.len() - 8) as u32;
+        out[4..8].copy_from_slice(&riff_size.to_le_bytes());
+        Some(out)
     }
 
     /// Останавливает текущий звук (при выключении эффектов).
@@ -286,6 +340,28 @@ mod imp {
             v.push((s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16);
         }
         v
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn sanitize_removes_loop_chunks() {
+            let mut wav = wav_bytes(&[0i16; 100]);
+            wav.extend_from_slice(b"smpl");
+            wav.extend_from_slice(&4u32.to_le_bytes());
+            wav.extend_from_slice(&[0u8; 4]);
+            let size = (wav.len() - 8) as u32;
+            wav[4..8].copy_from_slice(&size.to_le_bytes());
+            assert!(wav.windows(4).any(|w| w == b"smpl"));
+            let clean = sanitize_wav(&wav).expect("valid wav");
+            assert!(!clean.windows(4).any(|w| w == b"smpl"));
+            assert_eq!(
+                u32::from_le_bytes(clean[4..8].try_into().unwrap()) as usize,
+                clean.len() - 8
+            );
+        }
     }
 }
 

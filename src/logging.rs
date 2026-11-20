@@ -123,12 +123,17 @@ pub fn format_game_log(
         .filter(|m| m.side == Side::Black)
         .count();
     let mut s = String::new();
-    s.push_str("Партия «Сумерки»\n");
+    s.push_str("Партия «ModeShift: Bipolar»\n");
     s.push_str(&format!("Версия: {}\n", env!("CARGO_PKG_VERSION")));
     s.push_str(&format!("Начало: {start}\n"));
     s.push_str(&format!("Окончание: {end}\n"));
     s.push_str(&format!("Режим: {mode}\n"));
-    if game.auto_phase {
+    if game.twilight_by_moves {
+        s.push_str(&format!(
+            "Смена фаз: по ходам (случайно после каждого хода), время хода {:.0} с\n",
+            game.move_time_limit
+        ));
+    } else if game.auto_phase {
         s.push_str(&format!(
             "Автосмена сумерек: случайно 10–{:.0} с\n",
             game.auto_max

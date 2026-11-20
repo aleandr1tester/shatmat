@@ -64,7 +64,7 @@ fn main() -> eframe::Result<()> {
     let shot_mode = shot_path.is_some();
 
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("Сумерки — гибрид шахмат и шашек")
+        .with_title("ModeShift: Bipolar — режимный сдвиг: биполярность")
         .with_inner_size([1240.0, 820.0])
         .with_min_inner_size([1040.0, 700.0]);
 
@@ -342,6 +342,7 @@ pub struct App {
     guide_rect: Rect,
     guide_demo: Option<GuideDemo>,
     guide_checkers: bool,
+    guide_damka: bool,
     started: bool,
 }
 
@@ -362,7 +363,7 @@ impl App {
         let rules_open = demo.as_deref() == Some("rules");
         let settings_open = matches!(
             demo.as_deref(),
-            Some("settings") | Some("settings_times") | Some("settings_auto")
+            Some("settings") | Some("settings_times") | Some("settings_auto") | Some("settings_moves")
         );
         let piece_tex = load_piece_textures(&cc.egui_ctx);
         let font_faces = fonts::load();
@@ -415,6 +416,7 @@ impl App {
             guide_rect: Rect::NOTHING,
             guide_demo: None,
             guide_checkers: false,
+            guide_damka: false,
             started: demo.is_some(),
         };
         if demo.as_deref() == Some("journal") {
@@ -428,12 +430,14 @@ impl App {
             app.guide = true;
             app.guide_kind = Kind::Pawn;
             app.guide_checkers = false;
+            app.guide_damka = false;
             app.guide_demo = None;
         }
         if demo.as_deref() == Some("guide_checkers") {
             app.guide = true;
             app.guide_kind = Kind::King;
             app.guide_checkers = true;
+            app.guide_damka = false;
             app.guide_demo = None;
         }
         app
@@ -580,12 +584,17 @@ impl App {
         let checkers_len = self.game.checkers_len;
         let auto_phase = self.game.auto_phase;
         let auto_max = self.game.auto_max;
+        let twilight_by_moves = self.game.twilight_by_moves;
+        let move_time_limit = self.game.move_time_limit;
         let mandatory_capture = self.game.mandatory_capture;
         let crown_non_pawns = self.game.crown_non_pawns;
         self.game = Game::new(chess_len);
         self.game.checkers_len = checkers_len;
         self.game.auto_phase = auto_phase;
         self.game.auto_max = auto_max;
+        self.game.twilight_by_moves = twilight_by_moves;
+        self.game.move_time_limit = move_time_limit;
+        self.game.move_left = move_time_limit;
         self.game.mandatory_capture = mandatory_capture;
         self.game.crown_non_pawns = crown_non_pawns;
         self.game.seed_rng(random_seed());
@@ -976,16 +985,16 @@ impl App {
         spaced_text(
             painter,
             Pos2::new(x, layout.header.top() + 22.0),
-            "СУМЕРКИ",
-            30.0,
+            "MODESHIFT: BIPOLAR",
+            28.0,
             pal.text,
-            5.0,
+            3.5,
         );
         text(
             painter,
             Pos2::new(x + 1.0, layout.header.top() + 57.0),
             Align2::LEFT_TOP,
-            "гибрид шахмат и шашек · фигуры меняют природу",
+            "режимный сдвиг: биполярность · фигуры меняют природу",
             12.0,
             alpha(pal.text_dim, 0.95),
         );
@@ -1678,24 +1687,30 @@ impl App {
     fn paint_start_frost(&self, painter: &egui::Painter, layout: &Layout) {
         let b = layout.board;
         let frost = painter.with_clip_rect(b);
+        // Сильное размытие: плотная матовая вуаль в два слоя.
         frost.rect_filled(
             b,
             10.0,
-            Color32::from_rgba_unmultiplied(10, 12, 20, 156),
+            Color32::from_rgba_unmultiplied(8, 10, 18, 208),
+        );
+        frost.rect_filled(
+            b,
+            10.0,
+            Color32::from_rgba_unmultiplied(16, 18, 30, 34),
         );
         radial(
             &frost,
             b.center() + Vec2::new(-b.width() * 0.18, -b.height() * 0.10),
             b.width() * 0.55,
             Color32::from_rgb(178, 194, 235),
-            0.075,
+            0.05,
         );
         radial(
             &frost,
             b.center() + Vec2::new(b.width() * 0.22, b.height() * 0.18),
             b.width() * 0.45,
             Color32::from_rgb(255, 220, 190),
-            0.05,
+            0.035,
         );
         // Матовая вуаль: только мягкое размытие поля, без полос и точек.
         painter.rect_stroke(
@@ -1704,19 +1719,32 @@ impl App {
             Stroke::new(1.0_f32, Color32::from_white_alpha(28)),
             egui::StrokeKind::Inside,
         );
-        painter.text(
-            b.center() + Vec2::new(0.0, -12.0),
-            Align2::CENTER_CENTER,
-            "ПАРТИЯ ЕЩЁ НЕ НАЧАТА",
-            FontId::proportional(19.0),
-            Color32::from_rgb(232, 228, 240),
+        let label = Rect::from_center_size(b.center(), Vec2::new(520.0, 108.0));
+        painter.rect_filled(
+            label.translate(Vec2::new(0.0, 10.0)),
+            20.0,
+            Color32::from_black_alpha(120),
+        );
+        rr(
+            painter,
+            label,
+            20.0,
+            Color32::from_rgba_unmultiplied(6, 7, 12, 234),
+            Stroke::new(1.0_f32, Color32::from_white_alpha(58)),
         );
         painter.text(
-            b.center() + Vec2::new(0.0, 18.0),
+            label.center() + Vec2::new(0.0, -14.0),
+            Align2::CENTER_CENTER,
+            "ПАРТИЯ ЕЩЁ НЕ НАЧАТА",
+            FontId::proportional(21.0),
+            Color32::from_rgb(246, 243, 252),
+        );
+        painter.text(
+            label.center() + Vec2::new(0.0, 20.0),
             Align2::CENTER_CENTER,
             "Справа — «Играть», настройки и правила",
-            FontId::proportional(11.0),
-            Color32::from_rgb(166, 162, 182),
+            FontId::proportional(11.5),
+            Color32::from_rgb(210, 206, 226),
         );
     }
 
@@ -1779,14 +1807,21 @@ impl App {
 
         let countdown_text = if g.trans > 0.0 {
             "···".to_string()
+        } else if g.twilight_by_moves {
+            let secs = g.move_left.max(0.0).ceil() as i32;
+            format!("{}:{:02}", secs / 60, secs % 60)
         } else {
             let secs = g.phase_left.max(0.0).ceil() as i32;
             format!("{}:{:02}", secs / 60, secs % 60)
         };
         let urgent = g.trans == 0.0
-            && g.phase_left <= 5.0
             && !g.is_over()
-            && !g.paused;
+            && !g.paused
+            && if g.twilight_by_moves {
+                g.move_left <= 5.0
+            } else {
+                g.phase_left <= 5.0
+            };
         let countdown_color = if urgent {
             mix(
                 cur.text,
@@ -1801,7 +1836,7 @@ impl App {
             Pos2::new(x, y),
             Align2::LEFT_TOP,
             countdown_text,
-            44.0,
+            if g.twilight_by_moves { 36.0 } else { 44.0 },
             countdown_color,
         );
         text(
@@ -1812,6 +1847,13 @@ impl App {
                 "сумерки: фигуры меняются".to_string()
             } else if g.paused {
                 "пауза".to_string()
+            } else if g.twilight_by_moves {
+                let secs = g.move_left.max(0.0).ceil() as i32;
+                format!(
+                    "ход перейдёт противнику через {}:{:02}",
+                    secs / 60,
+                    secs % 60
+                )
             } else if g.twilight_pending() {
                 "переход ждёт конца взятия".to_string()
             } else if g.passes >= 2 {
@@ -1828,6 +1870,8 @@ impl App {
 
         let frac = if g.trans > 0.0 {
             1.0 - g.trans
+        } else if g.twilight_by_moves {
+            (g.move_left / g.move_time_limit.max(0.1)).clamp(0.0, 1.0)
         } else {
             (g.phase_left / g.phase_total.max(0.1)).clamp(0.0, 1.0)
         };
@@ -2071,7 +2115,9 @@ impl App {
             painter,
             Pos2::new(x, chips_y - 16.0),
             Align2::LEFT_TOP,
-            if g.auto_phase {
+            if g.twilight_by_moves {
+                "СМЕНА ФАЗ"
+            } else if g.auto_phase {
                 "АВТОСМЕНА СУМЕРЕК"
             } else {
                 "РИТМ ТЕКУЩЕЙ ФАЗЫ"
@@ -2079,7 +2125,24 @@ impl App {
             8.5,
             alpha(cur.text_dim, 0.75),
         );
-        if g.auto_phase {
+        if g.twilight_by_moves {
+            text(
+                painter,
+                Pos2::new(x, chips_y + 2.0),
+                Align2::LEFT_TOP,
+                "По ходам: случайно",
+                11.5,
+                cur.accent,
+            );
+            text(
+                painter,
+                Pos2::new(x, chips_y + 18.0),
+                Align2::LEFT_TOP,
+                "После хода может остаться или смениться",
+                9.2,
+                alpha(cur.text_dim, 0.75),
+            );
+        } else if g.auto_phase {
             text(
                 painter,
                 Pos2::new(x, chips_y + 2.0),
@@ -2140,7 +2203,7 @@ impl App {
         if button(ui, new_btn, "Новая партия", false, &cur, 14.5) {
             self.new_game();
         }
-        if !self.game.auto_phase {
+        if !self.game.twilight_by_moves && !self.game.auto_phase {
             for (i, (secs, label)) in chips.iter().enumerate() {
                 let cur_len = self.game.len_for(self.game.phase);
                 let selected = (cur_len - secs).abs() < 0.5;
@@ -2159,7 +2222,7 @@ impl App {
 
     fn paint_settings(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(165));
-        let card = Rect::from_center_size(layout.full.center(), Vec2::new(680.0, 600.0));
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(680.0, 660.0));
         self.settings_rect = card;
         let pal = Palette::for_phase(self.game.phase);
         rr(
@@ -2383,31 +2446,49 @@ impl App {
             painter,
             Pos2::new(right_x, ry),
             Align2::LEFT_TOP,
-            "АВТОСМЕНА СУМЕРЕК",
+            "СМЕНА ФАЗ",
             9.0,
             alpha(pal.text_dim, 0.75),
         );
         ry += 15.0;
-        let auto_w = (right_w - 8.0) * 0.5;
-        let random_chip = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(auto_w, 28.0));
-        let fixed_chip = Rect::from_min_size(
-            Pos2::new(right_x + auto_w + 8.0, ry),
-            Vec2::new(auto_w, 28.0),
+        let mode_w = (right_w - 8.0) * 0.5;
+        let by_time_chip = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(mode_w, 28.0));
+        let by_moves_chip = Rect::from_min_size(
+            Pos2::new(right_x + mode_w + 8.0, ry),
+            Vec2::new(mode_w, 28.0),
         );
-        if chip(ui, random_chip, "Случайно", self.game.auto_phase, &pal) {
-            self.game.set_auto(true);
+        if chip(ui, by_time_chip, "По времени", !self.game.twilight_by_moves, &pal) {
+            self.game.set_twilight_by_moves(false);
         }
-        if chip(ui, fixed_chip, "Фиксированно", !self.game.auto_phase, &pal) {
-            self.game.set_auto(false);
+        if chip(ui, by_moves_chip, "По ходам", self.game.twilight_by_moves, &pal) {
+            self.game.set_twilight_by_moves(true);
         }
         ry += 36.0;
 
-        if self.game.auto_phase {
+        if self.game.twilight_by_moves {
             text(
                 painter,
                 Pos2::new(right_x, ry),
                 Align2::LEFT_TOP,
-                "МАКСИМУМ ИНТЕРВАЛА",
+                "После хода фаза может остаться или смениться случайно.",
+                9.0,
+                alpha(pal.text, 0.85),
+            );
+            ry += 14.0;
+            text(
+                painter,
+                Pos2::new(right_x, ry),
+                Align2::LEFT_TOP,
+                "Внутри одного хода всегда одна игра.",
+                9.0,
+                alpha(pal.text_dim, 0.75),
+            );
+            ry += 22.0;
+            text(
+                painter,
+                Pos2::new(right_x, ry),
+                Align2::LEFT_TOP,
+                "ВРЕМЯ ХОДА",
                 9.0,
                 alpha(pal.text_dim, 0.75),
             );
@@ -2418,20 +2499,20 @@ impl App {
                 right_x,
                 ry,
                 right_w,
-                self.game.auto_max,
+                self.game.move_time_limit,
                 &pal,
-                "auto_max",
-                game::MIN_AUTO_SECS,
-                game::MAX_PHASE,
+                "move_time",
+                game::MIN_MOVE_SECS,
+                game::MAX_MOVE_SECS,
             ) {
-                self.game.set_auto_max(secs);
+                self.game.set_move_time_limit(secs);
             }
-            ry += 28.0;
+            ry += 30.0;
             text(
                 painter,
                 Pos2::new(right_x, ry),
                 Align2::LEFT_TOP,
-                "Каждая смена случайна; следующий интервал отличается.",
+                "По истечении ход переходит противнику.",
                 9.0,
                 alpha(pal.text_dim, 0.75),
             );
@@ -2441,51 +2522,110 @@ impl App {
                 painter,
                 Pos2::new(right_x, ry),
                 Align2::LEFT_TOP,
-                "ВРЕМЯ · ШАХМАТЫ",
+                "АВТОСМЕНА СУМЕРЕК",
                 9.0,
                 alpha(pal.text_dim, 0.75),
             );
             ry += 15.0;
-            if let Some(secs) = time_slider(
-                ui,
-                painter,
-                right_x,
-                ry,
-                right_w,
-                self.game.chess_len,
-                &pal,
-                "chess_time",
-                game::MIN_PHASE,
-                game::MAX_PHASE,
-            ) {
-                self.game.set_len(Phase::Chess, secs);
+            let auto_w = (right_w - 8.0) * 0.5;
+            let random_chip = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(auto_w, 28.0));
+            let fixed_chip = Rect::from_min_size(
+                Pos2::new(right_x + auto_w + 8.0, ry),
+                Vec2::new(auto_w, 28.0),
+            );
+            if chip(ui, random_chip, "Случайно", self.game.auto_phase, &pal) {
+                self.game.set_auto(true);
             }
-            ry += 30.0;
+            if chip(ui, fixed_chip, "Фиксированно", !self.game.auto_phase, &pal) {
+                self.game.set_auto(false);
+            }
+            ry += 36.0;
 
-            text(
-                painter,
-                Pos2::new(right_x, ry),
-                Align2::LEFT_TOP,
-                "ВРЕМЯ · ШАШКИ",
-                9.0,
-                alpha(pal.text_dim, 0.75),
-            );
-            ry += 15.0;
-            if let Some(secs) = time_slider(
-                ui,
-                painter,
-                right_x,
-                ry,
-                right_w,
-                self.game.checkers_len,
-                &pal,
-                "checkers_time",
-                game::MIN_PHASE,
-                game::MAX_PHASE,
-            ) {
-                self.game.set_len(Phase::Checkers, secs);
+            if self.game.auto_phase {
+                text(
+                    painter,
+                    Pos2::new(right_x, ry),
+                    Align2::LEFT_TOP,
+                    "МАКСИМУМ ИНТЕРВАЛА",
+                    9.0,
+                    alpha(pal.text_dim, 0.75),
+                );
+                ry += 15.0;
+                if let Some(secs) = time_slider(
+                    ui,
+                    painter,
+                    right_x,
+                    ry,
+                    right_w,
+                    self.game.auto_max,
+                    &pal,
+                    "auto_max",
+                    game::MIN_AUTO_SECS,
+                    game::MAX_PHASE,
+                ) {
+                    self.game.set_auto_max(secs);
+                }
+                ry += 28.0;
+                text(
+                    painter,
+                    Pos2::new(right_x, ry),
+                    Align2::LEFT_TOP,
+                    "Каждая смена случайна; следующий интервал отличается.",
+                    9.0,
+                    alpha(pal.text_dim, 0.75),
+                );
+                ry += 24.0;
+            } else {
+                text(
+                    painter,
+                    Pos2::new(right_x, ry),
+                    Align2::LEFT_TOP,
+                    "ВРЕМЯ · ШАХМАТЫ",
+                    9.0,
+                    alpha(pal.text_dim, 0.75),
+                );
+                ry += 15.0;
+                if let Some(secs) = time_slider(
+                    ui,
+                    painter,
+                    right_x,
+                    ry,
+                    right_w,
+                    self.game.chess_len,
+                    &pal,
+                    "chess_time",
+                    game::MIN_PHASE,
+                    game::MAX_PHASE,
+                ) {
+                    self.game.set_len(Phase::Chess, secs);
+                }
+                ry += 30.0;
+
+                text(
+                    painter,
+                    Pos2::new(right_x, ry),
+                    Align2::LEFT_TOP,
+                    "ВРЕМЯ · ШАШКИ",
+                    9.0,
+                    alpha(pal.text_dim, 0.75),
+                );
+                ry += 15.0;
+                if let Some(secs) = time_slider(
+                    ui,
+                    painter,
+                    right_x,
+                    ry,
+                    right_w,
+                    self.game.checkers_len,
+                    &pal,
+                    "checkers_time",
+                    game::MIN_PHASE,
+                    game::MAX_PHASE,
+                ) {
+                    self.game.set_len(Phase::Checkers, secs);
+                }
+                ry += 30.0;
             }
-            ry += 30.0;
         }
 
         text(
@@ -2645,7 +2785,12 @@ impl App {
 
         let columns_end = ly.max(ry);
         let summary_y = (columns_end + 16.0).max(card.bottom() - 132.0);
-        let summary = if self.game.auto_phase {
+        let summary = if self.game.twilight_by_moves {
+            format!(
+                "Сейчас: смена фаз по ходам, время хода {:.0} с",
+                self.game.move_time_limit
+            )
+        } else if self.game.auto_phase {
             format!(
                 "Сейчас: автосмена, 10–{:.0} с (текущая фаза {:.0} с)",
                 self.game.auto_max, self.game.phase_left
@@ -2807,8 +2952,8 @@ impl App {
             painter,
             Pos2::new(x, y),
             Align2::LEFT_TOP,
-            "Правила Сумерек",
-            24.0,
+            "Правила ModeShift: Bipolar",
+            22.0,
             Color32::from_rgb(240, 231, 217),
         );
         text(
@@ -2837,6 +2982,7 @@ impl App {
             self.guide = true;
             self.guide_kind = Kind::Pawn;
             self.guide_checkers = false;
+            self.guide_damka = false;
             self.guide_demo = None;
         }
         y = card.top() + 132.0;
@@ -2867,7 +3013,9 @@ impl App {
             "Переход ждёт, пока игрок завершит серию взятий.",
             "Победа: мат, съеденный король или истребление фигур.",
             "Время шахмат и шашек задаётся отдельно в настройках.",
-            "Смена фаз: фиксированное время или автосмена 10–60 с.",
+            "Смена фаз: по времени или после ходов; по ходам — случайно.",
+            "В режиме по ходам внутри хода всегда одна игра, после хода фаза может смениться.",
+            "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику.",
             "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт.",
             "После партии «Просмотр» показывает ходы по шагам с анимацией.",
             "При мате видны линии атак на короля и список матующих фигур.",
@@ -3243,37 +3391,62 @@ impl App {
         );
         if chip(ui, chess_mode, "ШАХМАТЫ", !self.guide_checkers, &pal) {
             self.guide_checkers = false;
+            self.guide_damka = false;
             self.guide_demo = None;
         }
         if chip(ui, check_mode, "ШАШКИ", self.guide_checkers, &pal) {
             self.guide_checkers = true;
+            self.guide_kind = Kind::Pawn;
+            self.guide_damka = false;
             self.guide_demo = None;
         }
 
-        let kinds = [
-            Kind::Pawn,
-            Kind::Knight,
-            Kind::Bishop,
-            Kind::Rook,
-            Kind::Queen,
-            Kind::King,
-        ];
         let tab_gap = 8.0;
-        let tab_w = (card.width() - pad * 2.0 - tab_gap * 5.0) / 6.0;
-        for (i, kind) in kinds.iter().enumerate() {
-            let r = Rect::from_min_size(
-                Pos2::new(left_x + i as f32 * (tab_w + tab_gap), card.top() + 124.0),
-                Vec2::new(tab_w, 30.0),
-            );
-            if chip(
-                ui,
-                r,
-                piece_title_ru(*kind),
-                self.guide_kind == *kind,
-                &pal,
-            ) {
-                self.guide_kind = *kind;
-                self.guide_demo = None;
+        if self.guide_checkers {
+            let options = [
+                ("Пешки", Kind::Pawn, false),
+                ("Пешка-король", Kind::King, false),
+                ("Дамка", Kind::Pawn, true),
+            ];
+            let tab_w = (card.width() - pad * 2.0 - tab_gap * 2.0) / 3.0;
+            for (i, (label, kind, damka)) in options.iter().enumerate() {
+                let r = Rect::from_min_size(
+                    Pos2::new(left_x + i as f32 * (tab_w + tab_gap), card.top() + 124.0),
+                    Vec2::new(tab_w, 30.0),
+                );
+                let selected = self.guide_kind == *kind && self.guide_damka == *damka;
+                if chip(ui, r, label, selected, &pal) {
+                    self.guide_kind = *kind;
+                    self.guide_damka = *damka;
+                    self.guide_demo = None;
+                }
+            }
+        } else {
+            let kinds = [
+                Kind::Pawn,
+                Kind::Knight,
+                Kind::Bishop,
+                Kind::Rook,
+                Kind::Queen,
+                Kind::King,
+            ];
+            let tab_w = (card.width() - pad * 2.0 - tab_gap * 5.0) / 6.0;
+            for (i, kind) in kinds.iter().enumerate() {
+                let r = Rect::from_min_size(
+                    Pos2::new(left_x + i as f32 * (tab_w + tab_gap), card.top() + 124.0),
+                    Vec2::new(tab_w, 30.0),
+                );
+                if chip(
+                    ui,
+                    r,
+                    piece_title_ru(*kind),
+                    self.guide_kind == *kind,
+                    &pal,
+                ) {
+                    self.guide_kind = *kind;
+                    self.guide_damka = false;
+                    self.guide_demo = None;
+                }
             }
         }
 
@@ -3297,7 +3470,7 @@ impl App {
             Pos2::new(left_x + 126.0, card.top() + 292.0),
             116.0,
             self.guide_kind,
-            false,
+            self.guide_damka,
             Side::White,
             &pal,
             1.0,
@@ -3317,12 +3490,26 @@ impl App {
         );
         self.paint_guide_board(painter, board, &pal);
 
-        let (move_text, capture_text) = guide_text(self.guide_kind, self.guide_checkers);
+        let (move_text, capture_text) = if self.guide_checkers {
+            guide_checkers_text(self.guide_kind, self.guide_damka)
+        } else {
+            guide_text(self.guide_kind, false)
+        };
         text(
             painter,
             Pos2::new(right_x, card.top() + 190.0),
             Align2::LEFT_TOP,
-            piece_title_ru(self.guide_kind),
+            if self.guide_checkers {
+                if self.guide_damka {
+                    "Дамка"
+                } else if self.guide_kind == Kind::King {
+                    "Пешка-король"
+                } else {
+                    "Пешки"
+                }
+            } else {
+                piece_title_ru(self.guide_kind)
+            },
             27.0,
             pal.text,
         );
@@ -3378,7 +3565,11 @@ impl App {
             &pal,
             11.5,
         ) {
-            let (start, dests) = guide_squares(self.guide_kind, self.guide_checkers);
+            let (start, dests) = guide_squares(
+                self.guide_kind,
+                self.guide_checkers,
+                self.guide_damka,
+            );
             if let Some(dest) = dests.first() {
                 self.guide_demo = Some(GuideDemo {
                     from: start,
@@ -3396,7 +3587,8 @@ impl App {
             &pal,
             11.5,
         ) {
-            let (from, victim, to) = guide_capture(self.guide_kind, self.guide_checkers);
+            let (from, victim, to) =
+                guide_capture(self.guide_kind, self.guide_checkers, self.guide_damka);
             self.guide_demo = Some(GuideDemo {
                 from,
                 to,
@@ -3416,7 +3608,7 @@ impl App {
     fn paint_guide_board(&self, painter: &egui::Painter, rect: Rect, pal: &Palette) {
         let cell = rect.width() / 8.0;
         let checkers = self.guide_checkers;
-        let (start, dests) = guide_squares(self.guide_kind, checkers);
+        let (start, dests) = guide_squares(self.guide_kind, checkers, self.guide_damka);
         for y in 0..8 {
             for x in 0..8 {
                 let r = Rect::from_min_size(
@@ -3496,7 +3688,7 @@ impl App {
             c,
             cell * 0.86,
             self.guide_kind,
-            false,
+            self.guide_damka,
             Side::White,
             pal,
             1.0,
@@ -3789,6 +3981,25 @@ fn piece_title_ru(kind: Kind) -> &'static str {
     }
 }
 
+fn guide_checkers_text(kind: Kind, damka: bool) -> (&'static str, &'static str) {
+    if damka {
+        return (
+            "Дамка летит по диагонали на любое расстояние, пока путь свободен.",
+            "Бьёт через одну вражескую фигуру на любой дистанции, вставая на свободную клетку за ней. Серия взятий продолжается, пока есть цель.",
+        );
+    }
+    if kind == Kind::King {
+        return (
+            "Пешка-король с кружком. Ходит и бьёт как обычная пешка, но потеря короля — поражение. Несмотря на обычный вид, следите за ней особенно внимательно.",
+            "Бьёт как обычная шашка — через соседнюю фигуру на свободную клетку за ней. Может стать дамкой, если включено «Дамки: все».",
+        );
+    }
+    (
+        "Все пешки в шашках — обычные шашки: по диагонали на одну клетку вперёд и назад. На последнем ряду пешка становится дамкой.",
+        "Бьёт через соседнюю вражескую шашку на свободную клетку за ней; серия продолжается. Иконки коня, слона, ладьи и ферзя — только шахматные метки, особых прав не дают; их можно скрыть в настройках.",
+    )
+}
+
 fn guide_text(kind: Kind, checkers: bool) -> (&'static str, &'static str) {
     if checkers {
         return match kind {
@@ -3835,8 +4046,11 @@ fn guide_text(kind: Kind, checkers: bool) -> (&'static str, &'static str) {
 }
 
 /// (откуда, где стоит жертва, куда встаёт атакующий)
-fn guide_capture(kind: Kind, checkers: bool) -> (Square, Square, Square) {
+fn guide_capture(kind: Kind, checkers: bool, damka: bool) -> (Square, Square, Square) {
     if checkers {
+        if damka {
+            return ((2, 3), (4, 5), (6, 7));
+        }
         return ((2, 3), (3, 4), (4, 5));
     }
     match kind {
@@ -3846,10 +4060,22 @@ fn guide_capture(kind: Kind, checkers: bool) -> (Square, Square, Square) {
     }
 }
 
-fn guide_squares(kind: Kind, checkers: bool) -> (Square, Vec<Square>) {
+fn guide_squares(kind: Kind, checkers: bool, damka: bool) -> (Square, Vec<Square>) {
     let mut out = Vec::new();
     if checkers {
         let start = (4, 4);
+        if damka {
+            for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
+                let mut x = start.0 as i32 + dx;
+                let mut y = start.1 as i32 + dy;
+                while (0..8).contains(&x) && (0..8).contains(&y) {
+                    out.push((x as usize, y as usize));
+                    x += dx;
+                    y += dy;
+                }
+            }
+            return (start, out);
+        }
         for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
             let x = start.0 as i32 + dx;
             let y = start.1 as i32 + dy;
@@ -3985,6 +4211,14 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.seed_rng(0x51A7_4C0D_9B2E_7711);
             game.refresh_phase_timer();
             game.log.push("демо: автосмена сумерек".into());
+        }
+        Some("settings_moves") => {
+            game.twilight_by_moves = true;
+            game.log.push("демо: смена фаз по ходам".into());
+        }
+        Some("moves") => {
+            game.twilight_by_moves = true;
+            game.log.push("демо: по ходам".into());
         }
         Some("force") => {
             game.board = [[None; 8]; 8];

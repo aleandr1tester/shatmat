@@ -1,8 +1,8 @@
 [package]
 name = "shatmat"
-version = "0.15.1"
+version = "0.16.0"
 edition = "2021"
-description = "Сумерки — гибрид шахмат и шашек"
+description = "ModeShift: Bipolar — режимный сдвиг: биполярность"
 
 [dependencies]
 eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts", "x11", "wayland"] }

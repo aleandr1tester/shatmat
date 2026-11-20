@@ -9,6 +9,10 @@ pub const MOVE_ANIM_SECS: f32 = 0.22;
 pub const MIN_PHASE: f32 = 5.0;
 pub const MAX_PHASE: f32 = 60.0;
 pub const MIN_AUTO_SECS: f32 = 10.0;
+/// Время на один ход в режиме «сумерки по ходам».
+pub const MIN_MOVE_SECS: f32 = 10.0;
+pub const MAX_MOVE_SECS: f32 = 180.0;
+pub const DEFAULT_MOVE_SECS: f32 = 60.0;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Side {
@@ -224,6 +228,14 @@ pub struct Game {
     pub mandatory_capture: bool,
     /// true — не-пешки тоже становятся дамками; false — только пешки.
     pub crown_non_pawns: bool,
+    /// true — фаза меняется после хода случайным образом, а не по времени.
+    pub twilight_by_moves: bool,
+    /// Ход завершён: на следующем тике можно бросить «остаться/смениться».
+    pub move_twilight_pending: bool,
+    /// Время на один ход в режиме «по ходам» (10–180 с).
+    pub move_time_limit: f32,
+    /// Остаток времени на текущий ход.
+    pub move_left: f32,
     /// true — фаза ждёт: не тикает таймер (например, ход компьютера).
     pub phase_hold: bool,
     royal_captured: Option<Side>,
@@ -291,6 +303,10 @@ impl Game {
             promotion_choice: false,
             mandatory_capture: true,
             crown_non_pawns: true,
+            twilight_by_moves: false,
+            move_twilight_pending: false,
+            move_time_limit: DEFAULT_MOVE_SECS,
+            move_left: DEFAULT_MOVE_SECS,
             phase_hold: false,
             royal_captured: None,
             pending: String::new(),
@@ -465,6 +481,36 @@ impl Game {
     pub fn set_auto(&mut self, on: bool) {
         self.auto_phase = on;
         self.refresh_phase_timer();
+    }
+
+    pub fn set_twilight_by_moves(&mut self, on: bool) {
+        self.twilight_by_moves = on;
+        self.move_twilight_pending = false;
+        if on {
+            self.move_left = self.move_time_limit;
+        } else {
+            self.refresh_phase_timer();
+        }
+    }
+
+    /// Время на один ход: 10–180 с. Текущий отсчёт подрезается под новый лимит.
+    pub fn set_move_time_limit(&mut self, secs: f32) {
+        self.move_time_limit = secs.clamp(MIN_MOVE_SECS, MAX_MOVE_SECS);
+        self.move_left = self.move_left.min(self.move_time_limit);
+    }
+
+    fn arm_move_twilight(&mut self) {
+        if self.twilight_by_moves {
+            self.move_left = self.move_time_limit;
+        }
+        if self.twilight_by_moves
+            && !self.is_over()
+            && self.trans == 0.0
+            && self.chain.is_none()
+            && self.pending_promotion.is_none()
+        {
+            self.move_twilight_pending = true;
+        }
     }
 
     pub fn set_auto_max(&mut self, secs: f32) {
@@ -722,6 +768,7 @@ impl Game {
         self.passes = 0;
         self.turn = self.turn.other();
         self.refresh_status();
+        self.arm_move_twilight();
     }
 
     /// Завершить серию взятий, не продолжая её (когда взятие необязательно).
@@ -735,6 +782,7 @@ impl Game {
         self.passes = 0;
         self.turn = self.turn.other();
         self.refresh_status();
+        self.arm_move_twilight();
     }
 
     /// Игрок выбрал фигуру для превращения пешки.
@@ -769,6 +817,9 @@ impl Game {
             self.turn = self.turn.other();
         }
         self.refresh_status();
+        if !free {
+            self.arm_move_twilight();
+        }
     }
 
     pub fn tick(&mut self, dt: f32) {
@@ -800,6 +851,34 @@ impl Game {
             if self.trans >= 1.0 {
                 self.trans = 0.0;
                 self.flip_phase();
+            }
+        } else if self.twilight_by_moves {
+            if self.move_twilight_pending
+                && self.move_anim >= 1.0
+                && self.chain.is_none()
+            {
+                self.move_twilight_pending = false;
+                if self.next_rand() < 0.5 {
+                    self.trans = 0.0001;
+                    self.selected = None;
+                    self.legal.clear();
+                }
+            }
+            // Часы хода: по истечении ход переходит противнику.
+            if self.trans == 0.0 && self.move_anim >= 1.0 && self.chain.is_none() {
+                self.move_left -= dt;
+                if self.move_left <= 0.0 {
+                    self.move_left = 0.0;
+                    self.turn = self.turn.other();
+                    self.selected = None;
+                    self.legal.clear();
+                    self.move_left = self.move_time_limit;
+                    self.refresh_status();
+                    self.log.push("— время хода истекло: ход переходит противнику".into());
+                    if self.log.len() > 240 {
+                        self.log.remove(0);
+                    }
+                }
             }
         } else if !self.phase_hold && self.move_anim >= 1.0 && self.chain.is_none() {
             self.phase_left -= dt;
@@ -1928,6 +2007,49 @@ mod tests {
         assert_eq!(g.forced_capture_squares(), vec![(2, 3)]);
         g.mandatory_capture = false;
         assert!(g.forced_capture_squares().is_empty(), "без обязательного боя нет красной пульсации");
+    }
+
+    #[test]
+    fn move_twilight_holds_time_and_arms_after_move() {
+        let mut g = test_game();
+        g.twilight_by_moves = true;
+        g.phase_left = 10.0;
+        g.phase_total = 10.0;
+        g.tick(0.5);
+        assert_eq!(g.phase_left, 10.0, "по ходам таймер не идёт");
+        let mv = g.all_moves()[0];
+        g.apply(mv);
+        assert!(
+            g.move_twilight_pending,
+            "после хода взводится случайная смена фазы"
+        );
+        g.phase_left = 10.0;
+        g.tick(0.1);
+        assert_eq!(g.phase_left, 10.0, "таймер по-прежнему не идёт");
+    }
+
+    #[test]
+    fn move_clock_expires_and_passes_turn() {
+        let mut g = test_game();
+        g.twilight_by_moves = true;
+        g.move_time_limit = 10.0;
+        g.move_left = 0.05;
+        g.tick(0.1);
+        assert_eq!(g.turn, Side::Black, "время хода истекло — ход у чёрных");
+        assert_eq!(g.move_left, 10.0, "часы сброшены на новый ход");
+        assert!(
+            !g.move_twilight_pending,
+            "истечение времени не запускает сумерки"
+        );
+    }
+
+    #[test]
+    fn move_time_limit_is_clamped() {
+        let mut g = test_game();
+        g.set_move_time_limit(5.0);
+        assert_eq!(g.move_time_limit, MIN_MOVE_SECS);
+        g.set_move_time_limit(500.0);
+        assert_eq!(g.move_time_limit, MAX_MOVE_SECS);
     }
 
     #[test]

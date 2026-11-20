@@ -1,12 +1,14 @@
 [package]
 name = "shatmat"
-version = "0.16.0"
+version = "0.17.0"
 edition = "2021"
 description = "ModeShift: Bipolar — режимный сдвиг: биполярность"
 
 [dependencies]
 eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts", "x11", "wayland"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
+puremp3 = "0.1"
+resvg = { version = "0.50", default-features = false, features = ["text", "raster-images"] }
 
 [profile.release]
 opt-level = 2

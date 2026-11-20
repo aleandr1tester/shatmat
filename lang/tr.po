@@ -1,0 +1,860 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: tr\n"
+
+msgid "ModeShift: Bipolar — режимный сдвиг: биполярность"
+msgstr "ModeShift: Bipolar — mod geçişi: iki kutupluluk"
+
+msgid "победа {side} — {reason}"
+msgstr "{side} kazandı — {reason}"
+
+msgid "не завершена"
+msgstr "tamamlanmadı"
+
+msgid "вдвоём"
+msgstr "iki kişi"
+
+msgid "с компьютером ({level})"
+msgstr "bilgisayara karşı ({level})"
+
+msgid "прервана (новая партия)"
+msgstr "yarıda kesildi (yeni oyun)"
+
+msgid "0. Начальная позиция"
+msgstr "0. Başlangıç pozisyonu"
+
+msgid "белые"
+msgstr "beyazlar"
+
+msgid "чёрные"
+msgstr "siyahlar"
+
+msgid "дамка"
+msgstr "dama"
+
+msgid "шашка"
+msgstr "pul"
+
+msgid "шашки"
+msgstr "dama"
+
+msgid "шахматы"
+msgstr "satranç"
+
+msgid "режимный сдвиг: биполярность · фигуры меняют природу"
+msgstr "mod geçişi: iki kutupluluk · taşlar doğasını değiştirir"
+
+msgid "СУМЕРКИ"
+msgstr "ALACAKARANLIK"
+
+msgid "мат"
+msgstr "mat"
+
+msgid "ПАУЗА"
+msgstr "DURAKLATILDI"
+
+msgid "Space (клавиша пробел) — продолжить партию"
+msgstr "Space (boşluk tuşu) — oyuna devam et"
+
+msgid "ПАРТИЯ ЕЩЁ НЕ НАЧАТА"
+msgstr "OYUN HENÜZ BAŞLAMADI"
+
+msgid "Справа — «Играть», настройки и правила"
+msgstr "Sağda «Oyna», ayarlar ve kurallar"
+
+msgid "ПРОТОТИП · СУМЕРКИ · v{VERSION}"
+msgstr "PROTOTİP · ALACAKARANLIK · v{VERSION}"
+
+msgid "сумерки: фигуры меняются"
+msgstr "alacakaranlık: taşlar değişiyor"
+
+msgid "пауза"
+msgstr "durakla"
+
+msgid "ход перейдёт противнику через {time}"
+msgstr "sıra {time} sonra rakibe geçecek"
+
+msgid "переход ждёт конца взятия"
+msgstr "geçiş, alma işleminin bitmesini bekliyor"
+
+msgid "нет ходов — сумерки выводят из тупика"
+msgstr "hamle yok — alacakaranlık çıkmazı çözer"
+
+msgid "компьютер думает…"
+msgstr "bilgisayar düşünüyor…"
+
+msgid "до превращения в {phase}"
+msgstr "{phase} fazına geçişe kalan"
+
+msgid "СОПЕРНИК"
+msgstr "RAKİP"
+
+msgid "с компьютером"
+msgstr "bilgisayara karşı"
+
+msgid "СЛОЖНОСТЬ"
+msgstr "ZORLUK"
+
+msgid "Ход {side}"
+msgstr "Sıra {side}"
+
+msgid "ШАХ"
+msgstr "ŞAH"
+
+msgid "Закончить"
+msgstr "Bitir"
+
+msgid "ВЗЯТИЕ"
+msgstr "ALMA"
+
+msgid "БОЙ"
+msgstr "VURUŞ"
+
+msgid "материал равный"
+msgstr "materyal eşit"
+
+msgid "белые впереди на {n}"
+msgstr "beyazlar {n} önde"
+
+msgid "чёрные впереди на {n}"
+msgstr "siyahlar {n} önde"
+
+msgid "{material} · взято {white} : {black}"
+msgstr "{material} · alınan {white} : {black}"
+
+msgid "ХОДЫ"
+msgstr "HAMLELER"
+
+msgid "10 с"
+msgstr "10 s"
+
+msgid "15 с"
+msgstr "15 s"
+
+msgid "20 с"
+msgstr "20 s"
+
+msgid "40 с"
+msgstr "40 s"
+
+msgid "пока тихо — сделайте первый ход"
+msgstr "ortalık sakin — ilk hamleyi yapın"
+
+msgid "Совет: в шашечной фазе король превращается в дамку — съешьте его и победите."
+msgstr "İpucu: dama fazında şah damaya dönüşür — onu alın ve kazanın."
+
+msgid "СМЕНА ФАЗ"
+msgstr "FAZ DEĞİŞİMİ"
+
+msgid "АВТОСМЕНА СУМЕРЕК"
+msgstr "OTOMATİK ALACAKARANLIK"
+
+msgid "РИТМ ТЕКУЩЕЙ ФАЗЫ"
+msgstr "GEÇERLİ FAZIN RİTMİ"
+
+msgid "По ходам: случайно"
+msgstr "Hamleye göre: rastgele"
+
+msgid "После хода может остаться или смениться"
+msgstr "Hamleden sonra kalabilir ya da değişebilir"
+
+msgid "Случайно: 10–{max} с"
+msgstr "Rastgele: 10–{max} s"
+
+msgid "Следующий интервал будет другим"
+msgstr "Sonraki aralık farklı olacak"
+
+msgid "клик — ход · Space — пауза · R — новая партия · H — правила"
+msgstr "tık — hamle · Space — duraklat · R — yeni oyun · H — kurallar"
+
+msgid "Правила"
+msgstr "Kurallar"
+
+msgid "Настройки"
+msgstr "Ayarlar"
+
+msgid "Играть"
+msgstr "Oyna"
+
+msgid "Пауза"
+msgstr "Duraklat"
+
+msgid "Новая партия"
+msgstr "Yeni oyun"
+
+msgid "НАСТРОЙКИ"
+msgstr "AYARLAR"
+
+msgid "ЯЗЫК"
+msgstr "DİL"
+
+msgid "ЗВУКИ"
+msgstr "SESLER"
+
+msgid "Звуки: включены"
+msgstr "Sesler: açık"
+
+msgid "Звуки: выключены"
+msgstr "Sesler: kapalı"
+
+msgid "ИСТОЧНИК"
+msgstr "KAYNAK"
+
+msgid "Встроенные"
+msgstr "Yerleşik"
+
+msgid "Из папки sounds"
+msgstr "sounds klasöründen"
+
+msgid "МУЗЫКА"
+msgstr "MÜZİK"
+
+msgid "Музыка: нет music/theme.wav"
+msgstr "Müzik: music/theme.wav yok"
+
+msgid "Музыка: включена"
+msgstr "Müzik: açık"
+
+msgid "Музыка: выключена"
+msgstr "Müzik: kapalı"
+
+msgid "Фоновая музыка не прерывается звуками ходов."
+msgstr "Arka plan müziği hamle sesleriyle kesilmez."
+
+msgid "ЛОГИ ПАРТИЙ"
+msgstr "MAÇ GÜNLÜKLERİ"
+
+msgid "Логи: включены"
+msgstr "Günlükler: açık"
+
+msgid "Логи: выключены"
+msgstr "Günlükler: kapalı"
+
+msgid "Файлы — в папке logs рядом с игрой."
+msgstr "Dosyalar, oyunun yanındaki logs klasöründe."
+
+msgid "ШРИФТ"
+msgstr "YAZI TİPİ"
+
+msgid "Шрифт: {name}"
+msgstr "Yazı tipi: {name}"
+
+msgid "Свои .ttf/.otf — в папке fonts рядом с игрой."
+msgstr "Kendi .ttf/.otf dosyalarınız — oyunun yanındaki fonts klasöründe."
+
+msgid "ПРЕВРАЩЕНИЕ"
+msgstr "DÖNÜŞÜM"
+
+msgid "Всегда ферзь"
+msgstr "Her zaman vezir"
+
+msgid "Выбор фигуры"
+msgstr "Taş seçimi"
+
+msgid "По времени"
+msgstr "Süreye göre"
+
+msgid "По ходам"
+msgstr "Hamleye göre"
+
+msgid "После хода фаза может остаться или смениться случайно."
+msgstr "Hamleden sonra faz kalabilir ya da rastgele değişebilir."
+
+msgid "Внутри одного хода всегда одна игра."
+msgstr "Bir hamle içinde her zaman tek oyun geçerlidir."
+
+msgid "ВРЕМЯ ХОДА"
+msgstr "HAMLE SÜRESİ"
+
+msgid "По истечении ход переходит противнику."
+msgstr "Süre dolunca sıra rakibe geçer."
+
+msgid "Случайно"
+msgstr "Rastgele"
+
+msgid "Фиксированно"
+msgstr "Sabit"
+
+msgid "МАКСИМУМ ИНТЕРВАЛА"
+msgstr "MAKSİMUM ARALIK"
+
+msgid "Каждая смена случайна; следующий интервал отличается."
+msgstr "Her değişim rastgele; sonraki aralık farklı olur."
+
+msgid "ВРЕМЯ · ШАХМАТЫ"
+msgstr "SÜRE · SATRANÇ"
+
+msgid "ВРЕМЯ · ШАШКИ"
+msgstr "SÜRE · DAMA"
+
+msgid "ШАШКИ"
+msgstr "DAMA"
+
+msgid "Взятие: да"
+msgstr "Alma: evet"
+
+msgid "Взятие: нет"
+msgstr "Alma: hayır"
+
+msgid "Иконки: да"
+msgstr "Simgeler: evet"
+
+msgid "Иконки: нет"
+msgstr "Simgeler: hayır"
+
+msgid "Дамки: все"
+msgstr "Dama: hepsi"
+
+msgid "Дамки: пешки"
+msgstr "Dama: piyonlar"
+
+msgid "Бить обязательно; серию нужно продолжать."
+msgstr "Almak zorunlu; seriyi sürdürmek gerekir."
+
+msgid "Можно без взятия; серию можно закончить."
+msgstr "Almadan oynanabilir; seri bitirilebilir."
+
+msgid "Иконки — кроме пешек; дамки — все или только пешки."
+msgstr "Simgeler — piyonlar hariç; dama — hepsi ya da yalnızca piyonlar."
+
+msgid "ПЛАВНОСТЬ ХОДА"
+msgstr "HAMLE AKICILIĞI"
+
+msgid "{:.2} с"
+msgstr "{:.2} s"
+
+msgid "МАТ · ТРАЕКТОРИИ"
+msgstr "MAT · YÖRÜNGELER"
+
+msgid "Показывать: да"
+msgstr "Göster: evet"
+
+msgid "Показывать: нет"
+msgstr "Göster: hayır"
+
+msgid "Сейчас: смена фаз по ходам, время хода {secs} с"
+msgstr "Şu an: faz değişimi hamleye göre, hamle süresi {secs} s"
+
+msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
+msgstr "Şu an: otomatik değişim, 10–{max} s (geçerli faz {phase} s)"
+
+msgid "Сейчас: шахматы {chess} с · шашки {checkers} с"
+msgstr "Şu an: satranç {chess} s · dama {checkers} s"
+
+msgid "Свои звуки — в папке sounds, музыка — music/theme.wav,"
+msgstr "Kendi sesleriniz — sounds klasöründe, müzik — music/theme.wav,"
+
+msgid "картинки фигур — в папке pieces (PNG с прозрачным фоном)."
+msgstr "taş görselleri — pieces klasöründe (saydam arka planlı PNG)."
+
+msgid "Готово"
+msgstr "Tamam"
+
+msgid "ПРЕВРАЩЕНИЕ ПЕШКИ"
+msgstr "PİYON DÖNÜŞÜMÜ"
+
+msgid "Пешка на последнем ряду — выберите новую фигуру"
+msgstr "Son sıradaki piyon — yeni taşı seçin"
+
+msgid "Ферзь"
+msgstr "Vezir"
+
+msgid "Ладья"
+msgstr "Kale"
+
+msgid "Слон"
+msgstr "Fil"
+
+msgid "Конь"
+msgstr "At"
+
+msgid "Правила ModeShift: Bipolar"
+msgstr "ModeShift: Bipolar kuralları"
+
+msgid "Одна партия — две игры. Раз в N секунд фигуры превращаются, и правила меняются вместе с ними."
+msgstr "Bir maç — iki oyun. Her N saniyede taşlar dönüşür ve kurallar da onlarla birlikte değişir."
+
+msgid "ПРАВИЛА"
+msgstr "KURALLAR"
+
+msgid "ФИГУРЫ"
+msgstr "TAŞLAR"
+
+msgid "Ходы классические: пешка, конь, слон, ладья, ферзь, король."
+msgstr "Hamleler klasik: piyon, at, fil, kale, vezir, şah."
+
+msgid "Без рокировки и взятия на проходе — только чистые ходы."
+msgstr "Rok ve geçerken alma yok — yalnızca temiz hamleler."
+
+msgid "Пешка на последнем ряду по умолчанию становится ферзём; выбор фигуры — в настройках."
+msgstr "Son sıradaki piyon varsayılan olarak vezir olur; taş seçimi ayarlardadır."
+
+msgid "Шах и мат работают: короля нельзя оставить под боем."
+msgstr "Şah ve mat geçerli: şah tehdit altında bırakılamaz."
+
+msgid "Пат не ничья: сумерки сразу продолжают бой."
+msgstr "Pat beraberlik değil: alacakaranlık hemen oyunu sürdürür."
+
+msgid "В этом гибриде простые шашки ходят по диагонали вперёд и назад."
+msgstr "Bu hibritte düz pullar çapraz olarak ileri ve geri gider."
+
+msgid "Шашка остаётся на клетках своего цвета."
+msgstr "Pul kendi rengindeki karelerde kalır."
+
+msgid "Можно подставляться под удар, если обязательного взятия нет."
+msgstr "Zorunlu alma yoksa taşınızı tehlikeye atabilirsiniz."
+
+msgid "Король в шашечной фазе — обычная шашка с точкой."
+msgstr "Dama fazında şah, noktalı sıradan bir puldur."
+
+msgid "Дамки летят по диагонали на любое расстояние."
+msgstr "Damalar çapraz olarak istediği mesafeye gider."
+
+msgid "Бить обязательно; серия взятий продолжается, пока есть цель."
+msgstr "Almak zorunlu; hedef olduğu sürece alma serisi sürer."
+
+msgid "Обязательное взятие можно отключить в настройках."
+msgstr "Zorunlu alma ayarlardan kapatılabilir."
+
+msgid "Иконки на шашках показывают вид фигуры; пешки — без иконок."
+msgstr "Pullardaki simgeler taşın türünü gösterir; piyonlar simgesizdir."
+
+msgid "По умолчанию дамкой может стать любая фигура; «Дамки: пешки» — только пешки."
+msgstr "Varsayılan olarak her taş dama olabilir; «Dama: piyonlar» — yalnızca piyonlar."
+
+msgid "Шашка на последнем ряду становится дамкой и продолжает серию как дамка."
+msgstr "Son sıradaki pul dama olur ve seriyi dama olarak sürdürür."
+
+msgid "Короля можно съесть и победить."
+msgstr "Şahı alıp kazanabilirsiniz."
+
+msgid "Если застряли оба — сумерки сразу выводят в шахматы."
+msgstr "İkisi de sıkışırsa — alacakaranlık hemen satranca geçirir."
+
+msgid "Сумерки длятся 1,7 секунды: ходы замирают, фигуры перетекают."
+msgstr "Alacakaranlık 1,7 saniye sürer: hamleler durur, taşlar akıp dönüşür."
+
+msgid "Переход ждёт, пока игрок завершит серию взятий."
+msgstr "Geçiş, oyuncu alma serisini bitirene kadar bekler."
+
+msgid "Победа: мат, съеденный король или истребление фигур."
+msgstr "Zafer: mat, alınan şah ya da taşların yok edilmesi."
+
+msgid "Время шахмат и шашек задаётся отдельно в настройках."
+msgstr "Satranç ve dama süreleri ayarlarda ayrı ayrı belirlenir."
+
+msgid "Смена фаз: по времени или после ходов; по ходам — случайно."
+msgstr "Faz değişimi: süreye göre ya da hamlelerden sonra; hamleye göre — rastgele."
+
+msgid "В режиме по ходам внутри хода всегда одна игра, после хода фаза может смениться."
+msgstr "Hamleye göre kipinde hamle içinde her zaman tek oyun geçerlidir, hamleden sonra faz değişebilir."
+
+msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
+msgstr "Hamleye göre kipinde her hamlenin 10–180 s süresi vardır; süre dolunca sıra rakibe geçer."
+
+msgid "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт."
+msgstr "Bilgisayar 2–3 s düşünür ve hangi taşı alacağını vurgular."
+
+msgid "После партии «Просмотр» показывает ходы по шагам с анимацией."
+msgstr "Maçtan sonra «İzleme» hamleleri animasyonla adım adım gösterir."
+
+msgid "При мате видны красные линии атак на короля, жёлтые линии фигур, перекрывающих выходы, и список матующих фигур."
+msgstr "Mat durumunda şaha yönelik kırmızı saldırı çizgileri, çıkışları kapatan taşların sarı çizgileri ve mat eden taşların listesi görünür."
+
+msgid "С компьютером вы играете белыми; сложность меняет глубину."
+msgstr "Bilgisayara karşı beyazlarla oynarsınız; zorluk, arama derinliğini değiştirir."
+
+msgid "КОГДА ФИГУРЫ — ШАХМАТЫ\n"
+msgstr "TAŞLAR SATRANÇKEN\n"
+
+msgid "КОГДА ФИГУРЫ — ШАШКИ\n"
+msgstr "TAŞLAR DAMA İKEN\n"
+
+msgid "СУМЕРКИ\n"
+msgstr "ALACAKARANLIK\n"
+
+msgid "Понятно"
+msgstr "Anlaşıldı"
+
+msgid "ЖУРНАЛ ПАРТИИ"
+msgstr "MAÇ GÜNLÜĞÜ"
+
+msgid "Файл: {path}"
+msgstr "Dosya: {path}"
+
+msgid "Файл не сохранён — журнал показан из памяти."
+msgstr "Dosya kaydedilmedi — günlük bellekten gösteriliyor."
+
+msgid "Копировать"
+msgstr "Kopyala"
+
+msgid "Закрыть"
+msgstr "Kapat"
+
+msgid "ПОБЕДА {side}"
+msgstr "{side} KAZANDI"
+
+msgid "ПАРТИЯ"
+msgstr "MAÇ"
+
+msgid "король"
+msgstr "şah"
+
+msgid "Повтор: {att_side} — {att}, {vic_side} — {vic} · {phase}"
+msgstr "Tekrar: {att_side} — {att}, {vic_side} — {vic} · {phase}"
+
+msgid "Повтор последнего хода"
+msgstr "Son hamleyi tekrarla"
+
+msgid "Ходов: {n}"
+msgstr "Hamle: {n}"
+
+msgid "Мат ставят: {names}"
+msgstr "Mat edenler: {names}"
+
+msgid "Журнал"
+msgstr "Günlük"
+
+msgid "Просмотр"
+msgstr "İzleme"
+
+msgid "Сначала выберите игру, потом фигуру"
+msgstr "Önce oyunu, sonra taşı seçin"
+
+msgid "ШАХМАТЫ"
+msgstr "SATRANÇ"
+
+msgid "Пешки"
+msgstr "Piyonlar"
+
+msgid "Пешка-король"
+msgstr "Piyon-şah"
+
+msgid "Дамка"
+msgstr "Dama"
+
+msgid "ФИГУРА В ШАШКАХ"
+msgstr "DAMADA TAŞ"
+
+msgid "ФИГУРА В ШАХМАТАХ"
+msgstr "SATRANÇTA TAŞ"
+
+msgid "ДЕМОНСТРАЦИЯ"
+msgstr "GÖSTERİM"
+
+msgid "КАК ХОДИТ"
+msgstr "NASIL GİDER"
+
+msgid "КАК БЬЁТ"
+msgstr "NASIL ALIR"
+
+msgid "Демо хода"
+msgstr "Hamle demosu"
+
+msgid "Демо взятия"
+msgstr "Alma demosu"
+
+msgid "ПРОСМОТР ПАРТИИ"
+msgstr "MAÇ İZLEME"
+
+msgid "Ход {n} из {total}"
+msgstr "Hamle {n} / {total}"
+
+msgid "◀ Назад"
+msgstr "◀ Geri"
+
+msgid "Вперёд ▶"
+msgstr "İleri ▶"
+
+msgid "прервана (приложение закрыто)"
+msgstr "yarıda kesildi (uygulama kapatıldı)"
+
+msgid "пешка"
+msgstr "piyon"
+
+msgid "конь"
+msgstr "at"
+
+msgid "слон"
+msgstr "fil"
+
+msgid "ладья"
+msgstr "kale"
+
+msgid "ферзь"
+msgstr "vezir"
+
+msgid "Пешка"
+msgstr "Piyon"
+
+msgid "Король"
+msgstr "Şah"
+
+msgid "Дамка летит по диагонали на любое расстояние, пока путь свободен."
+msgstr "Dama, yol açık olduğu sürece çapraz olarak istediği mesafeye gider."
+
+msgid "Бьёт через одну вражескую фигуру на любой дистанции, вставая на свободную клетку за ней. Серия взятий продолжается, пока есть цель."
+msgstr "Herhangi bir mesafedeki bir rakip taşın üzerinden atlayarak onun arkasındaki boş kareye konar. Hedef olduğu sürece alma serisi sürer."
+
+msgid "Пешка-король с кружком. Ходит и бьёт как обычная пешка, но потеря короля — поражение. Несмотря на обычный вид, следите за ней особенно внимательно."
+msgstr "Halkalı piyon-şah. Sıradan bir piyon gibi gider ve alır, ama şahın kaybı yenilgidir. Sıradan görünümüne rağmen onu özellikle dikkatle izleyin."
+
+msgid "Бьёт как обычная шашка — через соседнюю фигуру на свободную клетку за ней. Может стать дамкой, если включено «Дамки: все»."
+msgstr "Sıradan bir pul gibi alır — yanındaki taşın üzerinden onun arkasındaki boş kareye. «Dama: hepsi» açıksa dama olabilir."
+
+msgid "Все пешки в шашках — обычные шашки: по диагонали на одну клетку вперёд и назад. На последнем ряду пешка становится дамкой."
+msgstr "Damada tüm piyonlar sıradan puldur: çapraz olarak bir kare ileri ve geri. Son sırada piyon dama olur."
+
+msgid "Бьёт через соседнюю вражескую шашку на свободную клетку за ней; серия продолжается. Иконки коня, слона, ладьи и ферзя — только шахматные метки, особых прав не дают; их можно скрыть в настройках."
+msgstr "Yanındaki rakip pulun üzerinden onun arkasındaki boş kareye alır; seri sürer. At, fil, kale ve vezir simgeleri yalnızca satranç işaretleridir, özel hak tanımaz; ayarlarda gizlenebilirler."
+
+msgid "Обычная шашка ходит по диагонали на одну клетку вперёд и назад. На последнем ряду становится дамкой, которая летит по диагонали на любое расстояние."
+msgstr "Sıradan pul çapraz olarak bir kare ileri ve geri gider. Son sırada, çapraz olarak istediği mesafeye giden dama olur."
+
+msgid "Бьёт через соседнюю вражескую шашку, вставая на свободную клетку за ней. Серия взятий продолжается, пока есть цель. Обязательный бой можно отключить в настройках."
+msgstr "Yanındaki rakip pulun üzerinden onun arkasındaki boş kareye konarak alır. Hedef olduğu sürece alma serisi sürer. Zorunlu alma ayarlardan kapatılabilir."
+
+msgid "Король в шашечной фазе — обычная шашка с короной: ходит по диагонали на одну клетку вперёд и назад, а после коронации становится дамкой."
+msgstr "Dama fazında şah, taçlı sıradan bir puldur: çapraz olarak bir kare ileri ve geri gider, taçlandıktan sonra dama olur."
+
+msgid "Бьёт как шашка — через соседнюю фигуру на свободное поле за ней. Может стать дамкой, если включено «Дамки: все»."
+msgstr "Pul gibi alır — yanındaki taşın üzerinden onun arkasındaki boş kareye. «Dama: hepsi» açıksa dama olabilir."
+
+msgid "Иконка показывает вид фигуры, но правила шашечные: по диагонали на одну клетку вперёд и назад. Дамка летит по диагонали на любое расстояние."
+msgstr "Simge taşın türünü gösterir ama kurallar dama kurallarıdır: çapraz olarak bir kare ileri ve geri. Dama çapraz olarak istediği mesafeye gider."
+
+msgid "Бьёт через соседнюю вражескую фигуру, вставая на свободную клетку за ней; серия продолжается. Может стать дамкой, если включено «Дамки: все»."
+msgstr "Yanındaki rakip taşın üzerinden onun arkasındaki boş kareye konarak alır; seri sürer. «Dama: hepsi» açıksa dama olabilir."
+
+msgid "Идёт на одну клетку вперёд; с начальной позиции — на две, если путь свободен."
+msgstr "Bir kare ileri gider; başlangıç pozisyonundan yol açıksa iki kare."
+
+msgid "Бьёт по диагонали на одну клетку вперёд. Взятия на проходе в этой версии нет. На последнем ряду превращается в ферзя или выбранную фигуру."
+msgstr "Çapraz olarak bir kare ileri alır. Bu sürümde geçerken alma yok. Son sırada vezir ya da seçilen taşa dönüşür."
+
+msgid "Ходит буквой Г: две клетки по одной оси и одна по другой. Перепрыгивает фигуры."
+msgstr "L harfi biçiminde gider: bir eksende iki, diğerinde bir kare. Taşların üzerinden atlar."
+
+msgid "Бьёт прыжком на вражескую фигуру в точке приземления; свои фигуры на пути не мешают."
+msgstr "İniş noktasındaki rakip taşa atlayarak alır; kendi taşlarınız yolu engellemez."
+
+msgid "Ходит по диагонали на любое расстояние, пока путь свободен."
+msgstr "Yol açık olduğu sürece çapraz olarak istediği mesafeye gider."
+
+msgid "Бьёт по диагонали: путь до вражеской фигуры должен быть свободен."
+msgstr "Çapraz alır: rakip taşa kadar yol açık olmalıdır."
+
+msgid "Ходит по вертикали и горизонтали на любое расстояние, пока путь свободен."
+msgstr "Yol açık olduğu sürece dikey ve yatay olarak istediği mesafeye gider."
+
+msgid "Бьёт по вертикали или горизонтали: путь до вражеской фигуры должен быть свободен."
+msgstr "Dikey ya da yatay alır: rakip taşa kadar yol açık olmalıdır."
+
+msgid "Ходит как ладья и слон: по вертикали, горизонтали и диагонали на любое расстояние."
+msgstr "Kale ve fil gibi gider: dikey, yatay ve çapraz olarak istediği mesafeye."
+
+msgid "Бьёт по любой из этих линий, если путь до вражеской фигуры свободен."
+msgstr "Rakip taşa kadar yol açıksa bu hatlardan herhangi biriyle alır."
+
+msgid "Ходит на одну клетку в любом направлении."
+msgstr "Her yöne bir kare gider."
+
+msgid "Бьёт на одну клетку в любом направлении. Под бой оставлять нельзя: шах и мат."
+msgstr "Her yöne bir kare alır. Şahı tehdit altında bırakamazsınız: şah ve mat."
+
+msgid "демо: шашечная фаза"
+msgstr "demo: dama fazı"
+
+msgid "демо: превращение пешки"
+msgstr "demo: piyon dönüşümü"
+
+msgid "демо: шахматы 25 с, шашки 10 с"
+msgstr "demo: satranç 25 s, dama 10 s"
+
+msgid "демо: автосмена сумерек"
+msgstr "demo: otomatik alacakaranlık"
+
+msgid "демо: смена фаз по ходам"
+msgstr "demo: hamleye göre faz değişimi"
+
+msgid "демо: по ходам"
+msgstr "demo: hamleye göre"
+
+msgid "демо: обязательное взятие"
+msgstr "demo: zorunlu alma"
+
+msgid "демо: пауза"
+msgstr "demo: duraklatma"
+
+msgid "демо: просмотр партии"
+msgstr "demo: maç izleme"
+
+msgid "демо: мат"
+msgstr "demo: mat"
+
+msgid "демо: две пешки на последнем ряду"
+msgstr "demo: son sırada iki piyon"
+
+msgid "демо: взятие короля в шахматах"
+msgstr "demo: satrançta şahın alınması"
+
+msgid "демо: победа по королю"
+msgstr "demo: şahla zafer"
+
+msgid "{:.0} с"
+msgstr "{:.0} s"
+
+msgid "Белые"
+msgstr "Beyazlar"
+
+msgid "Чёрные"
+msgstr "Siyahlar"
+
+msgid "белых"
+msgstr "beyazların"
+
+msgid "чёрных"
+msgstr "siyahların"
+
+msgid "П"
+msgstr "P"
+
+msgid "К"
+msgstr "A"
+
+msgid "С"
+msgstr "F"
+
+msgid "Л"
+msgstr "K"
+
+msgid "Ф"
+msgstr "V"
+
+msgid "Кр"
+msgstr "Ş"
+
+msgid "=Ф"
+msgstr "=V"
+
+msgid " (дамка)"
+msgstr " (dama)"
+
+msgid "{side} — пешка {sq} стала {piece}"
+msgstr "{side} — {sq} piyonu {piece} oldu"
+
+msgid "— время хода истекло: ход переходит противнику"
+msgstr "— hamle süresi doldu: sıra rakibe geçiyor"
+
+msgid "белым"
+msgstr "beyazlara"
+
+msgid "чёрным"
+msgstr "siyahlara"
+
+msgid "— {side} нечем ходить: пропуск"
+msgstr "— {side} oynayamıyor: pas"
+
+msgid "— в шашках застряли оба: сумерки выводят в шахматы"
+msgstr "— damada ikisi de sıkıştı: alacakaranlık satranca geçiriyor"
+
+msgid "— пат: сумерки продолжают бой"
+msgstr "— pat: alacakaranlık oyunu sürdürüyor"
+
+msgid "{side} — пешка {sq} стала ферзём"
+msgstr "{side} — {sq} piyonu vezir oldu"
+
+msgid "король взят"
+msgstr "şah alındı"
+
+msgid "у соперника не осталось фигур"
+msgstr "rakibin taşı kalmadı"
+
+msgid "легко"
+msgstr "kolay"
+
+msgid "средне"
+msgstr "orta"
+
+msgid "сложно"
+msgstr "zor"
+
+msgid "Шашка"
+msgstr "Pul"
+
+msgid "Партия «ModeShift: Bipolar»\n"
+msgstr "«ModeShift: Bipolar» maçı\n"
+
+msgid "Версия: {version}\n"
+msgstr "Sürüm: {version}\n"
+
+msgid "Начало: {start}\n"
+msgstr "Başlangıç: {start}\n"
+
+msgid "Окончание: {end}\n"
+msgstr "Bitiş: {end}\n"
+
+msgid "Режим: {mode}\n"
+msgstr "Kip: {mode}\n"
+
+msgid "Смена фаз: по ходам (случайно после каждого хода), время хода {secs} с\n"
+msgstr "Faz değişimi: hamleye göre (her hamleden sonra rastgele), hamle süresi {secs} s\n"
+
+msgid "Автосмена сумерек: случайно 10–{secs} с\n"
+msgstr "Otomatik alacakaranlık: rastgele 10–{secs} s\n"
+
+msgid "Время фаз: шахматы {chess} с, шашки {checkers} с\n"
+msgstr "Faz süreleri: satranç {chess} s, dama {checkers} s\n"
+
+msgid "Обязательное взятие: {value}\n"
+msgstr "Zorunlu alma: {value}\n"
+
+msgid "вкл"
+msgstr "açık"
+
+msgid "выкл"
+msgstr "kapalı"
+
+msgid "Коронация не-пешек: {value}\n"
+msgstr "Piyon olmayanların taçlanması: {value}\n"
+
+msgid "Результат: {result}\n"
+msgstr "Sonuç: {result}\n"
+
+msgid "Всего ходов: {total} (белые: {white}, чёрные: {black})\n"
+msgstr "Toplam hamle: {total} (beyazlar: {white}, siyahlar: {black})\n"
+
+msgid "Полных ходов: {value}\n"
+msgstr "Tam hamle sayısı: {value}\n"
+
+msgid "\n№\tСторона\tФигура\tХод\tВзятие\tФаза\n"
+msgstr "\n№\tTaraf\tTaş\tHamle\tAlma\tFaz\n"
+
+
+msgid "Атака: да"
+msgstr "Saldırı: evet"
+
+msgid "Атака: нет"
+msgstr "Saldırı: hayır"
+
+msgid "Окружение: да"
+msgstr "Kuşatma: evet"
+
+msgid "Окружение: нет"
+msgstr "Kuşatma: hayır"
+
+msgid "ход перейдёт противнику"
+msgstr "sıra rakibe geçecek"
+
+msgid "Свои звуки — в папке sounds (WAV или MP3), музыка — music/theme.wav,"
+msgstr "Kendi sesleriniz — sounds klasöründe (WAV veya MP3), müzik — music/theme.wav,"
+
+msgid "демо: мат с окружением"
+msgstr "demo: kuşatmalı mat"
+
+msgid "клик — ход · Space — пауза"
+msgstr "tık — hamle · Space — duraklat"
+
+msgid "R — новая партия · H — правила"
+msgstr "R — yeni oyun · H — kurallar"

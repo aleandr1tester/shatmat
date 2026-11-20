@@ -56,9 +56,10 @@ mod imp {
 
     const RATE: u32 = 22_050;
     const TWILIGHT_SECS: f32 = 1.6;
-    const MOVE_FILE: &str = "move.wav";
-    const CAPTURE_FILE: &str = "capture.wav";
-    const TWILIGHT_FILE: &str = "twilight.wav";
+    /// Имена пользовательских звуков: сначала ищется `.wav`, затем `.mp3`.
+    const MOVE_FILE: &str = "move";
+    const CAPTURE_FILE: &str = "capture";
+    const TWILIGHT_FILE: &str = "twilight";
 
     static MOVE_WAV: OnceLock<Vec<u8>> = OnceLock::new();
     static CAPTURE_WAV: OnceLock<Vec<u8>> = OnceLock::new();
@@ -80,14 +81,19 @@ mod imp {
     pub fn twilight() {
         // Не перезапускаем длинный звук, пока он ещё играет: иначе при
         // быстрой смене фаз он звучал бы повторно.
-        let path = sounds_dir().join(TWILIGHT_FILE);
-        let duration = if path.is_file() {
-            std::fs::read(&path)
+        let duration = match user_sound_path(&sounds_dir(), TWILIGHT_FILE) {
+            Some((path, is_mp3)) => std::fs::read(&path)
                 .ok()
+                .and_then(|raw| {
+                    if is_mp3 {
+                        mp3_to_wav(&raw)
+                    } else {
+                        Some(raw)
+                    }
+                })
                 .and_then(|wav| wav_duration(&wav))
-                .unwrap_or_else(|| Duration::from_secs(2))
-        } else {
-            Duration::from_secs_f32(TWILIGHT_SECS)
+                .unwrap_or_else(|| Duration::from_secs(2)),
+            None => Duration::from_secs_f32(TWILIGHT_SECS),
         };
         let last = TWILIGHT_LAST.get_or_init(|| Mutex::new(None));
         let mut guard = last.lock().unwrap_or_else(|e| e.into_inner());
@@ -105,37 +111,46 @@ mod imp {
         if !super::enabled() {
             return;
         }
-        let path = sounds_dir().join(file);
-        if super::use_files() && path.is_file() {
-            // Играем пользовательский файл из памяти, а не по имени: так
-            // PlaySound не может зациклить файл по loop-метаданным WAV.
-            if let Ok(raw) = std::fs::read(&path) {
-                if let Some(clean) = sanitize_wav(&raw) {
-                    let files = FILE_WAVS.get_or_init(|| Mutex::new(HashMap::new()));
-                    let mut guard = files.lock().unwrap_or_else(|e| e.into_inner());
-                    guard
-                        .entry(file.to_string())
-                        .or_insert(clean);
-                    if let Some(bytes) = guard.get(file) {
-                        play_memory(bytes);
+        if super::use_files() {
+            if let Some((path, is_mp3)) = user_sound_path(&sounds_dir(), file) {
+                // Играем пользовательский файл из памяти, а не по имени: так
+                // PlaySound не может зациклить файл по loop-метаданным WAV.
+                if let Ok(raw) = std::fs::read(&path) {
+                    let wav = if is_mp3 {
+                        // MP3 декодируется в WAV в памяти: PlaySound играет
+                        // только PCM, зато формат файла не важен пользователю.
+                        mp3_to_wav(&raw)
+                    } else {
+                        sanitize_wav(&raw)
+                    };
+                    if let Some(clean) = wav {
+                        let key = path.to_string_lossy().to_string();
+                        let files = FILE_WAVS.get_or_init(|| Mutex::new(HashMap::new()));
+                        let mut guard = files.lock().unwrap_or_else(|e| e.into_inner());
+                        guard.entry(key.clone()).or_insert(clean);
+                        if let Some(bytes) = guard.get(&key) {
+                            play_memory(bytes);
+                        }
+                        return;
                     }
-                    return;
                 }
+                if !is_mp3 {
+                    // Если это не RIFF/WAV, всё равно пробуем как файл — один раз.
+                    let wide: Vec<u16> = path
+                        .as_os_str()
+                        .encode_wide()
+                        .chain(std::iter::once(0))
+                        .collect();
+                    unsafe {
+                        PlaySoundW(
+                            wide.as_ptr(),
+                            core::ptr::null_mut(),
+                            SND_FILENAME | SND_ASYNC | SND_NODEFAULT,
+                        );
+                    }
+                }
+                return;
             }
-            // Если это не RIFF/WAV, всё равно пробуем как файл — один раз.
-            let wide: Vec<u16> = path
-                .as_os_str()
-                .encode_wide()
-                .chain(std::iter::once(0))
-                .collect();
-            unsafe {
-                PlaySoundW(
-                    wide.as_ptr(),
-                    core::ptr::null_mut(),
-                    SND_FILENAME | SND_ASYNC | SND_NODEFAULT,
-                );
-            }
-            return;
         }
         let wav = cache.get_or_init(|| wav_bytes(&samples()));
         play_memory(wav);
@@ -183,6 +198,50 @@ mod imp {
         Some(out)
     }
 
+    /// Ищет пользовательский звук: сначала `.mp3`, затем `.wav` с тем же именем.
+    /// MP3 в приоритете, иначе стандартный `move.wav` всегда перекрывал бы
+    /// пользовательский `move.mp3`.
+    /// Возвращает путь и признак «это MP3».
+    fn user_sound_path(dir: &Path, name: &str) -> Option<(PathBuf, bool)> {
+        let mp3 = dir.join(format!("{name}.mp3"));
+        if mp3.is_file() {
+            return Some((mp3, true));
+        }
+        let wav = dir.join(format!("{name}.wav"));
+        if wav.is_file() {
+            return Some((wav, false));
+        }
+        None
+    }
+
+    /// Декодирует MP3 в WAV 16-бит/моно/22,05 кГц — тот же формат, что у
+    /// встроенных звуков и у пользовательских WAV. Так PlaySound может играть
+    /// любой пользовательский файл, независимо от исходного формата.
+    fn mp3_to_wav(raw: &[u8]) -> Option<Vec<u8>> {
+        let (header, frames) = puremp3::read_mp3(raw).ok()?;
+        let src_rate = header.sample_rate.hz().max(1) as f32;
+        let step = src_rate / RATE as f32;
+        let mut mono: Vec<f32> = Vec::new();
+        for (l, r) in frames {
+            mono.push((l + r) * 0.5);
+        }
+        if mono.is_empty() {
+            return None;
+        }
+        let out_len = ((mono.len() as f32) / step).ceil() as usize;
+        let mut out: Vec<i16> = Vec::with_capacity(out_len);
+        for i in 0..out_len {
+            let pos = i as f32 * step;
+            let idx = pos.floor() as usize;
+            let frac = pos - idx as f32;
+            let a = mono.get(idx).copied().unwrap_or(0.0);
+            let b = mono.get(idx + 1).copied().unwrap_or(a);
+            let s = a + (b - a) * frac;
+            out.push((s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16);
+        }
+        Some(wav_bytes(&out))
+    }
+
     /// Останавливает текущий звук (при выключении эффектов).
     pub fn stop() {
         unsafe {
@@ -202,13 +261,18 @@ mod imp {
     /// Записывает все стандартные звуки (для сборки релиза).
     pub fn write_defaults(dir: &Path) {
         let _ = std::fs::create_dir_all(dir);
-        let _ = std::fs::write(dir.join(MOVE_FILE), wav_bytes(&move_samples()));
-        let _ = std::fs::write(dir.join(CAPTURE_FILE), wav_bytes(&capture_samples()));
-        let _ = std::fs::write(dir.join(TWILIGHT_FILE), wav_bytes(&twilight_samples()));
+        let _ = std::fs::write(dir.join("move.wav"), wav_bytes(&move_samples()));
+        let _ = std::fs::write(dir.join("capture.wav"), wav_bytes(&capture_samples()));
+        let _ = std::fs::write(dir.join("twilight.wav"), wav_bytes(&twilight_samples()));
     }
 
     fn write_missing(dir: &Path, name: &str, samples: &[i16]) {
-        let path = dir.join(name);
+        // Если пользователь положил MP3 с тем же именем, стандартный WAV
+        // не создаём: иначе он перекрыл бы пользовательский звук.
+        if dir.join(format!("{name}.mp3")).exists() {
+            return;
+        }
+        let path = dir.join(format!("{name}.wav"));
         if !path.exists() {
             let _ = std::fs::write(path, wav_bytes(samples));
         }
@@ -345,6 +409,40 @@ mod imp {
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        #[test]
+        fn mp3_decodes_to_playable_wav() {
+            let Ok(raw) = std::fs::read("tests/vectors/mono_cbr192.mp3") else {
+                return; // тестовый файл мог не попасть в архив исходников
+            };
+            let wav = mp3_to_wav(&raw).expect("MP3 декодируется");
+            assert_eq!(&wav[0..4], b"RIFF", "на выходе WAV");
+            assert_eq!(&wav[8..12], b"WAVE", "на выходе WAV");
+            assert!(
+                sanitize_wav(&wav).is_some(),
+                "декодированный WAV проходит очистку"
+            );
+            let duration = wav_duration(&wav).expect("длительность читается");
+            assert!(
+                duration.as_secs_f32() > 1.0,
+                "звук не пустой: {duration:?}"
+            );
+        }
+
+        #[test]
+        fn user_sound_path_prefers_mp3() {
+            let dir = std::env::temp_dir().join("shatmat_sound_test");
+            let _ = std::fs::create_dir_all(&dir);
+            let wav = dir.join("move.wav");
+            let mp3 = dir.join("move.mp3");
+            let _ = std::fs::write(&wav, b"RIFF");
+            let _ = std::fs::write(&mp3, b"ID3");
+            let found = user_sound_path(&dir, "move").expect("файл найден");
+            assert!(found.1, "MP3 в приоритете");
+            assert_eq!(found.0.file_name().unwrap(), "move.mp3");
+            let _ = std::fs::remove_file(&wav);
+            let _ = std::fs::remove_file(&mp3);
+        }
 
         #[test]
         fn sanitize_removes_loop_chunks() {

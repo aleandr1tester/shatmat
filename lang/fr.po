@@ -1,0 +1,860 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: fr\n"
+
+msgid "ModeShift: Bipolar — режимный сдвиг: биполярность"
+msgstr "ModeShift: Bipolar — décalage de mode : bipolarité"
+
+msgid "победа {side} — {reason}"
+msgstr "victoire {side} — {reason}"
+
+msgid "не завершена"
+msgstr "non terminée"
+
+msgid "вдвоём"
+msgstr "à deux"
+
+msgid "с компьютером ({level})"
+msgstr "contre l'ordinateur ({level})"
+
+msgid "прервана (новая партия)"
+msgstr "interrompue (nouvelle partie)"
+
+msgid "0. Начальная позиция"
+msgstr "0. Position initiale"
+
+msgid "белые"
+msgstr "blancs"
+
+msgid "чёрные"
+msgstr "noirs"
+
+msgid "дамка"
+msgstr "dame"
+
+msgid "шашка"
+msgstr "pion de dames"
+
+msgid "шашки"
+msgstr "dames"
+
+msgid "шахматы"
+msgstr "échecs"
+
+msgid "режимный сдвиг: биполярность · фигуры меняют природу"
+msgstr "décalage de mode : bipolarité · les pièces changent de nature"
+
+msgid "СУМЕРКИ"
+msgstr "CRÉPUSCULE"
+
+msgid "мат"
+msgstr "mat"
+
+msgid "ПАУЗА"
+msgstr "PAUSE"
+
+msgid "Space (клавиша пробел) — продолжить партию"
+msgstr "Space (barre d'espace) — reprendre la partie"
+
+msgid "ПАРТИЯ ЕЩЁ НЕ НАЧАТА"
+msgstr "PARTIE PAS ENCORE COMMENCÉE"
+
+msgid "Справа — «Играть», настройки и правила"
+msgstr "À droite — « Jouer », les réglages et les règles"
+
+msgid "ПРОТОТИП · СУМЕРКИ · v{VERSION}"
+msgstr "PROTOTYPE · CRÉPUSCULE · v{VERSION}"
+
+msgid "сумерки: фигуры меняются"
+msgstr "crépuscule : les pièces se transforment"
+
+msgid "пауза"
+msgstr "pause"
+
+msgid "ход перейдёт противнику через {time}"
+msgstr "le trait passera à l'adversaire dans {time}"
+
+msgid "переход ждёт конца взятия"
+msgstr "la transition attend la fin de la prise"
+
+msgid "нет ходов — сумерки выводят из тупика"
+msgstr "aucun coup — le crépuscule débloque la situation"
+
+msgid "компьютер думает…"
+msgstr "l'ordinateur réfléchit…"
+
+msgid "до превращения в {phase}"
+msgstr "avant le passage à {phase}"
+
+msgid "СОПЕРНИК"
+msgstr "ADVERSAIRE"
+
+msgid "с компьютером"
+msgstr "contre l'ordinateur"
+
+msgid "СЛОЖНОСТЬ"
+msgstr "DIFFICULTÉ"
+
+msgid "Ход {side}"
+msgstr "Trait aux {side}"
+
+msgid "ШАХ"
+msgstr "ÉCHEC"
+
+msgid "Закончить"
+msgstr "Terminer"
+
+msgid "ВЗЯТИЕ"
+msgstr "PRISE"
+
+msgid "БОЙ"
+msgstr "COMBAT"
+
+msgid "материал равный"
+msgstr "matériel égal"
+
+msgid "белые впереди на {n}"
+msgstr "les blancs mènent de {n}"
+
+msgid "чёрные впереди на {n}"
+msgstr "les noirs mènent de {n}"
+
+msgid "{material} · взято {white} : {black}"
+msgstr "{material} · capturé {white} : {black}"
+
+msgid "ХОДЫ"
+msgstr "COUPS"
+
+msgid "10 с"
+msgstr "10 s"
+
+msgid "15 с"
+msgstr "15 s"
+
+msgid "20 с"
+msgstr "20 s"
+
+msgid "40 с"
+msgstr "40 s"
+
+msgid "пока тихо — сделайте первый ход"
+msgstr "silence pour l'instant — faites le premier coup"
+
+msgid "Совет: в шашечной фазе король превращается в дамку — съешьте его и победите."
+msgstr "Conseil : en phase de dames, le roi se transforme en dame — mangez-le et gagnez."
+
+msgid "СМЕНА ФАЗ"
+msgstr "CHANGEMENT DE PHASE"
+
+msgid "АВТОСМЕНА СУМЕРЕК"
+msgstr "AUTO-CHANGEMENT DU CRÉPUSCULE"
+
+msgid "РИТМ ТЕКУЩЕЙ ФАЗЫ"
+msgstr "RYTHME DE LA PHASE ACTUELLE"
+
+msgid "По ходам: случайно"
+msgstr "Par coups : aléatoire"
+
+msgid "После хода может остаться или смениться"
+msgstr "Après un coup, la phase peut rester ou changer"
+
+msgid "Случайно: 10–{max} с"
+msgstr "Aléatoire : 10–{max} s"
+
+msgid "Следующий интервал будет другим"
+msgstr "L'intervalle suivant sera différent"
+
+msgid "клик — ход · Space — пауза · R — новая партия · H — правила"
+msgstr "clic — coup · Space — pause · R — nouvelle partie · H — règles"
+
+msgid "Правила"
+msgstr "Règles"
+
+msgid "Настройки"
+msgstr "Réglages"
+
+msgid "Играть"
+msgstr "Jouer"
+
+msgid "Пауза"
+msgstr "Pause"
+
+msgid "Новая партия"
+msgstr "Nouvelle partie"
+
+msgid "НАСТРОЙКИ"
+msgstr "RÉGLAGES"
+
+msgid "ЯЗЫК"
+msgstr "LANGUE"
+
+msgid "ЗВУКИ"
+msgstr "SONS"
+
+msgid "Звуки: включены"
+msgstr "Sons : activés"
+
+msgid "Звуки: выключены"
+msgstr "Sons : désactivés"
+
+msgid "ИСТОЧНИК"
+msgstr "SOURCE"
+
+msgid "Встроенные"
+msgstr "Intégrés"
+
+msgid "Из папки sounds"
+msgstr "Depuis le dossier sounds"
+
+msgid "МУЗЫКА"
+msgstr "MUSIQUE"
+
+msgid "Музыка: нет music/theme.wav"
+msgstr "Musique : music/theme.wav absent"
+
+msgid "Музыка: включена"
+msgstr "Musique : activée"
+
+msgid "Музыка: выключена"
+msgstr "Musique : désactivée"
+
+msgid "Фоновая музыка не прерывается звуками ходов."
+msgstr "La musique de fond n'est pas interrompue par les sons des coups."
+
+msgid "ЛОГИ ПАРТИЙ"
+msgstr "JOURNAUX DE PARTIE"
+
+msgid "Логи: включены"
+msgstr "Journaux : activés"
+
+msgid "Логи: выключены"
+msgstr "Journaux : désactivés"
+
+msgid "Файлы — в папке logs рядом с игрой."
+msgstr "Fichiers dans le dossier logs, à côté du jeu."
+
+msgid "ШРИФТ"
+msgstr "POLICE"
+
+msgid "Шрифт: {name}"
+msgstr "Police : {name}"
+
+msgid "Свои .ttf/.otf — в папке fonts рядом с игрой."
+msgstr "Vos .ttf/.otf dans le dossier fonts, à côté du jeu."
+
+msgid "ПРЕВРАЩЕНИЕ"
+msgstr "TRANSFORMATION"
+
+msgid "Всегда ферзь"
+msgstr "Toujours dame"
+
+msgid "Выбор фигуры"
+msgstr "Choix de la pièce"
+
+msgid "По времени"
+msgstr "Par durée"
+
+msgid "По ходам"
+msgstr "Par coups"
+
+msgid "После хода фаза может остаться или смениться случайно."
+msgstr "Après un coup, la phase peut rester ou changer aléatoirement."
+
+msgid "Внутри одного хода всегда одна игра."
+msgstr "Pendant un même coup, on reste toujours dans une seule phase."
+
+msgid "ВРЕМЯ ХОДА"
+msgstr "DURÉE DU COUP"
+
+msgid "По истечении ход переходит противнику."
+msgstr "Une fois écoulé, le trait passe à l'adversaire."
+
+msgid "Случайно"
+msgstr "Aléatoire"
+
+msgid "Фиксированно"
+msgstr "Fixe"
+
+msgid "МАКСИМУМ ИНТЕРВАЛА"
+msgstr "INTERVALLE MAXIMAL"
+
+msgid "Каждая смена случайна; следующий интервал отличается."
+msgstr "Chaque changement est aléatoire ; l'intervalle suivant diffère."
+
+msgid "ВРЕМЯ · ШАХМАТЫ"
+msgstr "DURÉE · ÉCHECS"
+
+msgid "ВРЕМЯ · ШАШКИ"
+msgstr "DURÉE · DAMES"
+
+msgid "ШАШКИ"
+msgstr "DAMES"
+
+msgid "Взятие: да"
+msgstr "Prise : oui"
+
+msgid "Взятие: нет"
+msgstr "Prise : non"
+
+msgid "Иконки: да"
+msgstr "Icônes : oui"
+
+msgid "Иконки: нет"
+msgstr "Icônes : non"
+
+msgid "Дамки: все"
+msgstr "Dames : toutes"
+
+msgid "Дамки: пешки"
+msgstr "Dames : pions"
+
+msgid "Бить обязательно; серию нужно продолжать."
+msgstr "Prise obligatoire ; la série doit être poursuivie."
+
+msgid "Можно без взятия; серию можно закончить."
+msgstr "Prise facultative ; la série peut s'arrêter."
+
+msgid "Иконки — кроме пешек; дамки — все или только пешки."
+msgstr "Icônes : sauf les pions ; dames : toutes ou seulement les pions."
+
+msgid "ПЛАВНОСТЬ ХОДА"
+msgstr "FLUIDITÉ DU COUP"
+
+msgid "{:.2} с"
+msgstr "{:.2} s"
+
+msgid "МАТ · ТРАЕКТОРИИ"
+msgstr "MAT · TRAJECTOIRES"
+
+msgid "Показывать: да"
+msgstr "Afficher : oui"
+
+msgid "Показывать: нет"
+msgstr "Afficher : non"
+
+msgid "Сейчас: смена фаз по ходам, время хода {secs} с"
+msgstr "Actuel : changement de phase par coups, durée du coup {secs} s"
+
+msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
+msgstr "Actuel : auto-changement, 10–{max} s (phase actuelle {phase} s)"
+
+msgid "Сейчас: шахматы {chess} с · шашки {checkers} с"
+msgstr "Actuel : échecs {chess} s · dames {checkers} s"
+
+msgid "Свои звуки — в папке sounds, музыка — music/theme.wav,"
+msgstr "Vos sons dans le dossier sounds, la musique dans music/theme.wav,"
+
+msgid "картинки фигур — в папке pieces (PNG с прозрачным фоном)."
+msgstr "les images des pièces dans le dossier pieces (PNG avec fond transparent)."
+
+msgid "Готово"
+msgstr "Terminé"
+
+msgid "ПРЕВРАЩЕНИЕ ПЕШКИ"
+msgstr "PROMOTION DU PION"
+
+msgid "Пешка на последнем ряду — выберите новую фигуру"
+msgstr "Pion sur la dernière rangée — choisissez une nouvelle pièce"
+
+msgid "Ферзь"
+msgstr "Dame"
+
+msgid "Ладья"
+msgstr "Tour"
+
+msgid "Слон"
+msgstr "Fou"
+
+msgid "Конь"
+msgstr "Cavalier"
+
+msgid "Правила ModeShift: Bipolar"
+msgstr "Règles de ModeShift: Bipolar"
+
+msgid "Одна партия — две игры. Раз в N секунд фигуры превращаются, и правила меняются вместе с ними."
+msgstr "Une partie, deux jeux. Toutes les N secondes, les pièces se transforment et les règles changent avec elles."
+
+msgid "ПРАВИЛА"
+msgstr "RÈGLES"
+
+msgid "ФИГУРЫ"
+msgstr "PIÈCES"
+
+msgid "Ходы классические: пешка, конь, слон, ладья, ферзь, король."
+msgstr "Coups classiques : pion, cavalier, fou, tour, dame, roi."
+
+msgid "Без рокировки и взятия на проходе — только чистые ходы."
+msgstr "Pas de roque ni de prise en passant — uniquement des coups simples."
+
+msgid "Пешка на последнем ряду по умолчанию становится ферзём; выбор фигуры — в настройках."
+msgstr "Par défaut, le pion qui atteint la dernière rangée devient dame ; le choix de la pièce se fait dans les réglages."
+
+msgid "Шах и мат работают: короля нельзя оставить под боем."
+msgstr "Échec et mat s'appliquent : on ne peut pas laisser le roi en prise."
+
+msgid "Пат не ничья: сумерки сразу продолжают бой."
+msgstr "Le pat n'est pas une nulle : le crépuscule relance aussitôt le combat."
+
+msgid "В этом гибриде простые шашки ходят по диагонали вперёд и назад."
+msgstr "Dans cet hybride, les pions de dames se déplacent en diagonale, en avant et en arrière."
+
+msgid "Шашка остаётся на клетках своего цвета."
+msgstr "Le pion de dames reste sur les cases de sa couleur."
+
+msgid "Можно подставляться под удар, если обязательного взятия нет."
+msgstr "On peut exposer une pièce si la prise n'est pas obligatoire."
+
+msgid "Король в шашечной фазе — обычная шашка с точкой."
+msgstr "En phase de dames, le roi est un pion de dames ordinaire avec un point."
+
+msgid "Дамки летят по диагонали на любое расстояние."
+msgstr "Les dames se déplacent en diagonale sur toute la distance."
+
+msgid "Бить обязательно; серия взятий продолжается, пока есть цель."
+msgstr "La prise est obligatoire ; la série continue tant qu'il y a une cible."
+
+msgid "Обязательное взятие можно отключить в настройках."
+msgstr "La prise obligatoire peut être désactivée dans les réglages."
+
+msgid "Иконки на шашках показывают вид фигуры; пешки — без иконок."
+msgstr "Les icônes sur les pions de dames indiquent le type de pièce ; les pions n'ont pas d'icône."
+
+msgid "По умолчанию дамкой может стать любая фигура; «Дамки: пешки» — только пешки."
+msgstr "Par défaut, n'importe quelle pièce peut devenir dame ; « Dames : pions » — seulement les pions."
+
+msgid "Шашка на последнем ряду становится дамкой и продолжает серию как дамка."
+msgstr "Un pion de dames arrivé à la dernière rangée devient dame et poursuit la série en tant que dame."
+
+msgid "Короля можно съесть и победить."
+msgstr "On peut manger le roi et gagner."
+
+msgid "Если застряли оба — сумерки сразу выводят в шахматы."
+msgstr "Si les deux camps sont bloqués, le crépuscule passe aussitôt aux échecs."
+
+msgid "Сумерки длятся 1,7 секунды: ходы замирают, фигуры перетекают."
+msgstr "Le crépuscule dure 1,7 seconde : les coups se figent, les pièces se transforment."
+
+msgid "Переход ждёт, пока игрок завершит серию взятий."
+msgstr "La transition attend que le joueur termine sa série de prises."
+
+msgid "Победа: мат, съеденный король или истребление фигур."
+msgstr "Victoire : mat, roi mangé ou pièces exterminées."
+
+msgid "Время шахмат и шашек задаётся отдельно в настройках."
+msgstr "La durée des échecs et des dames se règle séparément dans les réglages."
+
+msgid "Смена фаз: по времени или после ходов; по ходам — случайно."
+msgstr "Changement de phase : par durée ou après des coups ; par coups, de façon aléatoire."
+
+msgid "В режиме по ходам внутри хода всегда одна игра, после хода фаза может смениться."
+msgstr "En mode par coups, une seule phase s'applique pendant un coup ; après le coup, la phase peut changer."
+
+msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
+msgstr "En mode par coups, chaque coup dispose de 10–180 s ; une fois écoulé, le trait passe à l'adversaire."
+
+msgid "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт."
+msgstr "L'ordinateur réfléchit 2–3 s et met en évidence la pièce qu'il prend."
+
+msgid "После партии «Просмотр» показывает ходы по шагам с анимацией."
+msgstr "Après la partie, « Revoir » montre les coups pas à pas avec animation."
+
+msgid "При мате видны красные линии атак на короля, жёлтые линии фигур, перекрывающих выходы, и список матующих фигур."
+msgstr "En cas de mat, on voit les lignes rouges des attaques sur le roi, les lignes jaunes des pièces qui bloquent les issues, et la liste des pièces qui matent."
+
+msgid "С компьютером вы играете белыми; сложность меняет глубину."
+msgstr "Contre l'ordinateur, vous jouez les blancs ; la difficulté change la profondeur."
+
+msgid "КОГДА ФИГУРЫ — ШАХМАТЫ\n"
+msgstr "QUAND LES PIÈCES SONT AUX ÉCHECS\n"
+
+msgid "КОГДА ФИГУРЫ — ШАШКИ\n"
+msgstr "QUAND LES PIÈCES SONT AUX DAMES\n"
+
+msgid "СУМЕРКИ\n"
+msgstr "CRÉPUSCULE\n"
+
+msgid "Понятно"
+msgstr "Compris"
+
+msgid "ЖУРНАЛ ПАРТИИ"
+msgstr "JOURNAL DE LA PARTIE"
+
+msgid "Файл: {path}"
+msgstr "Fichier : {path}"
+
+msgid "Файл не сохранён — журнал показан из памяти."
+msgstr "Fichier non enregistré — le journal est affiché depuis la mémoire."
+
+msgid "Копировать"
+msgstr "Copier"
+
+msgid "Закрыть"
+msgstr "Fermer"
+
+msgid "ПОБЕДА {side}"
+msgstr "VICTOIRE {side}"
+
+msgid "ПАРТИЯ"
+msgstr "PARTIE"
+
+msgid "король"
+msgstr "roi"
+
+msgid "Повтор: {att_side} — {att}, {vic_side} — {vic} · {phase}"
+msgstr "Répétition : {att_side} — {att}, {vic_side} — {vic} · {phase}"
+
+msgid "Повтор последнего хода"
+msgstr "Répétition du dernier coup"
+
+msgid "Ходов: {n}"
+msgstr "Coups : {n}"
+
+msgid "Мат ставят: {names}"
+msgstr "Pièces qui matent : {names}"
+
+msgid "Журнал"
+msgstr "Journal"
+
+msgid "Просмотр"
+msgstr "Revoir"
+
+msgid "Сначала выберите игру, потом фигуру"
+msgstr "Choisissez d'abord le jeu, puis la pièce"
+
+msgid "ШАХМАТЫ"
+msgstr "ÉCHECS"
+
+msgid "Пешки"
+msgstr "Pions"
+
+msgid "Пешка-король"
+msgstr "Pion-roi"
+
+msgid "Дамка"
+msgstr "Dame"
+
+msgid "ФИГУРА В ШАШКАХ"
+msgstr "PIÈCE AUX DAMES"
+
+msgid "ФИГУРА В ШАХМАТАХ"
+msgstr "PIÈCE AUX ÉCHECS"
+
+msgid "ДЕМОНСТРАЦИЯ"
+msgstr "DÉMONSTRATION"
+
+msgid "КАК ХОДИТ"
+msgstr "DÉPLACEMENT"
+
+msgid "КАК БЬЁТ"
+msgstr "PRISE"
+
+msgid "Демо хода"
+msgstr "Démo du déplacement"
+
+msgid "Демо взятия"
+msgstr "Démo de la prise"
+
+msgid "ПРОСМОТР ПАРТИИ"
+msgstr "REVUE DE LA PARTIE"
+
+msgid "Ход {n} из {total}"
+msgstr "Coup {n} sur {total}"
+
+msgid "◀ Назад"
+msgstr "◀ Retour"
+
+msgid "Вперёд ▶"
+msgstr "Suivant ▶"
+
+msgid "прервана (приложение закрыто)"
+msgstr "interrompue (application fermée)"
+
+msgid "пешка"
+msgstr "pion"
+
+msgid "конь"
+msgstr "cavalier"
+
+msgid "слон"
+msgstr "fou"
+
+msgid "ладья"
+msgstr "tour"
+
+msgid "ферзь"
+msgstr "dame"
+
+msgid "Пешка"
+msgstr "Pion"
+
+msgid "Король"
+msgstr "Roi"
+
+msgid "Дамка летит по диагонали на любое расстояние, пока путь свободен."
+msgstr "La dame se déplace en diagonale sur toute la distance, tant que le chemin est libre."
+
+msgid "Бьёт через одну вражескую фигуру на любой дистанции, вставая на свободную клетку за ней. Серия взятий продолжается, пока есть цель."
+msgstr "Elle prend par-dessus une pièce ennemie, à n'importe quelle distance, en se posant sur la case libre derrière elle. La série de prises continue tant qu'il y a une cible."
+
+msgid "Пешка-король с кружком. Ходит и бьёт как обычная пешка, но потеря короля — поражение. Несмотря на обычный вид, следите за ней особенно внимательно."
+msgstr "Pion-roi marqué d'un cercle. Il se déplace et prend comme un pion ordinaire, mais la perte du roi est une défaite. Malgré son apparence ordinaire, surveillez-le tout particulièrement."
+
+msgid "Бьёт как обычная шашка — через соседнюю фигуру на свободную клетку за ней. Может стать дамкой, если включено «Дамки: все»."
+msgstr "Elle prend comme un pion de dames ordinaire — par-dessus une pièce voisine, sur la case libre derrière elle. Elle peut devenir dame si « Dames : toutes » est activé."
+
+msgid "Все пешки в шашках — обычные шашки: по диагонали на одну клетку вперёд и назад. На последнем ряду пешка становится дамкой."
+msgstr "Aux dames, tous les pions sont des pions de dames ordinaires : une case en diagonale, en avant et en arrière. Arrivé à la dernière rangée, le pion devient dame."
+
+msgid "Бьёт через соседнюю вражескую шашку на свободную клетку за ней; серия продолжается. Иконки коня, слона, ладьи и ферзя — только шахматные метки, особых прав не дают; их можно скрыть в настройках."
+msgstr "Elle prend par-dessus un pion de dames ennemi voisin, sur la case libre derrière lui ; la série continue. Les icônes de cavalier, fou, tour et dame ne sont que des repères d'échecs, elles ne donnent aucun droit particulier ; on peut les masquer dans les réglages."
+
+msgid "Обычная шашка ходит по диагонали на одну клетку вперёд и назад. На последнем ряду становится дамкой, которая летит по диагонали на любое расстояние."
+msgstr "Un pion de dames ordinaire se déplace d'une case en diagonale, en avant et en arrière. Arrivé à la dernière rangée, il devient dame et se déplace alors en diagonale sur toute la distance."
+
+msgid "Бьёт через соседнюю вражескую шашку, вставая на свободную клетку за ней. Серия взятий продолжается, пока есть цель. Обязательный бой можно отключить в настройках."
+msgstr "Elle prend par-dessus un pion de dames ennemi voisin, en se posant sur la case libre derrière lui. La série de prises continue tant qu'il y a une cible. La prise obligatoire peut être désactivée dans les réglages."
+
+msgid "Король в шашечной фазе — обычная шашка с короной: ходит по диагонали на одну клетку вперёд и назад, а после коронации становится дамкой."
+msgstr "En phase de dames, le roi est un pion de dames ordinaire avec une couronne : il se déplace d'une case en diagonale, en avant et en arrière, et devient dame après couronnement."
+
+msgid "Бьёт как шашка — через соседнюю фигуру на свободное поле за ней. Может стать дамкой, если включено «Дамки: все»."
+msgstr "Elle prend comme un pion de dames — par-dessus une pièce voisine, sur la case libre derrière elle. Elle peut devenir dame si « Dames : toutes » est activé."
+
+msgid "Иконка показывает вид фигуры, но правила шашечные: по диагонали на одну клетку вперёд и назад. Дамка летит по диагонали на любое расстояние."
+msgstr "L'icône indique le type de pièce, mais les règles sont celles des dames : une case en diagonale, en avant et en arrière. La dame se déplace en diagonale sur toute la distance."
+
+msgid "Бьёт через соседнюю вражескую фигуру, вставая на свободную клетку за ней; серия продолжается. Может стать дамкой, если включено «Дамки: все»."
+msgstr "Elle prend par-dessus une pièce ennemie voisine, en se posant sur la case libre derrière elle ; la série continue. Elle peut devenir dame si « Dames : toutes » est activé."
+
+msgid "Идёт на одну клетку вперёд; с начальной позиции — на две, если путь свободен."
+msgstr "Avance d'une case ; depuis la position initiale, de deux cases si le chemin est libre."
+
+msgid "Бьёт по диагонали на одну клетку вперёд. Взятия на проходе в этой версии нет. На последнем ряду превращается в ферзя или выбранную фигуру."
+msgstr "Prend d'une case en diagonale vers l'avant. La prise en passant n'existe pas dans cette version. Arrivé à la dernière rangée, il devient dame ou la pièce choisie."
+
+msgid "Ходит буквой Г: две клетки по одной оси и одна по другой. Перепрыгивает фигуры."
+msgstr "Se déplace en L : deux cases sur un axe et une sur l'autre. Saute par-dessus les pièces."
+
+msgid "Бьёт прыжком на вражескую фигуру в точке приземления; свои фигуры на пути не мешают."
+msgstr "Prend en sautant sur une pièce ennemie à la case d'arrivée ; ses propres pièces ne gênent pas."
+
+msgid "Ходит по диагонали на любое расстояние, пока путь свободен."
+msgstr "Se déplace en diagonale sur toute la distance, tant que le chemin est libre."
+
+msgid "Бьёт по диагонали: путь до вражеской фигуры должен быть свободен."
+msgstr "Prend en diagonale : le chemin jusqu'à la pièce ennemie doit être libre."
+
+msgid "Ходит по вертикали и горизонтали на любое расстояние, пока путь свободен."
+msgstr "Se déplace verticalement et horizontalement sur toute la distance, tant que le chemin est libre."
+
+msgid "Бьёт по вертикали или горизонтали: путь до вражеской фигуры должен быть свободен."
+msgstr "Prend verticalement ou horizontalement : le chemin jusqu'à la pièce ennemie doit être libre."
+
+msgid "Ходит как ладья и слон: по вертикали, горизонтали и диагонали на любое расстояние."
+msgstr "Se déplace comme la tour et le fou : verticalement, horizontalement et en diagonale, sur toute la distance."
+
+msgid "Бьёт по любой из этих линий, если путь до вражеской фигуры свободен."
+msgstr "Prend sur n'importe laquelle de ces lignes si le chemin jusqu'à la pièce ennemie est libre."
+
+msgid "Ходит на одну клетку в любом направлении."
+msgstr "Se déplace d'une case dans n'importe quelle direction."
+
+msgid "Бьёт на одну клетку в любом направлении. Под бой оставлять нельзя: шах и мат."
+msgstr "Prend d'une case dans n'importe quelle direction. On ne peut pas laisser le roi en prise : échec et mat."
+
+msgid "демо: шашечная фаза"
+msgstr "démo : phase de dames"
+
+msgid "демо: превращение пешки"
+msgstr "démo : promotion du pion"
+
+msgid "демо: шахматы 25 с, шашки 10 с"
+msgstr "démo : échecs 25 s, dames 10 s"
+
+msgid "демо: автосмена сумерек"
+msgstr "démo : crépuscule automatique"
+
+msgid "демо: смена фаз по ходам"
+msgstr "démo : changement de phase par coups"
+
+msgid "демо: по ходам"
+msgstr "démo : par coups"
+
+msgid "демо: обязательное взятие"
+msgstr "démo : prise obligatoire"
+
+msgid "демо: пауза"
+msgstr "démo : pause"
+
+msgid "демо: просмотр партии"
+msgstr "démo : revue de la partie"
+
+msgid "демо: мат"
+msgstr "démo : mat"
+
+msgid "демо: две пешки на последнем ряду"
+msgstr "démo : deux pions sur la dernière rangée"
+
+msgid "демо: взятие короля в шахматах"
+msgstr "démo : prise du roi aux échecs"
+
+msgid "демо: победа по королю"
+msgstr "démo : victoire par le roi"
+
+msgid "{:.0} с"
+msgstr "{:.0} s"
+
+msgid "Белые"
+msgstr "Blancs"
+
+msgid "Чёрные"
+msgstr "Noirs"
+
+msgid "белых"
+msgstr "blancs"
+
+msgid "чёрных"
+msgstr "noirs"
+
+msgid "П"
+msgstr "P"
+
+msgid "К"
+msgstr "C"
+
+msgid "С"
+msgstr "F"
+
+msgid "Л"
+msgstr "T"
+
+msgid "Ф"
+msgstr "D"
+
+msgid "Кр"
+msgstr "R"
+
+msgid "=Ф"
+msgstr "=D"
+
+msgid " (дамка)"
+msgstr " (dame)"
+
+msgid "{side} — пешка {sq} стала {piece}"
+msgstr "{side} — le pion {sq} est devenu {piece}"
+
+msgid "— время хода истекло: ход переходит противнику"
+msgstr "— le temps du coup est écoulé : le trait passe à l'adversaire"
+
+msgid "белым"
+msgstr "aux blancs"
+
+msgid "чёрным"
+msgstr "aux noirs"
+
+msgid "— {side} нечем ходить: пропуск"
+msgstr "— {side} n'a plus de coup : passe"
+
+msgid "— в шашках застряли оба: сумерки выводят в шахматы"
+msgstr "— aux dames, les deux camps sont bloqués : le crépuscule passe aux échecs"
+
+msgid "— пат: сумерки продолжают бой"
+msgstr "— pat : le crépuscule poursuit le combat"
+
+msgid "{side} — пешка {sq} стала ферзём"
+msgstr "{side} — le pion {sq} est devenu dame"
+
+msgid "король взят"
+msgstr "roi pris"
+
+msgid "у соперника не осталось фигур"
+msgstr "l'adversaire n'a plus de pièces"
+
+msgid "легко"
+msgstr "facile"
+
+msgid "средне"
+msgstr "moyen"
+
+msgid "сложно"
+msgstr "difficile"
+
+msgid "Шашка"
+msgstr "Pion de dames"
+
+msgid "Партия «ModeShift: Bipolar»\n"
+msgstr "Partie « ModeShift: Bipolar »\n"
+
+msgid "Версия: {version}\n"
+msgstr "Version : {version}\n"
+
+msgid "Начало: {start}\n"
+msgstr "Début : {start}\n"
+
+msgid "Окончание: {end}\n"
+msgstr "Fin : {end}\n"
+
+msgid "Режим: {mode}\n"
+msgstr "Mode : {mode}\n"
+
+msgid "Смена фаз: по ходам (случайно после каждого хода), время хода {secs} с\n"
+msgstr "Changement de phase : par coups (aléatoire après chaque coup), durée du coup {secs} s\n"
+
+msgid "Автосмена сумерек: случайно 10–{secs} с\n"
+msgstr "Crépuscule automatique : aléatoire 10–{secs} s\n"
+
+msgid "Время фаз: шахматы {chess} с, шашки {checkers} с\n"
+msgstr "Durée des phases : échecs {chess} s, dames {checkers} s\n"
+
+msgid "Обязательное взятие: {value}\n"
+msgstr "Prise obligatoire : {value}\n"
+
+msgid "вкл"
+msgstr "activé"
+
+msgid "выкл"
+msgstr "désactivé"
+
+msgid "Коронация не-пешек: {value}\n"
+msgstr "Couronnement des non-pions : {value}\n"
+
+msgid "Результат: {result}\n"
+msgstr "Résultat : {result}\n"
+
+msgid "Всего ходов: {total} (белые: {white}, чёрные: {black})\n"
+msgstr "Total des coups : {total} (blancs : {white}, noirs : {black})\n"
+
+msgid "Полных ходов: {value}\n"
+msgstr "Coups complets : {value}\n"
+
+msgid "\n№\tСторона\tФигура\tХод\tВзятие\tФаза\n"
+msgstr "\n№\tCôté\tPièce\tCoup\tPrise\tPhase\n"
+
+
+msgid "Атака: да"
+msgstr "Attaque : oui"
+
+msgid "Атака: нет"
+msgstr "Attaque : non"
+
+msgid "Окружение: да"
+msgstr "Encerclement : oui"
+
+msgid "Окружение: нет"
+msgstr "Encerclement : non"
+
+msgid "ход перейдёт противнику"
+msgstr "le tour passera à l'adversaire"
+
+msgid "Свои звуки — в папке sounds (WAV или MP3), музыка — music/theme.wav,"
+msgstr "Vos sons — dans le dossier sounds (WAV ou MP3), musique — music/theme.wav,"
+
+msgid "демо: мат с окружением"
+msgstr "démo : mat avec encerclement"
+
+msgid "клик — ход · Space — пауза"
+msgstr "clic — coup · Space — pause"
+
+msgid "R — новая партия · H — правила"
+msgstr "R — nouvelle partie · H — règles"

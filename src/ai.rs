@@ -16,9 +16,18 @@ pub enum Difficulty {
 impl Difficulty {
     pub fn label_ru(self) -> &'static str {
         match self {
-            Difficulty::Easy => "легко",
-            Difficulty::Medium => "средне",
-            Difficulty::Hard => "сложно",
+            Difficulty::Easy => crate::i18n::tr("легко"),
+            Difficulty::Medium => crate::i18n::tr("средне"),
+            Difficulty::Hard => crate::i18n::tr("сложно"),
+        }
+    }
+
+    /// Подпись для журнала: русская для русской локализации, английская для остальных.
+    pub fn label_log(self) -> &'static str {
+        match self {
+            Difficulty::Easy => crate::i18n::log("легко"),
+            Difficulty::Medium => crate::i18n::log("средне"),
+            Difficulty::Hard => crate::i18n::log("сложно"),
         }
     }
 

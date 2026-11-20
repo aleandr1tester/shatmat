@@ -62,28 +62,35 @@ pub fn logs_dir() -> PathBuf {
 fn kind_name(kind: Kind, phase: Phase, damka: bool) -> &'static str {
     if phase == Phase::Checkers {
         if kind == Kind::King {
-            "Король"
+            crate::i18n::log("Король")
         } else if damka {
-            "Дамка"
+            crate::i18n::log("Дамка")
         } else {
-            "Шашка"
+            crate::i18n::log("Шашка")
         }
     } else {
         match kind {
-            Kind::Pawn => "Пешка",
-            Kind::Knight => "Конь",
-            Kind::Bishop => "Слон",
-            Kind::Rook => "Ладья",
-            Kind::Queen => "Ферзь",
-            Kind::King => "Король",
+            Kind::Pawn => crate::i18n::log("Пешка"),
+            Kind::Knight => crate::i18n::log("Конь"),
+            Kind::Bishop => crate::i18n::log("Слон"),
+            Kind::Rook => crate::i18n::log("Ладья"),
+            Kind::Queen => crate::i18n::log("Ферзь"),
+            Kind::King => crate::i18n::log("Король"),
         }
     }
 }
 
 fn phase_name(phase: Phase) -> &'static str {
     match phase {
-        Phase::Chess => "шахматы",
-        Phase::Checkers => "шашки",
+        Phase::Chess => crate::i18n::log("шахматы"),
+        Phase::Checkers => crate::i18n::log("шашки"),
+    }
+}
+
+fn side_log(side: Side) -> &'static str {
+    match side {
+        Side::White => crate::i18n::log("Белые"),
+        Side::Black => crate::i18n::log("Чёрные"),
     }
 }
 
@@ -96,11 +103,11 @@ fn move_record_line(index: usize, m: &MoveRecord) -> String {
     };
     let captured = m
         .captured
-        .map(|(side, kind)| format!("{} {}", side.name_ru(), kind_name(kind, m.phase, false)))
+        .map(|(side, kind)| format!("{} {}", side_log(side), kind_name(kind, m.phase, false)))
         .unwrap_or_else(|| "—".to_string());
     format!(
         "{index}\t{}\t{piece}\t{coords}\t{captured}\t{}",
-        m.side.name_ru(),
+        side_log(m.side),
         phase_name(m.phase)
     )
 }
@@ -123,45 +130,72 @@ pub fn format_game_log(
         .filter(|m| m.side == Side::Black)
         .count();
     let mut s = String::new();
-    s.push_str("Партия «ModeShift: Bipolar»\n");
-    s.push_str(&format!("Версия: {}\n", env!("CARGO_PKG_VERSION")));
-    s.push_str(&format!("Начало: {start}\n"));
-    s.push_str(&format!("Окончание: {end}\n"));
-    s.push_str(&format!("Режим: {mode}\n"));
+    s.push_str(&crate::i18n::logf("Партия «ModeShift: Bipolar»\n", &[]));
+    s.push_str(&crate::i18n::logf(
+        "Версия: {version}\n",
+        &[("version", env!("CARGO_PKG_VERSION"))],
+    ));
+    s.push_str(&crate::i18n::logf("Начало: {start}\n", &[("start", start)]));
+    s.push_str(&crate::i18n::logf("Окончание: {end}\n", &[("end", end)]));
+    s.push_str(&crate::i18n::logf("Режим: {mode}\n", &[("mode", mode)]));
     if game.twilight_by_moves {
-        s.push_str(&format!(
-            "Смена фаз: по ходам (случайно после каждого хода), время хода {:.0} с\n",
-            game.move_time_limit
+        s.push_str(&crate::i18n::logf(
+            "Смена фаз: по ходам (случайно после каждого хода), время хода {secs} с\n",
+            &[("secs", &format!("{:.0}", game.move_time_limit))],
         ));
     } else if game.auto_phase {
-        s.push_str(&format!(
-            "Автосмена сумерек: случайно 10–{:.0} с\n",
-            game.auto_max
+        s.push_str(&crate::i18n::logf(
+            "Автосмена сумерек: случайно 10–{secs} с\n",
+            &[("secs", &format!("{:.0}", game.auto_max))],
         ));
     } else {
-        s.push_str(&format!(
-            "Время фаз: шахматы {:.0} с, шашки {:.0} с\n",
-            game.chess_len, game.checkers_len
+        s.push_str(&crate::i18n::logf(
+            "Время фаз: шахматы {chess} с, шашки {checkers} с\n",
+            &[
+                ("chess", &format!("{:.0}", game.chess_len)),
+                ("checkers", &format!("{:.0}", game.checkers_len)),
+            ],
         ));
     }
-    s.push_str(&format!(
-        "Обязательное взятие: {}\n",
-        if game.mandatory_capture { "вкл" } else { "выкл" }
+    s.push_str(&crate::i18n::logf(
+        "Обязательное взятие: {value}\n",
+        &[(
+            "value",
+            if game.mandatory_capture {
+                crate::i18n::log("вкл")
+            } else {
+                crate::i18n::log("выкл")
+            },
+        )],
     ));
-    s.push_str(&format!(
-        "Коронация не-пешек: {}\n",
-        if game.crown_non_pawns { "вкл" } else { "выкл" }
+    s.push_str(&crate::i18n::logf(
+        "Коронация не-пешек: {value}\n",
+        &[(
+            "value",
+            if game.crown_non_pawns {
+                crate::i18n::log("вкл")
+            } else {
+                crate::i18n::log("выкл")
+            },
+        )],
     ));
-    s.push_str(&format!("Результат: {result}\n"));
-    s.push_str(&format!(
-        "Всего ходов: {} (белые: {white}, чёрные: {black})\n",
-        game.history.len()
+    s.push_str(&crate::i18n::logf("Результат: {result}\n", &[("result", result)]));
+    s.push_str(&crate::i18n::logf(
+        "Всего ходов: {total} (белые: {white}, чёрные: {black})\n",
+        &[
+            ("total", &game.history.len().to_string()),
+            ("white", &white.to_string()),
+            ("black", &black.to_string()),
+        ],
     ));
-    s.push_str(&format!(
-        "Полных ходов: {}\n",
-        (game.history.len() + 1) / 2
+    s.push_str(&crate::i18n::logf(
+        "Полных ходов: {value}\n",
+        &[("value", &((game.history.len() + 1) / 2).to_string())],
     ));
-    s.push_str("\n№\tСторона\tФигура\tХод\tВзятие\tФаза\n");
+    s.push_str(&crate::i18n::logf(
+        "\n№\tСторона\tФигура\tХод\tВзятие\tФаза\n",
+        &[],
+    ));
     for (i, m) in game.history.iter().enumerate() {
         s.push_str(&move_record_line(i + 1, m));
         s.push('\n');

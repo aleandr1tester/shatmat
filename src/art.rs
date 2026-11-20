@@ -184,6 +184,7 @@ pub fn spaced_text(
     spacing: f32,
 ) -> f32 {
     let font = FontId::proportional(size);
+    let text = crate::i18n::tr_owned(text.to_string());
     let mut x = pos.x;
     for ch in text.chars() {
         let galley = painter.layout_no_wrap(ch.to_string(), font.clone(), color);
@@ -195,6 +196,7 @@ pub fn spaced_text(
 
 pub fn spaced_width(painter: &Painter, text: &str, size: f32, spacing: f32) -> f32 {
     let font = FontId::proportional(size);
+    let text = crate::i18n::tr_owned(text.to_string());
     let mut w = 0.0;
     for ch in text.chars() {
         w += painter
@@ -529,18 +531,16 @@ pub fn draw_checker(
     pal: &Palette,
     a: f32,
 ) {
-    let (rim, mid, light, mark) = match side {
+    let (rim, mid, light) = match side {
         Side::White => (
             Color32::from_rgb(139, 107, 69),
             Color32::from_rgb(214, 194, 160),
             Color32::from_rgb(244, 233, 211),
-            Color32::from_rgb(120, 88, 52),
         ),
         Side::Black => (
             Color32::from_rgb(138, 157, 187),
             Color32::from_rgb(37, 45, 63),
             Color32::from_rgb(54, 64, 86),
-            Color32::from_rgb(196, 214, 238),
         ),
     };
 
@@ -570,44 +570,61 @@ pub fn draw_checker(
     );
 
     if damka {
-        painter.circle_stroke(
-            center,
-            0.205 * size,
-            Stroke::new((size * 0.020).max(1.2), alpha(mark, a * 0.9)),
-        );
-        // корона из трёх зубцов
-        let base = Rect::from_min_max(
-            u(painter, center, size, 0.415, 0.525),
-            u(painter, center, size, 0.585, 0.565),
-        );
-        painter.rect_filled(base, 0.0, alpha(mark, a * 0.9));
-        for (x0, xt, x1) in [(0.415f32, 0.443, 0.465), (0.475, 0.5, 0.525), (0.535, 0.557, 0.585)] {
-            let pts = vec![
-                u(painter, center, size, x0, 0.532),
-                u(painter, center, size, xt, 0.452),
-                u(painter, center, size, x1, 0.532),
-            ];
-            painter.add(egui::Shape::convex_polygon(
-                pts,
-                alpha(mark, a * 0.9),
-                Stroke::NONE,
-            ));
-        }
+        draw_damka_crown(painter, center, size, side, a);
     }
 
     if royal {
-        // Маленькая «королевская» точка над короной: короля видно
-        // и среди обычных дамок.
-        let dot = u(painter, center, size, 0.5, 0.405);
-        painter.circle_filled(dot, size * 0.026, alpha(mark, a * 0.95));
-        painter.circle_stroke(
-            dot,
-            size * 0.045,
-            Stroke::new((size * 0.012).max(1.0), alpha(mark, a * 0.8)),
-        );
+        draw_royal_dot(painter, center, size, side, a);
     }
 
     let _ = pal;
+}
+
+fn checker_mark_color(side: Side) -> Color32 {
+    match side {
+        Side::White => Color32::from_rgb(120, 88, 52),
+        Side::Black => Color32::from_rgb(196, 214, 238),
+    }
+}
+
+/// Только корона дамки: её можно дорисовать поверх своей картинки шашки.
+pub fn draw_damka_crown(painter: &Painter, center: Pos2, size: f32, side: Side, a: f32) {
+    let mark = checker_mark_color(side);
+    painter.circle_stroke(
+        center,
+        0.205 * size,
+        Stroke::new((size * 0.020).max(1.2), alpha(mark, a * 0.9)),
+    );
+    // корона из трёх зубцов
+    let base = Rect::from_min_max(
+        u(painter, center, size, 0.415, 0.525),
+        u(painter, center, size, 0.585, 0.565),
+    );
+    painter.rect_filled(base, 0.0, alpha(mark, a * 0.9));
+    for (x0, xt, x1) in [(0.415f32, 0.443, 0.465), (0.475, 0.5, 0.525), (0.535, 0.557, 0.585)] {
+        let pts = vec![
+            u(painter, center, size, x0, 0.532),
+            u(painter, center, size, xt, 0.452),
+            u(painter, center, size, x1, 0.532),
+        ];
+        painter.add(egui::Shape::convex_polygon(
+            pts,
+            alpha(mark, a * 0.9),
+            Stroke::NONE,
+        ));
+    }
+}
+
+/// Маленькая «королевская» точка: короля видно и среди обычных шашек.
+pub fn draw_royal_dot(painter: &Painter, center: Pos2, size: f32, side: Side, a: f32) {
+    let mark = checker_mark_color(side);
+    let dot = u(painter, center, size, 0.5, 0.405);
+    painter.circle_filled(dot, size * 0.026, alpha(mark, a * 0.95));
+    painter.circle_stroke(
+        dot,
+        size * 0.045,
+        Stroke::new((size * 0.012).max(1.0), alpha(mark, a * 0.8)),
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -622,7 +639,8 @@ pub fn text(
     size: f32,
     color: Color32,
 ) {
-    painter.text(pos, anchor, s.into(), FontId::proportional(size), color);
+    let s = crate::i18n::tr_owned(s.into());
+    painter.text(pos, anchor, s, FontId::proportional(size), color);
 }
 
 /// Маленькая эмблема шахматной фигуры на шашке (кроме пешки).

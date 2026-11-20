@@ -1,0 +1,860 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+
+msgid "ModeShift: Bipolar — режимный сдвиг: биполярность"
+msgstr "ModeShift: Bipolar — mode shift: bipolarity"
+
+msgid "победа {side} — {reason}"
+msgstr "{side} wins — {reason}"
+
+msgid "не завершена"
+msgstr "unfinished"
+
+msgid "вдвоём"
+msgstr "two players"
+
+msgid "с компьютером ({level})"
+msgstr "vs computer ({level})"
+
+msgid "прервана (новая партия)"
+msgstr "aborted (new game)"
+
+msgid "0. Начальная позиция"
+msgstr "0. Starting position"
+
+msgid "белые"
+msgstr "white"
+
+msgid "чёрные"
+msgstr "black"
+
+msgid "дамка"
+msgstr "checker king"
+
+msgid "шашка"
+msgstr "checker"
+
+msgid "шашки"
+msgstr "checkers"
+
+msgid "шахматы"
+msgstr "chess"
+
+msgid "режимный сдвиг: биполярность · фигуры меняют природу"
+msgstr "mode shift: bipolarity · pieces change their nature"
+
+msgid "СУМЕРКИ"
+msgstr "TWILIGHT"
+
+msgid "мат"
+msgstr "checkmate"
+
+msgid "ПАУЗА"
+msgstr "PAUSED"
+
+msgid "Space (клавиша пробел) — продолжить партию"
+msgstr "Space (spacebar) — resume the game"
+
+msgid "ПАРТИЯ ЕЩЁ НЕ НАЧАТА"
+msgstr "GAME NOT STARTED YET"
+
+msgid "Справа — «Играть», настройки и правила"
+msgstr "On the right — \"Play\", settings and rules"
+
+msgid "ПРОТОТИП · СУМЕРКИ · v{VERSION}"
+msgstr "PROTOTYPE · TWILIGHT · v{VERSION}"
+
+msgid "сумерки: фигуры меняются"
+msgstr "twilight: the pieces change"
+
+msgid "пауза"
+msgstr "pause"
+
+msgid "ход перейдёт противнику через {time}"
+msgstr "the turn will pass to the opponent in {time}"
+
+msgid "переход ждёт конца взятия"
+msgstr "the transition waits for the capture to finish"
+
+msgid "нет ходов — сумерки выводят из тупика"
+msgstr "no moves — twilight breaks the deadlock"
+
+msgid "компьютер думает…"
+msgstr "the computer is thinking…"
+
+msgid "до превращения в {phase}"
+msgstr "until the shift to {phase}"
+
+msgid "СОПЕРНИК"
+msgstr "OPPONENT"
+
+msgid "с компьютером"
+msgstr "vs computer"
+
+msgid "СЛОЖНОСТЬ"
+msgstr "DIFFICULTY"
+
+msgid "Ход {side}"
+msgstr "{side} to move"
+
+msgid "ШАХ"
+msgstr "CHECK"
+
+msgid "Закончить"
+msgstr "Finish"
+
+msgid "ВЗЯТИЕ"
+msgstr "CAPTURE"
+
+msgid "БОЙ"
+msgstr "COMBAT"
+
+msgid "материал равный"
+msgstr "material even"
+
+msgid "белые впереди на {n}"
+msgstr "white ahead by {n}"
+
+msgid "чёрные впереди на {n}"
+msgstr "black ahead by {n}"
+
+msgid "{material} · взято {white} : {black}"
+msgstr "{material} · captured {white} : {black}"
+
+msgid "ХОДЫ"
+msgstr "MOVES"
+
+msgid "10 с"
+msgstr "10 s"
+
+msgid "15 с"
+msgstr "15 s"
+
+msgid "20 с"
+msgstr "20 s"
+
+msgid "40 с"
+msgstr "40 s"
+
+msgid "пока тихо — сделайте первый ход"
+msgstr "all quiet — make the first move"
+
+msgid "Совет: в шашечной фазе король превращается в дамку — съешьте его и победите."
+msgstr "Tip: in the checkers phase the king turns into a checker king — capture it and win."
+
+msgid "СМЕНА ФАЗ"
+msgstr "PHASE SHIFTS"
+
+msgid "АВТОСМЕНА СУМЕРЕК"
+msgstr "TWILIGHT AUTO-SHIFT"
+
+msgid "РИТМ ТЕКУЩЕЙ ФАЗЫ"
+msgstr "CURRENT PHASE RHYTHM"
+
+msgid "По ходам: случайно"
+msgstr "By moves: random"
+
+msgid "После хода может остаться или смениться"
+msgstr "After a move it may stay or change"
+
+msgid "Случайно: 10–{max} с"
+msgstr "Random: 10–{max} s"
+
+msgid "Следующий интервал будет другим"
+msgstr "The next interval will be different"
+
+msgid "клик — ход · Space — пауза · R — новая партия · H — правила"
+msgstr "click — move · Space — pause · R — new game · H — rules"
+
+msgid "Правила"
+msgstr "Rules"
+
+msgid "Настройки"
+msgstr "Settings"
+
+msgid "Играть"
+msgstr "Play"
+
+msgid "Пауза"
+msgstr "Pause"
+
+msgid "Новая партия"
+msgstr "New game"
+
+msgid "НАСТРОЙКИ"
+msgstr "SETTINGS"
+
+msgid "ЯЗЫК"
+msgstr "LANGUAGE"
+
+msgid "ЗВУКИ"
+msgstr "SOUND"
+
+msgid "Звуки: включены"
+msgstr "Sound: on"
+
+msgid "Звуки: выключены"
+msgstr "Sound: off"
+
+msgid "ИСТОЧНИК"
+msgstr "SOURCE"
+
+msgid "Встроенные"
+msgstr "Built-in"
+
+msgid "Из папки sounds"
+msgstr "From the sounds folder"
+
+msgid "МУЗЫКА"
+msgstr "MUSIC"
+
+msgid "Музыка: нет music/theme.wav"
+msgstr "Music: no music/theme.wav"
+
+msgid "Музыка: включена"
+msgstr "Music: on"
+
+msgid "Музыка: выключена"
+msgstr "Music: off"
+
+msgid "Фоновая музыка не прерывается звуками ходов."
+msgstr "Background music is not interrupted by move sounds."
+
+msgid "ЛОГИ ПАРТИЙ"
+msgstr "GAME LOGS"
+
+msgid "Логи: включены"
+msgstr "Logs: on"
+
+msgid "Логи: выключены"
+msgstr "Logs: off"
+
+msgid "Файлы — в папке logs рядом с игрой."
+msgstr "Files go to the logs folder next to the game."
+
+msgid "ШРИФТ"
+msgstr "FONT"
+
+msgid "Шрифт: {name}"
+msgstr "Font: {name}"
+
+msgid "Свои .ttf/.otf — в папке fonts рядом с игрой."
+msgstr "Your own .ttf/.otf files go to the fonts folder next to the game."
+
+msgid "ПРЕВРАЩЕНИЕ"
+msgstr "PROMOTION"
+
+msgid "Всегда ферзь"
+msgstr "Always queen"
+
+msgid "Выбор фигуры"
+msgstr "Choose piece"
+
+msgid "По времени"
+msgstr "By time"
+
+msgid "По ходам"
+msgstr "By moves"
+
+msgid "После хода фаза может остаться или смениться случайно."
+msgstr "After a move the phase may stay or change at random."
+
+msgid "Внутри одного хода всегда одна игра."
+msgstr "Within a single move it is always one game."
+
+msgid "ВРЕМЯ ХОДА"
+msgstr "MOVE TIME"
+
+msgid "По истечении ход переходит противнику."
+msgstr "When it runs out, the turn passes to the opponent."
+
+msgid "Случайно"
+msgstr "Random"
+
+msgid "Фиксированно"
+msgstr "Fixed"
+
+msgid "МАКСИМУМ ИНТЕРВАЛА"
+msgstr "MAXIMUM INTERVAL"
+
+msgid "Каждая смена случайна; следующий интервал отличается."
+msgstr "Each shift is random; the next interval differs."
+
+msgid "ВРЕМЯ · ШАХМАТЫ"
+msgstr "TIME · CHESS"
+
+msgid "ВРЕМЯ · ШАШКИ"
+msgstr "TIME · CHECKERS"
+
+msgid "ШАШКИ"
+msgstr "CHECKERS"
+
+msgid "Взятие: да"
+msgstr "Captures: yes"
+
+msgid "Взятие: нет"
+msgstr "Captures: no"
+
+msgid "Иконки: да"
+msgstr "Icons: yes"
+
+msgid "Иконки: нет"
+msgstr "Icons: no"
+
+msgid "Дамки: все"
+msgstr "Checker kings: all"
+
+msgid "Дамки: пешки"
+msgstr "Checker kings: pawns"
+
+msgid "Бить обязательно; серию нужно продолжать."
+msgstr "Capturing is mandatory; a series must be continued."
+
+msgid "Можно без взятия; серию можно закончить."
+msgstr "Captures are optional; a series may be ended."
+
+msgid "Иконки — кроме пешек; дамки — все или только пешки."
+msgstr "Icons — except pawns; checker kings — all pieces or pawns only."
+
+msgid "ПЛАВНОСТЬ ХОДА"
+msgstr "MOVE SMOOTHING"
+
+msgid "{:.2} с"
+msgstr "{:.2} s"
+
+msgid "МАТ · ТРАЕКТОРИИ"
+msgstr "CHECKMATE · TRAJECTORIES"
+
+msgid "Показывать: да"
+msgstr "Show: yes"
+
+msgid "Показывать: нет"
+msgstr "Show: no"
+
+msgid "Сейчас: смена фаз по ходам, время хода {secs} с"
+msgstr "Now: phase shifts by moves, move time {secs} s"
+
+msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
+msgstr "Now: auto-shift, 10–{max} s (current phase {phase} s)"
+
+msgid "Сейчас: шахматы {chess} с · шашки {checkers} с"
+msgstr "Now: chess {chess} s · checkers {checkers} s"
+
+msgid "Свои звуки — в папке sounds, музыка — music/theme.wav,"
+msgstr "Your own sounds go in the sounds folder, music in music/theme.wav,"
+
+msgid "картинки фигур — в папке pieces (PNG с прозрачным фоном)."
+msgstr "piece images in the pieces folder (PNG with a transparent background)."
+
+msgid "Готово"
+msgstr "Done"
+
+msgid "ПРЕВРАЩЕНИЕ ПЕШКИ"
+msgstr "PAWN PROMOTION"
+
+msgid "Пешка на последнем ряду — выберите новую фигуру"
+msgstr "Pawn on the last rank — choose a new piece"
+
+msgid "Ферзь"
+msgstr "Queen"
+
+msgid "Ладья"
+msgstr "Rook"
+
+msgid "Слон"
+msgstr "Bishop"
+
+msgid "Конь"
+msgstr "Knight"
+
+msgid "Правила ModeShift: Bipolar"
+msgstr "ModeShift: Bipolar rules"
+
+msgid "Одна партия — две игры. Раз в N секунд фигуры превращаются, и правила меняются вместе с ними."
+msgstr "One game — two games. Every N seconds the pieces transform, and the rules change with them."
+
+msgid "ПРАВИЛА"
+msgstr "RULES"
+
+msgid "ФИГУРЫ"
+msgstr "PIECES"
+
+msgid "Ходы классические: пешка, конь, слон, ладья, ферзь, король."
+msgstr "Moves are classic: pawn, knight, bishop, rook, queen, king."
+
+msgid "Без рокировки и взятия на проходе — только чистые ходы."
+msgstr "No castling and no en passant — clean moves only."
+
+msgid "Пешка на последнем ряду по умолчанию становится ферзём; выбор фигуры — в настройках."
+msgstr "By default a pawn on the last rank becomes a queen; the piece is chosen in settings."
+
+msgid "Шах и мат работают: короля нельзя оставить под боем."
+msgstr "Check and checkmate work: the king cannot be left under attack."
+
+msgid "Пат не ничья: сумерки сразу продолжают бой."
+msgstr "Stalemate is not a draw: twilight continues the fight at once."
+
+msgid "В этом гибриде простые шашки ходят по диагонали вперёд и назад."
+msgstr "In this hybrid, plain checkers move diagonally forward and backward."
+
+msgid "Шашка остаётся на клетках своего цвета."
+msgstr "A checker stays on squares of its own color."
+
+msgid "Можно подставляться под удар, если обязательного взятия нет."
+msgstr "You may step into attack if there is no mandatory capture."
+
+msgid "Король в шашечной фазе — обычная шашка с точкой."
+msgstr "The king in the checkers phase is an ordinary checker with a dot."
+
+msgid "Дамки летят по диагонали на любое расстояние."
+msgstr "Checker kings fly diagonally for any distance."
+
+msgid "Бить обязательно; серия взятий продолжается, пока есть цель."
+msgstr "Capturing is mandatory; a capture series continues while there is a target."
+
+msgid "Обязательное взятие можно отключить в настройках."
+msgstr "Mandatory capture can be turned off in settings."
+
+msgid "Иконки на шашках показывают вид фигуры; пешки — без иконок."
+msgstr "Icons on checkers show the piece type; pawns have no icons."
+
+msgid "По умолчанию дамкой может стать любая фигура; «Дамки: пешки» — только пешки."
+msgstr "By default any piece can become a checker king; \"Checker kings: pawns\" — only pawns."
+
+msgid "Шашка на последнем ряду становится дамкой и продолжает серию как дамка."
+msgstr "A checker on the last rank becomes a checker king and continues the series as a checker king."
+
+msgid "Короля можно съесть и победить."
+msgstr "The king can be captured, and that wins."
+
+msgid "Если застряли оба — сумерки сразу выводят в шахматы."
+msgstr "If both sides are stuck, twilight switches to chess at once."
+
+msgid "Сумерки длятся 1,7 секунды: ходы замирают, фигуры перетекают."
+msgstr "Twilight lasts 1.7 seconds: moves freeze, pieces flow into one another."
+
+msgid "Переход ждёт, пока игрок завершит серию взятий."
+msgstr "The transition waits until the player finishes the capture series."
+
+msgid "Победа: мат, съеденный король или истребление фигур."
+msgstr "Victory: checkmate, a captured king, or annihilation of the pieces."
+
+msgid "Время шахмат и шашек задаётся отдельно в настройках."
+msgstr "Chess and checkers time is set separately in settings."
+
+msgid "Смена фаз: по времени или после ходов; по ходам — случайно."
+msgstr "Phase shift: by time or after moves; by moves — random."
+
+msgid "В режиме по ходам внутри хода всегда одна игра, после хода фаза может смениться."
+msgstr "In by-moves mode there is always one game within a move, and after the move the phase may change."
+
+msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
+msgstr "In by-moves mode every move has a time limit of 10–180 s; when it runs out, the turn passes to the opponent."
+
+msgid "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт."
+msgstr "The computer thinks for 2–3 s and highlights which piece it is capturing."
+
+msgid "После партии «Просмотр» показывает ходы по шагам с анимацией."
+msgstr "After the game, \"Review\" shows the moves step by step with animation."
+
+msgid "При мате видны красные линии атак на короля, жёлтые линии фигур, перекрывающих выходы, и список матующих фигур."
+msgstr "On checkmate you see red attack lines on the king, yellow lines of the pieces blocking the escapes, and a list of the mating pieces."
+
+msgid "С компьютером вы играете белыми; сложность меняет глубину."
+msgstr "Against the computer you play white; difficulty changes the depth."
+
+msgid "КОГДА ФИГУРЫ — ШАХМАТЫ\n"
+msgstr "WHEN THE PIECES ARE CHESS\n"
+
+msgid "КОГДА ФИГУРЫ — ШАШКИ\n"
+msgstr "WHEN THE PIECES ARE CHECKERS\n"
+
+msgid "СУМЕРКИ\n"
+msgstr "TWILIGHT\n"
+
+msgid "Понятно"
+msgstr "Got it"
+
+msgid "ЖУРНАЛ ПАРТИИ"
+msgstr "GAME JOURNAL"
+
+msgid "Файл: {path}"
+msgstr "File: {path}"
+
+msgid "Файл не сохранён — журнал показан из памяти."
+msgstr "File not saved — the journal is shown from memory."
+
+msgid "Копировать"
+msgstr "Copy"
+
+msgid "Закрыть"
+msgstr "Close"
+
+msgid "ПОБЕДА {side}"
+msgstr "VICTORY {side}"
+
+msgid "ПАРТИЯ"
+msgstr "GAME"
+
+msgid "король"
+msgstr "king"
+
+msgid "Повтор: {att_side} — {att}, {vic_side} — {vic} · {phase}"
+msgstr "Repeat: {att_side} — {att}, {vic_side} — {vic} · {phase}"
+
+msgid "Повтор последнего хода"
+msgstr "Replay the last move"
+
+msgid "Ходов: {n}"
+msgstr "Moves: {n}"
+
+msgid "Мат ставят: {names}"
+msgstr "Mating pieces: {names}"
+
+msgid "Журнал"
+msgstr "Journal"
+
+msgid "Просмотр"
+msgstr "Review"
+
+msgid "Сначала выберите игру, потом фигуру"
+msgstr "First choose the game, then the piece"
+
+msgid "ШАХМАТЫ"
+msgstr "CHESS"
+
+msgid "Пешки"
+msgstr "Pawns"
+
+msgid "Пешка-король"
+msgstr "Pawn-king"
+
+msgid "Дамка"
+msgstr "Checker king"
+
+msgid "ФИГУРА В ШАШКАХ"
+msgstr "PIECE IN CHECKERS"
+
+msgid "ФИГУРА В ШАХМАТАХ"
+msgstr "PIECE IN CHESS"
+
+msgid "ДЕМОНСТРАЦИЯ"
+msgstr "DEMO"
+
+msgid "КАК ХОДИТ"
+msgstr "HOW IT MOVES"
+
+msgid "КАК БЬЁТ"
+msgstr "HOW IT CAPTURES"
+
+msgid "Демо хода"
+msgstr "Move demo"
+
+msgid "Демо взятия"
+msgstr "Capture demo"
+
+msgid "ПРОСМОТР ПАРТИИ"
+msgstr "GAME REVIEW"
+
+msgid "Ход {n} из {total}"
+msgstr "Move {n} of {total}"
+
+msgid "◀ Назад"
+msgstr "◀ Back"
+
+msgid "Вперёд ▶"
+msgstr "Forward ▶"
+
+msgid "прервана (приложение закрыто)"
+msgstr "aborted (application closed)"
+
+msgid "пешка"
+msgstr "pawn"
+
+msgid "конь"
+msgstr "knight"
+
+msgid "слон"
+msgstr "bishop"
+
+msgid "ладья"
+msgstr "rook"
+
+msgid "ферзь"
+msgstr "queen"
+
+msgid "Пешка"
+msgstr "Pawn"
+
+msgid "Король"
+msgstr "King"
+
+msgid "Дамка летит по диагонали на любое расстояние, пока путь свободен."
+msgstr "A checker king flies diagonally for any distance as long as the path is clear."
+
+msgid "Бьёт через одну вражескую фигуру на любой дистанции, вставая на свободную клетку за ней. Серия взятий продолжается, пока есть цель."
+msgstr "It captures through one enemy piece at any distance, landing on a free square beyond it. The capture series continues while there is a target."
+
+msgid "Пешка-король с кружком. Ходит и бьёт как обычная пешка, но потеря короля — поражение. Несмотря на обычный вид, следите за ней особенно внимательно."
+msgstr "A pawn-king with a circle. It moves and captures like an ordinary pawn, but losing the king is defeat. Despite its ordinary look, watch it especially closely."
+
+msgid "Бьёт как обычная шашка — через соседнюю фигуру на свободную клетку за ней. Может стать дамкой, если включено «Дамки: все»."
+msgstr "It captures like an ordinary checker — through an adjacent piece onto a free square beyond it. It can become a checker king if \"Checker kings: all\" is enabled."
+
+msgid "Все пешки в шашках — обычные шашки: по диагонали на одну клетку вперёд и назад. На последнем ряду пешка становится дамкой."
+msgstr "All pawns in checkers are ordinary checkers: diagonally one square forward and backward. On the last rank a pawn becomes a checker king."
+
+msgid "Бьёт через соседнюю вражескую шашку на свободную клетку за ней; серия продолжается. Иконки коня, слона, ладьи и ферзя — только шахматные метки, особых прав не дают; их можно скрыть в настройках."
+msgstr "It captures through an adjacent enemy checker onto a free square beyond it; the series continues. Knight, bishop, rook and queen icons are only chess markers and grant no special rights; they can be hidden in settings."
+
+msgid "Обычная шашка ходит по диагонали на одну клетку вперёд и назад. На последнем ряду становится дамкой, которая летит по диагонали на любое расстояние."
+msgstr "An ordinary checker moves diagonally one square forward and backward. On the last rank it becomes a checker king, which flies diagonally for any distance."
+
+msgid "Бьёт через соседнюю вражескую шашку, вставая на свободную клетку за ней. Серия взятий продолжается, пока есть цель. Обязательный бой можно отключить в настройках."
+msgstr "It captures through an adjacent enemy checker, landing on a free square beyond it. The capture series continues while there is a target. Mandatory capture can be turned off in settings."
+
+msgid "Король в шашечной фазе — обычная шашка с короной: ходит по диагонали на одну клетку вперёд и назад, а после коронации становится дамкой."
+msgstr "The king in the checkers phase is an ordinary checker with a crown: it moves diagonally one square forward and backward, and after coronation becomes a checker king."
+
+msgid "Бьёт как шашка — через соседнюю фигуру на свободное поле за ней. Может стать дамкой, если включено «Дамки: все»."
+msgstr "It captures like a checker — through an adjacent piece onto a free square beyond it. It can become a checker king if \"Checker kings: all\" is enabled."
+
+msgid "Иконка показывает вид фигуры, но правила шашечные: по диагонали на одну клетку вперёд и назад. Дамка летит по диагонали на любое расстояние."
+msgstr "The icon shows the piece type, but the rules are checkers rules: diagonally one square forward and backward. A checker king flies diagonally for any distance."
+
+msgid "Бьёт через соседнюю вражескую фигуру, вставая на свободную клетку за ней; серия продолжается. Может стать дамкой, если включено «Дамки: все»."
+msgstr "It captures through an adjacent enemy piece, landing on a free square beyond it; the series continues. It can become a checker king if \"Checker kings: all\" is enabled."
+
+msgid "Идёт на одну клетку вперёд; с начальной позиции — на две, если путь свободен."
+msgstr "It moves one square forward; from the starting position — two, if the path is clear."
+
+msgid "Бьёт по диагонали на одну клетку вперёд. Взятия на проходе в этой версии нет. На последнем ряду превращается в ферзя или выбранную фигуру."
+msgstr "It captures diagonally one square forward. There is no en passant in this version. On the last rank it promotes to a queen or the chosen piece."
+
+msgid "Ходит буквой Г: две клетки по одной оси и одна по другой. Перепрыгивает фигуры."
+msgstr "It moves in an L shape: two squares along one axis and one along the other. It jumps over pieces."
+
+msgid "Бьёт прыжком на вражескую фигуру в точке приземления; свои фигуры на пути не мешают."
+msgstr "It captures by jumping onto an enemy piece at the landing point; its own pieces in the way do not matter."
+
+msgid "Ходит по диагонали на любое расстояние, пока путь свободен."
+msgstr "It moves diagonally for any distance as long as the path is clear."
+
+msgid "Бьёт по диагонали: путь до вражеской фигуры должен быть свободен."
+msgstr "It captures diagonally: the path to the enemy piece must be clear."
+
+msgid "Ходит по вертикали и горизонтали на любое расстояние, пока путь свободен."
+msgstr "It moves vertically and horizontally for any distance as long as the path is clear."
+
+msgid "Бьёт по вертикали или горизонтали: путь до вражеской фигуры должен быть свободен."
+msgstr "It captures vertically or horizontally: the path to the enemy piece must be clear."
+
+msgid "Ходит как ладья и слон: по вертикали, горизонтали и диагонали на любое расстояние."
+msgstr "It moves like a rook and a bishop: vertically, horizontally and diagonally for any distance."
+
+msgid "Бьёт по любой из этих линий, если путь до вражеской фигуры свободен."
+msgstr "It captures along any of these lines if the path to the enemy piece is clear."
+
+msgid "Ходит на одну клетку в любом направлении."
+msgstr "It moves one square in any direction."
+
+msgid "Бьёт на одну клетку в любом направлении. Под бой оставлять нельзя: шах и мат."
+msgstr "It captures one square in any direction. It must not be left under attack: check and checkmate."
+
+msgid "демо: шашечная фаза"
+msgstr "demo: checkers phase"
+
+msgid "демо: превращение пешки"
+msgstr "demo: pawn promotion"
+
+msgid "демо: шахматы 25 с, шашки 10 с"
+msgstr "demo: chess 25 s, checkers 10 s"
+
+msgid "демо: автосмена сумерек"
+msgstr "demo: twilight auto-shift"
+
+msgid "демо: смена фаз по ходам"
+msgstr "demo: phase shifts by moves"
+
+msgid "демо: по ходам"
+msgstr "demo: by moves"
+
+msgid "демо: обязательное взятие"
+msgstr "demo: mandatory capture"
+
+msgid "демо: пауза"
+msgstr "demo: pause"
+
+msgid "демо: просмотр партии"
+msgstr "demo: game review"
+
+msgid "демо: мат"
+msgstr "demo: checkmate"
+
+msgid "демо: две пешки на последнем ряду"
+msgstr "demo: two pawns on the last rank"
+
+msgid "демо: взятие короля в шахматах"
+msgstr "demo: capturing the king in chess"
+
+msgid "демо: победа по королю"
+msgstr "demo: victory by king"
+
+msgid "{:.0} с"
+msgstr "{:.0} s"
+
+msgid "Белые"
+msgstr "White"
+
+msgid "Чёрные"
+msgstr "Black"
+
+msgid "белых"
+msgstr "white"
+
+msgid "чёрных"
+msgstr "black"
+
+msgid "П"
+msgstr "P"
+
+msgid "К"
+msgstr "N"
+
+msgid "С"
+msgstr "B"
+
+msgid "Л"
+msgstr "R"
+
+msgid "Ф"
+msgstr "Q"
+
+msgid "Кр"
+msgstr "K"
+
+msgid "=Ф"
+msgstr "=Q"
+
+msgid " (дамка)"
+msgstr " (checker king)"
+
+msgid "{side} — пешка {sq} стала {piece}"
+msgstr "{side} — pawn {sq} became {piece}"
+
+msgid "— время хода истекло: ход переходит противнику"
+msgstr "— move time expired: the turn passes to the opponent"
+
+msgid "белым"
+msgstr "white"
+
+msgid "чёрным"
+msgstr "black"
+
+msgid "— {side} нечем ходить: пропуск"
+msgstr "— {side} has no moves: pass"
+
+msgid "— в шашках застряли оба: сумерки выводят в шахматы"
+msgstr "— both sides are stuck in checkers: twilight leads into chess"
+
+msgid "— пат: сумерки продолжают бой"
+msgstr "— stalemate: twilight continues the fight"
+
+msgid "{side} — пешка {sq} стала ферзём"
+msgstr "{side} — pawn {sq} became a queen"
+
+msgid "король взят"
+msgstr "king captured"
+
+msgid "у соперника не осталось фигур"
+msgstr "the opponent has no pieces left"
+
+msgid "легко"
+msgstr "easy"
+
+msgid "средне"
+msgstr "medium"
+
+msgid "сложно"
+msgstr "hard"
+
+msgid "Шашка"
+msgstr "Checker"
+
+msgid "Партия «ModeShift: Bipolar»\n"
+msgstr "Game \"ModeShift: Bipolar\"\n"
+
+msgid "Версия: {version}\n"
+msgstr "Version: {version}\n"
+
+msgid "Начало: {start}\n"
+msgstr "Start: {start}\n"
+
+msgid "Окончание: {end}\n"
+msgstr "End: {end}\n"
+
+msgid "Режим: {mode}\n"
+msgstr "Mode: {mode}\n"
+
+msgid "Смена фаз: по ходам (случайно после каждого хода), время хода {secs} с\n"
+msgstr "Phase shift: by moves (random after each move), move time {secs} s\n"
+
+msgid "Автосмена сумерек: случайно 10–{secs} с\n"
+msgstr "Twilight auto-shift: random 10–{secs} s\n"
+
+msgid "Время фаз: шахматы {chess} с, шашки {checkers} с\n"
+msgstr "Phase time: chess {chess} s, checkers {checkers} s\n"
+
+msgid "Обязательное взятие: {value}\n"
+msgstr "Mandatory capture: {value}\n"
+
+msgid "вкл"
+msgstr "on"
+
+msgid "выкл"
+msgstr "off"
+
+msgid "Коронация не-пешек: {value}\n"
+msgstr "Coronation of non-pawns: {value}\n"
+
+msgid "Результат: {result}\n"
+msgstr "Result: {result}\n"
+
+msgid "Всего ходов: {total} (белые: {white}, чёрные: {black})\n"
+msgstr "Total moves: {total} (white: {white}, black: {black})\n"
+
+msgid "Полных ходов: {value}\n"
+msgstr "Full moves: {value}\n"
+
+msgid "\n№\tСторона\tФигура\tХод\tВзятие\tФаза\n"
+msgstr "\n#\tSide\tPiece\tMove\tCapture\tPhase\n"
+
+
+msgid "Атака: да"
+msgstr "Attack: yes"
+
+msgid "Атака: нет"
+msgstr "Attack: no"
+
+msgid "Окружение: да"
+msgstr "Surrounding: yes"
+
+msgid "Окружение: нет"
+msgstr "Surrounding: no"
+
+msgid "ход перейдёт противнику"
+msgstr "the turn will pass to the opponent"
+
+msgid "Свои звуки — в папке sounds (WAV или MP3), музыка — music/theme.wav,"
+msgstr "Your sounds — in the sounds folder (WAV or MP3), music — music/theme.wav,"
+
+msgid "демо: мат с окружением"
+msgstr "demo: mate with surrounding"
+
+msgid "клик — ход · Space — пауза"
+msgstr "click — move · Space — pause"
+
+msgid "R — новая партия · H — правила"
+msgstr "R — new game · H — rules"

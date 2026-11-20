@@ -38,15 +38,30 @@ impl Side {
 
     pub fn name_ru(self) -> &'static str {
         match self {
-            Side::White => "Белые",
-            Side::Black => "Чёрные",
+            Side::White => crate::i18n::tr("Белые"),
+            Side::Black => crate::i18n::tr("Чёрные"),
         }
     }
 
     pub fn gen_ru(self) -> &'static str {
         match self {
-            Side::White => "белых",
-            Side::Black => "чёрных",
+            Side::White => crate::i18n::tr("белых"),
+            Side::Black => crate::i18n::tr("чёрных"),
+        }
+    }
+
+    /// Имя стороны для журнала: ru для русской локализации, en для остальных.
+    pub fn name_log(self) -> &'static str {
+        match self {
+            Side::White => crate::i18n::log("Белые"),
+            Side::Black => crate::i18n::log("Чёрные"),
+        }
+    }
+
+    pub fn name_log_lower(self) -> &'static str {
+        match self {
+            Side::White => crate::i18n::log("белые"),
+            Side::Black => crate::i18n::log("чёрные"),
         }
     }
 }
@@ -70,6 +85,22 @@ impl Kind {
             Kind::Rook => "Л",
             Kind::Queen => "Ф",
             Kind::King => "Кр",
+        }
+    }
+
+    /// Буква фигуры для журнала: русская для русской локализации,
+    /// латинская для всех остальных.
+    pub fn letter_log(self) -> &'static str {
+        if crate::i18n::log_lang() == crate::i18n::Lang::Ru {
+            return self.letter();
+        }
+        match self {
+            Kind::Pawn => "P",
+            Kind::Knight => "N",
+            Kind::Bishop => "B",
+            Kind::Rook => "R",
+            Kind::Queen => "Q",
+            Kind::King => "K",
         }
     }
 
@@ -122,15 +153,15 @@ impl Phase {
 
     pub fn label_ru(self) -> &'static str {
         match self {
-            Phase::Chess => "ШАХМАТЫ",
-            Phase::Checkers => "ШАШКИ",
+            Phase::Chess => crate::i18n::tr("ШАХМАТЫ"),
+            Phase::Checkers => crate::i18n::tr("ШАШКИ"),
         }
     }
 
     pub fn one_ru(self) -> &'static str {
         match self {
-            Phase::Chess => "шахматы",
-            Phase::Checkers => "шашки",
+            Phase::Chess => crate::i18n::tr("шахматы"),
+            Phase::Checkers => crate::i18n::tr("шашки"),
         }
     }
 }
@@ -303,7 +334,7 @@ impl Game {
             promotion_choice: false,
             mandatory_capture: true,
             crown_non_pawns: true,
-            twilight_by_moves: false,
+            twilight_by_moves: true,
             move_twilight_pending: false,
             move_time_limit: DEFAULT_MOVE_SECS,
             move_left: DEFAULT_MOVE_SECS,
@@ -805,8 +836,14 @@ impl Game {
             last.board = self.board;
         }
         if free {
-            self.log
-                .push(format!("{} — пешка {} стала {}", self.turn.name_ru(), sq_name(sq), kind.letter()));
+            self.log.push(crate::i18n::logf(
+                "{side} — пешка {sq} стала {piece}",
+                &[
+                    ("side", self.turn.name_log()),
+                    ("sq", &sq_name(sq)),
+                    ("piece", kind.letter_log()),
+                ],
+            ));
         } else {
             self.pending.push('=');
             self.pending.push_str(kind.letter());
@@ -874,7 +911,9 @@ impl Game {
                     self.legal.clear();
                     self.move_left = self.move_time_limit;
                     self.refresh_status();
-                    self.log.push("— время хода истекло: ход переходит противнику".into());
+                    self.log.push(
+                        crate::i18n::log("— время хода истекло: ход переходит противнику").to_string(),
+                    );
                     if self.log.len() > 240 {
                         self.log.remove(0);
                     }
@@ -914,10 +953,13 @@ impl Game {
         self.selected = None;
         self.legal.clear();
         let name = match side {
-            Side::White => "белым",
-            Side::Black => "чёрным",
+            Side::White => crate::i18n::log("белым"),
+            Side::Black => crate::i18n::log("чёрным"),
         };
-        self.log.push(format!("— {} нечем ходить: пропуск", name));
+        self.log.push(crate::i18n::logf(
+            "— {side} нечем ходить: пропуск",
+            &[("side", name)],
+        ));
         if self.log.len() > 240 {
             self.log.remove(0);
         }
@@ -936,7 +978,9 @@ impl Game {
         self.legal.clear();
         self.chain = None;
         self.passes = 0;
-        self.log.push("— в шашках застряли оба: сумерки выводят в шахматы".into());
+        self.log.push(
+            crate::i18n::log("— в шашках застряли оба: сумерки выводят в шахматы").to_string(),
+        );
         if self.log.len() > 240 {
             self.log.remove(0);
         }
@@ -950,7 +994,7 @@ impl Game {
         self.selected = None;
         self.legal.clear();
         self.chain = None;
-        self.log.push("— пат: сумерки продолжают бой".into());
+        self.log.push(crate::i18n::log("— пат: сумерки продолжают бой").to_string());
         if self.log.len() > 240 {
             self.log.remove(0);
         }
@@ -1019,10 +1063,9 @@ impl Game {
                     let mut q = p;
                     q.kind = Kind::Queen;
                     self.board[r][f] = Some(q);
-                    self.log.push(format!(
-                        "{} — пешка {} стала ферзём",
-                        p.side.name_ru(),
-                        sq_name((f, r))
+                    self.log.push(crate::i18n::logf(
+                        "{side} — пешка {sq} стала ферзём",
+                        &[("side", p.side.name_log()), ("sq", &sq_name((f, r)))],
                     ));
                 }
             }
@@ -1583,6 +1626,24 @@ mod tests {
     }
 
     #[test]
+    fn black_checker_crowns_on_last_rank() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[1][1] = Some(Piece::new(Side::Black, Kind::Pawn)); // b2
+        g.turn = Side::Black;
+        let mv = Move {
+            from: (1, 1),
+            to: (0, 0),
+            captured: None,
+        };
+        g.apply(mv);
+        let p = g.piece_at((0, 0)).unwrap();
+        assert!(p.crowned, "чёрная шашка на последнем ряду стала дамкой");
+        assert!(p.is_damka());
+    }
+
+    #[test]
     fn checker_crowns_and_continues_as_damka() {
         let mut g = test_game();
         g.board = [[None; 8]; 8];
@@ -1717,6 +1778,7 @@ mod tests {
     #[test]
     fn phase_flip_changes_rules() {
         let mut g = test_game();
+        g.twilight_by_moves = false;
         g.phase_left = 0.05;
         g.tick(0.05);
         assert!(g.trans > 0.0, "переход начался");
@@ -1733,6 +1795,7 @@ mod tests {
     #[test]
     fn phase_lengths_are_independent() {
         let mut g = test_game();
+        g.twilight_by_moves = false;
         assert_eq!(g.chess_len, 25.0);
         assert_eq!(g.checkers_len, 25.0);
         g.set_len(Phase::Chess, 10.0);
@@ -1938,6 +2001,7 @@ mod tests {
     #[test]
     fn phase_timer_waits_for_move_animation() {
         let mut g = test_game();
+        g.twilight_by_moves = false;
         g.phase_left = 0.01;
         g.move_anim = 0.0;
         g.tick(0.03);
@@ -1951,6 +2015,7 @@ mod tests {
     #[test]
     fn phase_hold_stops_phase_timer() {
         let mut g = test_game();
+        g.twilight_by_moves = false;
         g.phase_left = 0.01;
         g.move_anim = 1.0;
         g.phase_hold = true;
@@ -2278,6 +2343,7 @@ mod tests {
     #[test]
     fn rescue_twilight_is_temporary() {
         let mut g = Game::new(25.0);
+        g.twilight_by_moves = false;
         g.phase = Phase::Checkers;
         g.passes = 2;
         g.tick(0.05);

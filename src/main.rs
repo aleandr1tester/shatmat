@@ -4,6 +4,7 @@ mod ai;
 mod art;
 mod fonts;
 mod game;
+mod i18n;
 mod logging;
 mod music;
 mod sound;
@@ -31,6 +32,7 @@ enum Mode {
 // ---------------------------------------------------------------------------
 
 fn main() -> eframe::Result<()> {
+    i18n::init();
     let args: Vec<String> = std::env::args().collect();
     let mut shot_path: Option<PathBuf> = None;
     let mut demo: Option<String> = None;
@@ -129,6 +131,10 @@ struct PieceArt {
 struct PieceTextures {
     white: [Option<PieceArt>; 6],
     black: [Option<PieceArt>; 6],
+    /// Шашки: [белая, чёрная].
+    checker: [Option<PieceArt>; 2],
+    damka: [Option<PieceArt>; 2],
+    royal: [Option<PieceArt>; 2],
 }
 
 impl PieceTextures {
@@ -136,6 +142,9 @@ impl PieceTextures {
         Self {
             white: std::array::from_fn(|_| None),
             black: std::array::from_fn(|_| None),
+            checker: std::array::from_fn(|_| None),
+            damka: std::array::from_fn(|_| None),
+            royal: std::array::from_fn(|_| None),
         }
     }
 
@@ -145,6 +154,38 @@ impl PieceTextures {
             Side::Black => &self.black,
         };
         arr[kind_index(kind)].as_ref()
+    }
+
+    fn side_index(side: Side) -> usize {
+        if side == Side::White {
+            0
+        } else {
+            1
+        }
+    }
+
+    /// Картинка шашки: пешка-король, дамка или обычная шашка.
+    fn checker_art(&self, side: Side, damka: bool, royal: bool) -> Option<&PieceArt> {
+        let i = Self::side_index(side);
+        if royal {
+            if let Some(a) = self.royal[i].as_ref() {
+                return Some(a);
+            }
+        }
+        if damka {
+            if let Some(a) = self.damka[i].as_ref() {
+                return Some(a);
+            }
+        }
+        self.checker[i].as_ref()
+    }
+
+    fn has_royal(&self, side: Side) -> bool {
+        self.royal[Self::side_index(side)].is_some()
+    }
+
+    fn has_damka(&self, side: Side) -> bool {
+        self.damka[Self::side_index(side)].is_some()
     }
 }
 
@@ -183,9 +224,65 @@ fn pieces_dir() -> PathBuf {
     PathBuf::from("pieces")
 }
 
+/// Растрирует SVG в RGBA-пиксели. Картинки фигур — векторные, поэтому
+/// SVG читается в любом размере без потери качества.
+fn rasterize_svg(data: &[u8], target: u32) -> Option<(Vec<u8>, usize, usize)> {
+    let opt = resvg::usvg::Options::default();
+    let tree = resvg::usvg::Tree::from_data(data, &opt).ok()?;
+    let size = tree.size();
+    let (w, h) = (size.width(), size.height());
+    if !(w > 0.0 && h > 0.0) {
+        return None;
+    }
+    let scale = target as f32 / w.max(h);
+    let pw = ((w * scale).round() as u32).max(1);
+    let ph = ((h * scale).round() as u32).max(1);
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(pw, ph)?;
+    let ts = resvg::tiny_skia::Transform::from_scale(pw as f32 / w, ph as f32 / h);
+    resvg::render(&tree, ts, &mut pixmap.as_mut());
+    let rgba = pixmap.take_demultiplied();
+    Some((rgba, pw as usize, ph as usize))
+}
+
+/// Загружает картинку фигуры: сначала пробует `.svg` (вектор), затем `.png`.
 fn load_piece_textures(ctx: &egui::Context) -> PieceTextures {
     let mut out = PieceTextures::empty();
     let dir = pieces_dir();
+    let load = |name: &str| -> Option<PieceArt> {
+        let svg_path = dir.join(format!("{name}.svg"));
+        let png_path = dir.join(format!("{name}.png"));
+        let (rgba, w, h) = if svg_path.is_file() {
+            let bytes = std::fs::read(&svg_path).ok()?;
+            rasterize_svg(&bytes, 512)?
+        } else {
+            let bytes = std::fs::read(&png_path).ok()?;
+            let img = image::load_from_memory(&bytes).ok()?.to_rgba8();
+            let (w, h) = (img.width() as usize, img.height() as usize);
+            (img.into_raw(), w, h)
+        };
+        let color = egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba);
+        let color_tex = ctx.load_texture(
+            format!("piece_{name}"),
+            color,
+            egui::TextureOptions::LINEAR,
+        );
+        let mut mask_rgba = rgba;
+        for px in mask_rgba.chunks_exact_mut(4) {
+            px[0] = 255;
+            px[1] = 255;
+            px[2] = 255;
+        }
+        let mask = egui::ColorImage::from_rgba_unmultiplied([w, h], &mask_rgba);
+        let mask_tex = ctx.load_texture(
+            format!("piece_{name}_mask"),
+            mask,
+            egui::TextureOptions::LINEAR,
+        );
+        Some(PieceArt {
+            color: color_tex,
+            mask: mask_tex,
+        })
+    };
     for side in [Side::White, Side::Black] {
         let prefix = if side == Side::White { "white" } else { "black" };
         for kind in [
@@ -196,42 +293,19 @@ fn load_piece_textures(ctx: &egui::Context) -> PieceTextures {
             Kind::Queen,
             Kind::King,
         ] {
-            let path = dir.join(format!("{}_{}.png", prefix, kind_file(kind)));
-            let Ok(bytes) = std::fs::read(&path) else {
-                continue;
-            };
-            let Ok(img) = image::load_from_memory(&bytes) else {
-                continue;
-            };
-            let rgba = img.to_rgba8();
-            let size = [rgba.width() as usize, rgba.height() as usize];
-            let color = egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw());
-            let color_tex = ctx.load_texture(
-                format!("piece_{}_{}", prefix, kind_file(kind)),
-                color,
-                egui::TextureOptions::LINEAR,
-            );
-            let mut mask_rgba = rgba.as_raw().clone();
-            for px in mask_rgba.chunks_exact_mut(4) {
-                px[0] = 255;
-                px[1] = 255;
-                px[2] = 255;
+            let name = format!("{}_{}", prefix, kind_file(kind));
+            if let Some(art) = load(&name) {
+                let arr = match side {
+                    Side::White => &mut out.white,
+                    Side::Black => &mut out.black,
+                };
+                arr[kind_index(kind)] = Some(art);
             }
-            let mask = egui::ColorImage::from_rgba_unmultiplied(size, &mask_rgba);
-            let mask_tex = ctx.load_texture(
-                format!("piece_{}_mask_{}", prefix, kind_file(kind)),
-                mask,
-                egui::TextureOptions::LINEAR,
-            );
-            let arr = match side {
-                Side::White => &mut out.white,
-                Side::Black => &mut out.black,
-            };
-            arr[kind_index(kind)] = Some(PieceArt {
-                color: color_tex,
-                mask: mask_tex,
-            });
         }
+        let i = PieceTextures::side_index(side);
+        out.checker[i] = load(&format!("{prefix}_checker"));
+        out.damka[i] = load(&format!("{prefix}_damka"));
+        out.royal[i] = load(&format!("{prefix}_royal"));
     }
     out
 }
@@ -326,6 +400,7 @@ pub struct App {
     log_enabled: bool,
     show_checker_icons: bool,
     mate_lines: bool,
+    mate_escape: bool,
     font_faces: Vec<fonts::FontFace>,
     font_index: usize,
     game_start: Option<String>,
@@ -400,6 +475,7 @@ impl App {
             log_enabled: true,
             show_checker_icons: true,
             mate_lines: true,
+            mate_escape: true,
             font_faces,
             font_index,
             game_start,
@@ -523,10 +599,11 @@ impl App {
             interrupted.to_string()
         } else {
             match &self.game.status {
-                game::Status::Win { side, reason } => {
-                    format!("победа {} — {}", side.name_ru().to_lowercase(), reason)
-                }
-                _ => "не завершена".to_string(),
+                game::Status::Win { side, reason } => i18n::logf(
+                    "победа {side} — {reason}",
+                    &[("side", side.name_log_lower()), ("reason", &i18n::log_owned(reason.clone()))],
+                ),
+                _ => i18n::log("не завершена").to_string(),
             }
         };
         let mode = self.mode_label();
@@ -539,8 +616,11 @@ impl App {
 
     fn mode_label(&self) -> String {
         match self.mode {
-            Mode::Hotseat => "вдвоём".to_string(),
-            Mode::Computer => format!("с компьютером ({})", self.difficulty.label_ru()),
+            Mode::Hotseat => i18n::log("вдвоём").to_string(),
+            Mode::Computer => i18n::logf(
+                "с компьютером ({level})",
+                &[("level", self.difficulty.label_log())],
+            ),
         }
     }
 
@@ -556,10 +636,11 @@ impl App {
             .unwrap_or_else(|| "—".to_string());
         let end = logging::now_string();
         let result = match &self.game.status {
-            game::Status::Win { side, reason } => {
-                format!("победа {} — {}", side.name_ru().to_lowercase(), reason)
-            }
-            _ => "не завершена".to_string(),
+            game::Status::Win { side, reason } => i18n::logf(
+                "победа {side} — {reason}",
+                &[("side", side.name_log_lower()), ("reason", &i18n::log_owned(reason.clone()))],
+            ),
+            _ => i18n::log("не завершена").to_string(),
         };
         logging::format_game_log(&self.game, &start, &end, &self.mode_label(), &result)
     }
@@ -772,17 +853,26 @@ impl App {
         let Some(saved) = &self.review_saved else {
             return Vec::new();
         };
-        let mut labels = vec!["0. Начальная позиция".to_string()];
+        let mut labels = vec![i18n::tr("0. Начальная позиция").to_string()];
         for (i, r) in saved.history.iter().enumerate() {
-            let side = if r.side == Side::White { "белые" } else { "чёрные" };
+            let side = if r.side == Side::White {
+                i18n::tr("белые")
+            } else {
+                i18n::tr("чёрные")
+            };
             let piece = if r.phase == Phase::Checkers {
                 if r.damka {
-                    "дамка"
+                    i18n::tr("дамка")
                 } else {
-                    "шашка"
+                    i18n::tr("шашка")
                 }
             } else {
                 piece_ru(r.kind)
+            };
+            let phase = if r.phase == Phase::Checkers {
+                i18n::tr("шашки")
+            } else {
+                i18n::tr("шахматы")
             };
             let cap = if r.captured.is_some() { "×" } else { "–" };
             labels.push(format!(
@@ -793,11 +883,7 @@ impl App {
                 game::sq_name(r.from),
                 cap,
                 game::sq_name(r.to),
-                if r.phase == Phase::Checkers {
-                    "шашки"
-                } else {
-                    "шахматы"
-                }
+                phase
             ));
         }
         labels
@@ -1452,14 +1538,16 @@ impl App {
             }
         }
 
-        // Финальная демонстрация мата: линии от атакующих фигур к королю.
-        if self.mate_lines && g.is_over() && g.phase == Phase::Chess {
+        // Финальная демонстрация мата: красные линии атак и жёлтые линии
+        // окружения включаются независимо.
+        if (self.mate_lines || self.mate_escape) && g.is_over() && g.phase == Phase::Chess {
             if let game::Status::Win { side, reason } = &g.status {
                 if reason.contains("мат") {
                     if let Some(king) = g.king_sq(side.other()) {
                         let kc = layout.square_rect(king).center();
                         let attackers = g.attackers_to(king, *side);
                         let pulse = 0.5 + 0.5 * (self.time * 3.2).sin();
+                        if self.mate_lines {
                         painter.circle_stroke(
                             kc,
                             layout.cell * (0.48 + 0.04 * pulse),
@@ -1470,7 +1558,9 @@ impl App {
                             layout.cell * 0.36,
                             Stroke::new(1.5_f32, alpha(pal.danger, 0.45)),
                         );
-                        for (from, kind) in attackers {
+                        for (from, kind) in &attackers {
+                            let from = *from;
+                            let kind = *kind;
                             let fc = layout.square_rect(from).center();
                             let path: Vec<Pos2> = if kind == Kind::Knight {
                                 let corner = if (from.0 as i32 - king.0 as i32).abs() == 1 {
@@ -1514,6 +1604,56 @@ impl App {
                                 alpha(pal.danger, 0.85),
                                 Stroke::NONE,
                             ));
+                        }
+                        }
+
+                        // Жёлтые линии: другие фигуры победившей стороны держат
+                        // клетки вокруг короля — видно, что ему некуда идти.
+                        if self.mate_escape {
+                        let yellow = Color32::from_rgb(240, 205, 100);
+                        let mut escape_lines: Vec<(Square, Square)> = Vec::new();
+                        for dx in -1i32..=1 {
+                            for dy in -1i32..=1 {
+                                if dx == 0 && dy == 0 {
+                                    continue;
+                                }
+                                let nx = king.0 as i32 + dx;
+                                let ny = king.1 as i32 + dy;
+                                if !(0..8).contains(&nx) || !(0..8).contains(&ny) {
+                                    continue;
+                                }
+                                let sq = (nx as usize, ny as usize);
+                                if g.piece_at(sq).is_some() {
+                                    continue;
+                                }
+                                for (from, _) in g.attackers_to(sq, *side) {
+                                    if from == king {
+                                        continue;
+                                    }
+                                    if attackers.iter().any(|(f, _)| *f == from) {
+                                        continue;
+                                    }
+                                    escape_lines.push((from, sq));
+                                }
+                            }
+                        }
+                        for (from, sq) in escape_lines {
+                            let fc = layout.square_rect(from).center();
+                            let sc = layout.square_rect(sq).center();
+                            painter.line_segment(
+                                [fc, sc],
+                                Stroke::new(6.0_f32, Color32::from_black_alpha(70)),
+                            );
+                            painter.line_segment(
+                                [fc, sc],
+                                Stroke::new(2.4_f32, alpha(yellow, 0.55 + 0.25 * pulse)),
+                            );
+                            painter.circle_stroke(
+                                sc,
+                                layout.cell * 0.20,
+                                Stroke::new(1.6_f32, alpha(yellow, 0.70)),
+                            );
+                        }
                         }
                     }
                 }
@@ -1664,12 +1804,30 @@ impl App {
         }
         if checkers_form {
             let show_icon = self.show_checker_icons && kind != Kind::Pawn;
+            let royal = kind == Kind::King && !show_icon;
+            if let Some(art) = self.piece_tex.checker_art(side, damka, royal) {
+                let rect = Rect::from_center_size(center, Vec2::splat(size));
+                let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
+                painter.image(art.color.id(), rect, uv, alpha(Color32::WHITE, a));
+                if damka && !self.piece_tex.has_damka(side) {
+                    // Своей картинки дамки нет — дорисуем корону поверх шашки.
+                    art::draw_damka_crown(painter, center, size, side, a);
+                }
+                if royal && !self.piece_tex.has_royal(side) {
+                    // Своей картинки пешки-короля нет — дорисуем точку.
+                    art::draw_royal_dot(painter, center, size, side, a);
+                }
+                if show_icon {
+                    art::draw_checker_icon(painter, center, size, kind, side, a);
+                }
+                return;
+            }
             draw_checker(
                 painter,
                 center,
                 size,
                 damka,
-                kind == Kind::King && !show_icon,
+                royal,
                 side,
                 pal,
                 a,
@@ -1735,14 +1893,14 @@ impl App {
         painter.text(
             label.center() + Vec2::new(0.0, -14.0),
             Align2::CENTER_CENTER,
-            "ПАРТИЯ ЕЩЁ НЕ НАЧАТА",
+            i18n::tr("ПАРТИЯ ЕЩЁ НЕ НАЧАТА"),
             FontId::proportional(21.0),
             Color32::from_rgb(246, 243, 252),
         );
         painter.text(
             label.center() + Vec2::new(0.0, 20.0),
             Align2::CENTER_CENTER,
-            "Справа — «Играть», настройки и правила",
+            i18n::tr("Справа — «Играть», настройки и правила"),
             FontId::proportional(11.5),
             Color32::from_rgb(210, 206, 226),
         );
@@ -1783,15 +1941,15 @@ impl App {
         let w = p.width();
         let mut y = p.top();
 
+        // Версия — в правом верхнем углу панели, без строки «прототип».
         text(
             painter,
-            Pos2::new(x, y),
-            Align2::LEFT_TOP,
-            format!("ПРОТОТИП · СУМЕРКИ · v{VERSION}"),
+            Pos2::new(p.right(), p.top()),
+            Align2::RIGHT_TOP,
+            format!("v{VERSION}"),
             9.5,
             alpha(cur.text_dim, 0.9),
         );
-        y += 18.0;
 
         let display_phase = if g.trans > 0.55 { g.phase.other() } else { g.phase };
         let display_pal = Palette::for_phase(display_phase);
@@ -1848,12 +2006,9 @@ impl App {
             } else if g.paused {
                 "пауза".to_string()
             } else if g.twilight_by_moves {
-                let secs = g.move_left.max(0.0).ceil() as i32;
-                format!(
-                    "ход перейдёт противнику через {}:{:02}",
-                    secs / 60,
-                    secs % 60
-                )
+                // Обратный отсчёт уже показан крупным таймером выше —
+                // подпись только называет событие, без дублирования времени.
+                i18n::tr("ход перейдёт противнику").to_string()
             } else if g.twilight_pending() {
                 "переход ждёт конца взятия".to_string()
             } else if g.passes >= 2 {
@@ -1861,7 +2016,10 @@ impl App {
             } else if self.mode == Mode::Computer && g.turn == Side::Black {
                 "компьютер думает…".to_string()
             } else {
-                format!("до превращения в {}", g.phase.other().one_ru())
+                i18n::trf(
+                    "до превращения в {phase}",
+                    &[("phase", g.phase.other().one_ru())],
+                )
             },
             11.5,
             alpha(cur.text_dim, 0.95),
@@ -1981,7 +2139,7 @@ impl App {
             painter,
             Pos2::new(x + 18.0, y),
             Align2::LEFT_TOP,
-            format!("Ход {}", g.turn.gen_ru()),
+            i18n::trf("Ход {side}", &[("side", g.turn.gen_ru())]),
             19.0,
             cur.text,
         );
@@ -2007,17 +2165,21 @@ impl App {
         // материал
         let diff = g.material_diff();
         let material = match diff {
-            0 => "материал равный".to_string(),
-            d if d > 0 => format!("белые впереди на {}", d),
-            d => format!("чёрные впереди на {}", -d),
+            0 => i18n::tr("материал равный").to_string(),
+            d if d > 0 => i18n::trf("белые впереди на {n}", &[("n", &d.to_string())]),
+            d => i18n::trf("чёрные впереди на {n}", &[("n", &(-d).to_string())]),
         };
         text(
             painter,
             Pos2::new(x, y),
             Align2::LEFT_TOP,
-            format!(
-                "{} · взято {} : {}",
-                material, g.captured_by_white, g.captured_by_black
+            i18n::trf(
+                "{material} · взято {white} : {black}",
+                &[
+                    ("material", &material),
+                    ("white", &g.captured_by_white.to_string()),
+                    ("black", &g.captured_by_black.to_string()),
+                ],
             ),
             11.5,
             alpha(cur.text_dim, 0.95),
@@ -2033,7 +2195,7 @@ impl App {
             Align2::LEFT_TOP,
             "ХОДЫ",
             9.5,
-            alpha(cur.text_dim, 0.8),
+            alpha(cur.text_dim, 0.85),
         );
         y += 18.0;
 
@@ -2097,23 +2259,35 @@ impl App {
                 Pos2::new(x, log_top),
                 Align2::LEFT_TOP,
                 "пока тихо — сделайте первый ход",
-                12.0,
-                alpha(cur.text_dim, 0.7),
+                12.5,
+                alpha(cur.text_dim, 0.78),
             );
             let tip = "Совет: в шашечной фазе король превращается в дамку — съешьте его и победите.";
             let galley = painter.layout(
                 tip.to_string(),
-                FontId::proportional(11.0),
-                alpha(cur.text_dim, 0.55),
+                FontId::proportional(11.5),
+                alpha(cur.text_dim, 0.65),
                 w,
             );
             painter.galley(Pos2::new(x, log_top + 30.0), galley, Color32::WHITE);
         }
 
-        // ритм
+        // Предварительные настройки игры: компактная карточка с единым
+        // стилем, чтобы блок читался так же, как остальные строки панели.
+        let setup_bg = Rect::from_min_size(
+            Pos2::new(x - 10.0, chips_y - 24.0),
+            Vec2::new(w + 20.0, 74.0),
+        );
+        rr(
+            painter,
+            setup_bg,
+            12.0,
+            alpha(Color32::WHITE, 0.035),
+            Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.07)),
+        );
         text(
             painter,
-            Pos2::new(x, chips_y - 16.0),
+            Pos2::new(x, chips_y - 18.0),
             Align2::LEFT_TOP,
             if g.twilight_by_moves {
                 "СМЕНА ФАЗ"
@@ -2122,51 +2296,51 @@ impl App {
             } else {
                 "РИТМ ТЕКУЩЕЙ ФАЗЫ"
             },
-            8.5,
-            alpha(cur.text_dim, 0.75),
+            9.5,
+            alpha(cur.text_dim, 0.9),
         );
         if g.twilight_by_moves {
             text(
                 painter,
-                Pos2::new(x, chips_y + 2.0),
+                Pos2::new(x, chips_y),
                 Align2::LEFT_TOP,
                 "По ходам: случайно",
-                11.5,
+                12.5,
                 cur.accent,
             );
             text(
                 painter,
-                Pos2::new(x, chips_y + 18.0),
+                Pos2::new(x, chips_y + 19.0),
                 Align2::LEFT_TOP,
                 "После хода может остаться или смениться",
-                9.2,
-                alpha(cur.text_dim, 0.75),
+                11.0,
+                alpha(cur.text_dim, 0.85),
             );
         } else if g.auto_phase {
             text(
                 painter,
-                Pos2::new(x, chips_y + 2.0),
+                Pos2::new(x, chips_y),
                 Align2::LEFT_TOP,
-                format!("Случайно: 10–{:.0} с", g.auto_max),
-                11.5,
+                i18n::trf("Случайно: 10–{max} с", &[("max", &format!("{:.0}", g.auto_max))]),
+                12.5,
                 cur.accent,
             );
             text(
                 painter,
-                Pos2::new(x, chips_y + 18.0),
+                Pos2::new(x, chips_y + 19.0),
                 Align2::LEFT_TOP,
                 "Следующий интервал будет другим",
-                9.5,
-                alpha(cur.text_dim, 0.75),
+                11.0,
+                alpha(cur.text_dim, 0.85),
             );
         }
         text(
             painter,
-            Pos2::new(x, chips_y + 36.0),
+            Pos2::new(x, chips_y + 35.0),
             Align2::LEFT_TOP,
             "клик — ход · Space — пауза · R — новая партия · H — правила",
-            9.2,
-            alpha(cur.text_dim, 0.85),
+            10.0,
+            alpha(cur.text_dim, 0.82),
         );
 
         // --- взаимодействие ---
@@ -2182,7 +2356,7 @@ impl App {
         if button(ui, rules_btn, "Правила", false, &cur, 12.0) {
             self.rules = true;
         }
-        if button(ui, settings_btn, "Настройки", false, &cur, 11.5) {
+        if button_gear(ui, settings_btn, "Настройки", false, &cur, 11.5) {
             self.settings = true;
             self.rules = false;
         }
@@ -2249,7 +2423,31 @@ impl App {
             10.0,
             alpha(pal.text_dim, 0.9),
         );
-        y += 42.0;
+        // язык интерфейса
+        let n = i18n::Lang::ALL.len() as f32;
+        let lw = 34.0;
+        let lgap = 5.0;
+        let total = n * lw + (n - 1.0) * lgap;
+        let lx = card.right() - pad - total;
+        for (i, lang) in i18n::Lang::ALL.iter().enumerate() {
+            let r = Rect::from_min_size(
+                Pos2::new(lx + i as f32 * (lw + lgap), card.top() + 48.0),
+                Vec2::new(lw, 20.0),
+            );
+            if chip(ui, r, lang.label(), i18n::current() == *lang, &pal) {
+                i18n::set_lang(*lang);
+            }
+        }
+        text(
+            painter,
+            Pos2::new(lx - 8.0, card.top() + 51.0),
+            Align2::RIGHT_TOP,
+            "ЯЗЫК",
+            8.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        // Больше воздуха под строкой языков, чтобы она не липла к параметрам.
+        y += 62.0;
         let top = y;
 
         // левая колонка: звук и музыка
@@ -2392,7 +2590,7 @@ impl App {
             font_name = font_name.chars().take(27).collect::<String>() + "…";
         }
         let font_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 34.0));
-        let font_label = format!("Шрифт: {font_name}");
+        let font_label = i18n::trf("Шрифт: {name}", &[("name", &font_name)]);
         if button(
             ui,
             font_btn,
@@ -2764,41 +2962,62 @@ impl App {
             alpha(pal.text_dim, 0.75),
         );
         ry += 15.0;
-        let mate_chip = Rect::from_min_size(
-            Pos2::new(right_x, ry),
-            Vec2::new((right_w - 8.0) * 0.5, 28.0),
-        );
+        let half = (right_w - 8.0) * 0.5;
+        let mate_chip = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(half, 28.0));
         if chip(
             ui,
             mate_chip,
             if self.mate_lines {
-                "Показывать: да"
+                "Атака: да"
             } else {
-                "Показывать: нет"
+                "Атака: нет"
             },
             self.mate_lines,
             &pal,
         ) {
             self.mate_lines = !self.mate_lines;
         }
+        let escape_chip = Rect::from_min_size(
+            Pos2::new(right_x + half + 8.0, ry),
+            Vec2::new(half, 28.0),
+        );
+        if chip(
+            ui,
+            escape_chip,
+            if self.mate_escape {
+                "Окружение: да"
+            } else {
+                "Окружение: нет"
+            },
+            self.mate_escape,
+            &pal,
+        ) {
+            self.mate_escape = !self.mate_escape;
+        }
         ry += 32.0;
 
         let columns_end = ly.max(ry);
         let summary_y = (columns_end + 16.0).max(card.bottom() - 132.0);
         let summary = if self.game.twilight_by_moves {
-            format!(
-                "Сейчас: смена фаз по ходам, время хода {:.0} с",
-                self.game.move_time_limit
+            i18n::trf(
+                "Сейчас: смена фаз по ходам, время хода {secs} с",
+                &[("secs", &format!("{:.0}", self.game.move_time_limit))],
             )
         } else if self.game.auto_phase {
-            format!(
-                "Сейчас: автосмена, 10–{:.0} с (текущая фаза {:.0} с)",
-                self.game.auto_max, self.game.phase_left
+            i18n::trf(
+                "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)",
+                &[
+                    ("max", &format!("{:.0}", self.game.auto_max)),
+                    ("phase", &format!("{:.0}", self.game.phase_left)),
+                ],
             )
         } else {
-            format!(
-                "Сейчас: шахматы {:.0} с · шашки {:.0} с",
-                self.game.chess_len, self.game.checkers_len
+            i18n::trf(
+                "Сейчас: шахматы {chess} с · шашки {checkers} с",
+                &[
+                    ("chess", &format!("{:.0}", self.game.chess_len)),
+                    ("checkers", &format!("{:.0}", self.game.checkers_len)),
+                ],
             )
         };
         text(
@@ -2813,7 +3032,7 @@ impl App {
             painter,
             Pos2::new(x, summary_y + 26.0),
             Align2::LEFT_TOP,
-            "Свои звуки — в папке sounds, музыка — music/theme.wav,",
+            "Свои звуки — в папке sounds (WAV или MP3), музыка — music/theme.wav,",
             10.0,
             alpha(pal.text_dim, 0.75),
         );
@@ -3018,7 +3237,7 @@ impl App {
             "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику.",
             "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт.",
             "После партии «Просмотр» показывает ходы по шагам с анимацией.",
-            "При мате видны линии атак на короля и список матующих фигур.",
+            "При мате видны красные линии атак на короля, жёлтые линии фигур, перекрывающих выходы, и список матующих фигур.",
             "С компьютером вы играете белыми; сложность меняет глубину.",
         ];
 
@@ -3109,7 +3328,7 @@ impl App {
             pal.text,
         );
         let saved = if let Some(path) = &self.last_log {
-            format!("Файл: {}", path.display())
+            i18n::trf("Файл: {path}", &[("path", &path.display().to_string())])
         } else {
             "Файл не сохранён — журнал показан из памяти.".to_string()
         };
@@ -3185,7 +3404,7 @@ impl App {
         let g = &self.game;
         let (title, reason, color) = match &g.status {
             game::Status::Win { side, reason } => (
-                format!("ПОБЕДА {}", side.name_ru().to_uppercase()),
+                i18n::trf("ПОБЕДА {side}", &[("side", &side.name_ru().to_uppercase())]),
                 reason.clone(),
                 pal.accent,
             ),
@@ -3216,30 +3435,42 @@ impl App {
         let replay_line = if let Some((_, to)) = g.last_move {
             if let (Some(attacker), Some((_, victim))) = (g.piece_at(to), g.last_capture) {
                 let phase = if g.phase == Phase::Checkers {
-                    "шашки"
+                    i18n::tr("шашки")
                 } else {
-                    "шахматы"
+                    i18n::tr("шахматы")
                 };
-                let side_ru = |s: Side| if s == Side::White { "белые" } else { "чёрные" };
+                let side_ru = |s: Side| {
+                    if s == Side::White {
+                        i18n::tr("белые")
+                    } else {
+                        i18n::tr("чёрные")
+                    }
+                };
                 let (att, vic) = if g.phase == Phase::Checkers {
                     (
-                        if attacker.is_damka() { "дамка" } else { "шашка" },
-                        if victim.kind == Kind::King {
-                            "король"
+                        if attacker.is_damka() {
+                            i18n::tr("дамка")
                         } else {
-                            "шашка"
+                            i18n::tr("шашка")
+                        },
+                        if victim.kind == Kind::King {
+                            i18n::tr("король")
+                        } else {
+                            i18n::tr("шашка")
                         },
                     )
                 } else {
                     (piece_ru(attacker.kind), piece_ru(victim.kind))
                 };
-                format!(
-                    "Повтор: {} — {}, {} — {} · {}",
-                    side_ru(attacker.side),
-                    att,
-                    side_ru(victim.side),
-                    vic,
-                    phase
+                i18n::trf(
+                    "Повтор: {att_side} — {att}, {vic_side} — {vic} · {phase}",
+                    &[
+                        ("att_side", side_ru(attacker.side)),
+                        ("att", att),
+                        ("vic_side", side_ru(victim.side)),
+                        ("vic", vic),
+                        ("phase", phase),
+                    ],
                 )
             } else {
                 "Повтор последнего хода".to_string()
@@ -3260,7 +3491,7 @@ impl App {
             painter,
             Pos2::new(x, card.top() + 126.0),
             Align2::LEFT_TOP,
-            format!("Ходов: {}", g.history.len()),
+            i18n::trf("Ходов: {n}", &[("n", &g.history.len().to_string())]),
             11.0,
             alpha(pal.text_dim, 0.7),
         );
@@ -3277,7 +3508,7 @@ impl App {
                                 })
                                 .collect::<Vec<_>>()
                                 .join(" · ");
-                            let line = format!("Мат ставят: {names}");
+                            let line = i18n::trf("Мат ставят: {names}", &[("names", &names)]);
                             let galley = painter.layout(
                                 line,
                                 FontId::proportional(10.5),
@@ -3721,7 +3952,13 @@ impl App {
             painter,
             Pos2::new(x, card.top() + 38.0),
             Align2::LEFT_TOP,
-            format!("Ход {} из {}", self.review_ply, self.review_labels().len().saturating_sub(1)),
+            i18n::trf(
+                "Ход {n} из {total}",
+                &[
+                    ("n", &self.review_ply.to_string()),
+                    ("total", &self.review_labels().len().saturating_sub(1).to_string()),
+                ],
+            ),
             10.0,
             alpha(pal.text_dim, 0.8),
         );
@@ -3961,12 +4198,12 @@ fn wrapped_text(
 
 fn piece_ru(kind: Kind) -> &'static str {
     match kind {
-        Kind::Pawn => "пешка",
-        Kind::Knight => "конь",
-        Kind::Bishop => "слон",
-        Kind::Rook => "ладья",
-        Kind::Queen => "ферзь",
-        Kind::King => "король",
+        Kind::Pawn => i18n::tr("пешка"),
+        Kind::Knight => i18n::tr("конь"),
+        Kind::Bishop => i18n::tr("слон"),
+        Kind::Rook => i18n::tr("ладья"),
+        Kind::Queen => i18n::tr("ферзь"),
+        Kind::King => i18n::tr("король"),
     }
 }
 
@@ -4228,6 +4465,23 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.turn = Side::White;
             game.log.push("демо: обязательное взятие".into());
         }
+        Some("mate") => {
+            // Мат ладьёй по линии h: ферзевый фланг держат ладья g1 и конь f6,
+            // поэтому у короля h8 нет ни одного поля для отхода.
+            game.board = [[None; 8]; 8];
+            game.phase = Phase::Chess;
+            game.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
+            game.board[0][7] = Some(Piece::new(Side::White, Kind::Rook)); // h1
+            game.board[0][6] = Some(Piece::new(Side::White, Kind::Rook)); // g1
+            game.board[5][5] = Some(Piece::new(Side::White, Kind::Knight)); // f6
+            game.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+            game.turn = Side::Black;
+            game.status = game::Status::Win {
+                side: Side::White,
+                reason: "мат".into(),
+            };
+            game.log.push("демо: мат с окружением".into());
+        }
         Some("pause") => {
             game.paused = true;
             game.log.push("демо: пауза".into());
@@ -4268,22 +4522,6 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
                 game.apply(mv);
             }
             game.log.push("демо: просмотр партии".into());
-        }
-        Some("mate") => {
-            game.board = [[None; 8]; 8];
-            game.board[7][7] = Some(game::Piece::new(Side::Black, Kind::King)); // h8
-            game.board[0][7] = Some(game::Piece::new(Side::White, Kind::Rook)); // h1
-            game.board[1][1] = Some(game::Piece::new(Side::White, Kind::Bishop)); // b2
-            game.board[5][6] = Some(game::Piece::new(Side::White, Kind::Knight)); // g6
-            game.board[6][5] = Some(game::Piece::new(Side::White, Kind::Pawn)); // f7
-            game.board[0][0] = Some(game::Piece::new(Side::White, Kind::King)); // a1
-            game.phase = Phase::Chess;
-            game.turn = Side::Black;
-            game.status = game::Status::Win {
-                side: Side::White,
-                reason: "мат".into(),
-            };
-            game.log.push("демо: мат".into());
         }
         Some("flip_promo") => {
             game.phase = Phase::Checkers;
@@ -4394,6 +4632,75 @@ fn button(
     resp.clicked()
 }
 
+/// Маленькая векторная шестерёнка для кнопки «Настройки».
+fn draw_gear(painter: &egui::Painter, center: Pos2, r: f32, color: Color32) {
+    let stroke = Stroke::new(1.4_f32, color);
+    painter.circle_stroke(center, r * 0.60, stroke);
+    painter.circle_stroke(center, r * 0.23, stroke);
+    for i in 0..6 {
+        let a = std::f32::consts::TAU * i as f32 / 6.0;
+        let dir = Vec2::new(a.cos(), a.sin());
+        painter.line_segment(
+            [center + dir * r * 0.58, center + dir * r],
+            Stroke::new(2.0_f32, color),
+        );
+    }
+}
+
+/// Кнопка с шестерёнкой слева от подписи: значок и текст центрируются
+/// вместе, как в обычных настройках.
+fn button_gear(
+    ui: &mut egui::Ui,
+    rect: Rect,
+    label: &str,
+    accent: bool,
+    pal: &Palette,
+    font: f32,
+) -> bool {
+    let id = ui
+        .id()
+        .with(("button_gear", label, rect.left() as i32, rect.top() as i32));
+    let resp = ui.interact(rect, id, Sense::click());
+    let hovered = resp.hovered();
+    let (bg, fg, stroke) = if accent {
+        (
+            if hovered {
+                mix(pal.accent, Color32::WHITE, 0.14)
+            } else {
+                pal.accent
+            },
+            Color32::from_rgb(22, 18, 26),
+            Stroke::NONE,
+        )
+    } else {
+        (
+            alpha(Color32::WHITE, if hovered { 0.13 } else { 0.07 }),
+            pal.text,
+            Stroke::new(1.0_f32, alpha(Color32::WHITE, if hovered { 0.16 } else { 0.13 })),
+        )
+    };
+    rr(ui.painter(), rect, 10.0, bg, stroke);
+    let label = i18n::tr_owned(label.to_string());
+    let galley = ui
+        .painter()
+        .layout_no_wrap(label, FontId::proportional(font), fg);
+    let icon_r = 7.0;
+    let gap = 8.0;
+    let total = icon_r * 2.0 + gap + galley.size().x;
+    let start = rect.center().x - total * 0.5;
+    let cy = rect.center().y;
+    draw_gear(ui.painter(), Pos2::new(start + icon_r, cy), icon_r, fg);
+    ui.painter().galley(
+        Pos2::new(start + icon_r * 2.0 + gap, cy - galley.size().y * 0.5),
+        galley,
+        fg,
+    );
+    if hovered {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    resp.clicked()
+}
+
 fn time_slider(
     ui: &mut egui::Ui,
     painter: &egui::Painter,
@@ -4463,7 +4770,8 @@ fn chip(ui: &mut egui::Ui, rect: Rect, label: &str, selected: bool, pal: &Palett
 }
 
 fn badge(painter: &egui::Painter, right_top: Pos2, label: &str, color: Color32, active: bool, size: f32) {
-    let galley = painter.layout_no_wrap(label.to_string(), FontId::proportional(size), Color32::WHITE);
+    let label = i18n::tr_owned(label.to_string());
+    let galley = painter.layout_no_wrap(label.clone(), FontId::proportional(size), Color32::WHITE);
     let pad = Vec2::new(9.0, 4.0);
     let rect = Rect::from_min_size(
         Pos2::new(right_top.x - galley.size().x - pad.x * 2.0, right_top.y),

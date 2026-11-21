@@ -864,3 +864,33 @@ msgstr "tık — hamle · Space — duraklat"
 
 msgid "R — новая партия · H — правила"
 msgstr "R — yeni oyun · H — kurallar"
+
+msgid "КОД ПРАВИЛ"
+msgstr "KURALLAR KODU"
+
+msgid "Копировать"
+msgstr "Kopyala"
+
+msgid "код правил"
+msgstr "kurallar kodu"
+
+msgid "Применить"
+msgstr "Uygula"
+
+msgid "Код скопирован"
+msgstr "Kod kopyalandı"
+
+msgid "Неверный код"
+msgstr "Geçersiz kod"
+
+msgid "Смена фаз: {mode}"
+msgstr "Faz değişimi: {mode}"
+
+msgid "по ходам, {secs} с"
+msgstr "hamleye göre, {secs} sn"
+
+msgid "по времени, случайно 10–{max} с"
+msgstr "süreye göre, rastgele 10–{max} sn"
+
+msgid "по времени, шахматы {chess} с, шашки {checkers} с"
+msgstr "süreye göre, satranç {chess} sn, dama {checkers} sn"

@@ -864,3 +864,33 @@ msgstr "clic — coup · Space — pause"
 
 msgid "R — новая партия · H — правила"
 msgstr "R — nouvelle partie · H — règles"
+
+msgid "КОД ПРАВИЛ"
+msgstr "CODE DES RÈGLES"
+
+msgid "Копировать"
+msgstr "Copier"
+
+msgid "код правил"
+msgstr "code des règles"
+
+msgid "Применить"
+msgstr "Appliquer"
+
+msgid "Код скопирован"
+msgstr "Code copié"
+
+msgid "Неверный код"
+msgstr "Code invalide"
+
+msgid "Смена фаз: {mode}"
+msgstr "Changement de phase : {mode}"
+
+msgid "по ходам, {secs} с"
+msgstr "par coups, {secs} s"
+
+msgid "по времени, случайно 10–{max} с"
+msgstr "par temps, aléatoire 10–{max} s"
+
+msgid "по времени, шахматы {chess} с, шашки {checkers} с"
+msgstr "par temps, échecs {chess} s, dames {checkers} s"

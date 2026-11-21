@@ -1,6 +1,6 @@
 [package]
 name = "shatmat"
-version = "0.17.1"
+version = "0.18.0"
 edition = "2021"
 description = "ModeShift: Bipolar — режимный сдвиг: биполярность"
 
@@ -9,6 +9,9 @@ eframe = { version = "0.31", default-features = false, features = ["glow", "defa
 image = { version = "0.25", default-features = false, features = ["png"] }
 puremp3 = "0.1"
 resvg = { version = "0.50", default-features = false, features = ["text", "raster-images"] }
+# Noise_XX: чистый Rust без ring — иначе сборка требует gcc, которого нет.
+snow = { version = "0.10", default-features = false, features = ["use-curve25519", "use-chacha20poly1305", "use-blake2", "use-getrandom"] }
+socket2 = "0.5"
 
 [profile.release]
 opt-level = 2

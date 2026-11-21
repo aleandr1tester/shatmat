@@ -923,6 +923,7 @@ impl Game {
             if self.move_twilight_pending
                 && self.move_anim >= 1.0
                 && self.chain.is_none()
+                && self.selected.is_none()
             {
                 // Пауза после хода: игрок видит результат до смены игры.
                 self.move_twilight_wait -= dt;
@@ -1058,12 +1059,40 @@ impl Game {
         self.last_capture = None;
         self.move_anim = 1.0;
         self.passes = 0;
+        // «Дамки: все»: при переходе в шашки дамками становятся все фигуры
+        // на последнем ряду каждой стороны, а не только дошедшие ходом.
+        let mut mass_crowned = false;
+        if self.phase == Phase::Checkers && self.crown_non_pawns && !self.is_over() {
+            for r in 0..8 {
+                for f in 0..8 {
+                    let Some(p) = self.board[r][f] else {
+                        continue;
+                    };
+                    let last = if p.side == Side::White { 7 } else { 0 };
+                    if r == last && !p.crowned {
+                        let mut d = p;
+                        d.crowned = true;
+                        self.board[r][f] = Some(d);
+                        mass_crowned = true;
+                    }
+                }
+            }
+        }
         if self.phase == Phase::Chess && !self.is_over() {
             self.promote_pawns_after_flip();
         }
         if !self.is_over() && self.pending_promotion.is_none() {
             self.resolve_transition_check();
             self.refresh_status();
+            if mass_crowned {
+                self.log.push(
+                    crate::i18n::log("— «Дамки: все»: фигуры на последнем ряду стали дамками")
+                        .to_string(),
+                );
+                if self.log.len() > 240 {
+                    self.log.remove(0);
+                }
+            }
         }
     }
 
@@ -2044,6 +2073,68 @@ mod tests {
     }
 
     #[test]
+    fn flip_to_checkers_crowns_all_last_rank_pieces() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Chess;
+        g.crown_non_pawns = true;
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[7][4] = Some(Piece::new(Side::Black, Kind::King)); // e8
+        g.board[7][3] = Some(Piece::new(Side::White, Kind::Queen)); // d8 — последний ряд белых
+        g.board[0][3] = Some(Piece::new(Side::Black, Kind::Rook)); // d1 — последний ряд чёрных
+        g.turn = Side::White;
+
+        g.flip_phase();
+        assert_eq!(g.phase, Phase::Checkers);
+        assert!(
+            g.piece_at((3, 7)).unwrap().crowned,
+            "ферзь на последнем ряду стал дамкой при переходе"
+        );
+        assert!(
+            g.piece_at((3, 0)).unwrap().crowned,
+            "ладья на последнем ряду чёрных стала дамкой при переходе"
+        );
+        assert!(
+            !g.piece_at((4, 0)).unwrap().crowned,
+            "белый король не на своём последнем ряду — не дамка"
+        );
+        assert!(
+            !g.piece_at((4, 7)).unwrap().crowned,
+            "чёрный король не на своём последнем ряду — не дамка"
+        );
+        assert!(
+            g.log
+                .iter()
+                .any(|l| l.contains("Дамки: все")),
+            "в журнале отмечена массовая коронация"
+        );
+    }
+
+    #[test]
+    fn flip_to_checkers_crowns_only_pawns_when_restricted() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Chess;
+        g.crown_non_pawns = false;
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[7][4] = Some(Piece::new(Side::Black, Kind::King)); // e8
+        g.board[7][3] = Some(Piece::new(Side::White, Kind::Queen)); // d8
+        g.board[0][3] = Some(Piece::new(Side::Black, Kind::Rook)); // d1
+        g.turn = Side::White;
+
+        g.flip_phase();
+        assert_eq!(g.phase, Phase::Checkers);
+        assert!(
+            !g.piece_at((3, 7)).unwrap().crowned,
+            "с «Дамки: пешки» ферзь не коронуется при переходе"
+        );
+        assert!(
+            !g.piece_at((3, 0)).unwrap().crowned,
+            "с «Дамки: пешки» ладья не коронуется при переходе"
+        );
+    }
+
+    #[test]
     fn phase_timer_waits_for_move_animation() {
         let mut g = test_game();
         g.twilight_by_moves = false;
@@ -2214,6 +2305,30 @@ mod tests {
             !g.move_twilight_pending,
             "истечение времени не запускает сумерки"
         );
+    }
+
+    #[test]
+    fn move_twilight_waits_while_piece_is_held() {
+        let mut g = test_game();
+        g.twilight_by_moves = true;
+        g.move_twilight_pending = true;
+        g.move_twilight_wait = MOVE_TWILIGHT_PAUSE;
+        g.move_anim = 1.0;
+        g.selected = Some((4, 1));
+        // 2,5 с — дольше паузы, но фигура в руке: решение не принято.
+        for _ in 0..25 {
+            g.tick(0.1);
+        }
+        assert!(
+            g.move_twilight_pending,
+            "сумерки не решаются, пока фигура в руке"
+        );
+        g.selected = None;
+        // Отпускание запускает отсчёт паузы: 2,1 с — решение принято.
+        for _ in 0..21 {
+            g.tick(0.1);
+        }
+        assert!(!g.move_twilight_pending, "после отпускания фигуры решение принято");
     }
 
     #[test]

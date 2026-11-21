@@ -7,6 +7,8 @@ mod game;
 mod i18n;
 mod logging;
 mod music;
+mod net;
+mod rulecode;
 mod sound;
 
 use std::path::PathBuf;
@@ -25,6 +27,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 enum Mode {
     Hotseat,
     Computer,
+    /// Партия по локальной сети: сетевой сеанс активен.
+    Network,
 }
 
 // ---------------------------------------------------------------------------
@@ -411,6 +415,10 @@ pub struct App {
     journal: bool,
     journal_rect: Rect,
     journal_text: String,
+    /// Введённый код правил (поле в настройках).
+    rules_code_input: String,
+    /// Сообщение после применения кода: «Применено: …» или «Неверный код».
+    rules_code_msg: String,
     review: bool,
     review_saved: Option<Game>,
     review_ply: usize,
@@ -421,6 +429,34 @@ pub struct App {
     guide_checkers: bool,
     guide_damka: bool,
     started: bool,
+    /// Сетевой контекст: обнаружение, активный сеанс, события.
+    net: Option<net::Net>,
+    /// Открыто ли окно сети.
+    net_window: bool,
+    net_rect: Rect,
+    /// Ввод адреса или ID соперника.
+    net_addr_input: String,
+    /// Приветствие — единственное сообщение до начала партии.
+    net_greeting: String,
+    /// Сообщения чата: (текст, наше, время). Живут 60 секунд, в логи не пишутся.
+    net_chat: Vec<(String, bool, std::time::Instant)>,
+    net_chat_input: String,
+    /// Наша сторона в сетевой партии.
+    net_side: Option<Side>,
+    /// Ход, применённый локально, но ещё не отправленный (ждёт превращения).
+    net_pending_move: Option<Move>,
+    /// Ход соперника, пришедший во время сумерек: применяется после смены фазы.
+    net_pending_apply: Option<(Move, Option<Kind>)>,
+    /// Правила хоста, применяемые при старте сетевой партии.
+    net_rules: Option<rulecode::Rules>,
+    /// Обратный отсчёт после потери связи, с.
+    net_wait: f32,
+    /// Последнее сообщение о состоянии сети в окне.
+    net_status: String,
+    /// Хеш соперника, пришедший раньше отложенного сумерками хода.
+    net_pending_hash: Option<u64>,
+    /// Режим «по сети» включён в настройках — до этого чип скрыт.
+    net_enabled: bool,
 }
 
 impl App {
@@ -493,6 +529,8 @@ impl App {
             journal: false,
             journal_rect: Rect::NOTHING,
             journal_text: String::new(),
+            rules_code_input: String::new(),
+            rules_code_msg: String::new(),
             review: false,
             review_saved: None,
             review_ply: 0,
@@ -503,6 +541,22 @@ impl App {
             guide_checkers: false,
             guide_damka: false,
             started: demo.is_some(),
+            // --- Сеть ---
+            net: net::Net::new(),
+            net_window: demo.as_deref() == Some("net"),
+            net_rect: Rect::NOTHING,
+            net_addr_input: String::new(),
+            net_greeting: String::new(),
+            net_chat: Vec::new(),
+            net_chat_input: String::new(),
+            net_side: None,
+            net_pending_move: None,
+            net_pending_apply: None,
+            net_rules: None,
+            net_wait: 0.0,
+            net_status: String::new(),
+            net_pending_hash: None,
+            net_enabled: demo.as_deref() == Some("net"),
         };
         if demo.as_deref() == Some("journal") {
             app.journal_text = app.build_journal_text();
@@ -550,6 +604,8 @@ impl App {
             if esc {
                 if self.journal {
                     self.journal = false;
+                } else if self.net_window {
+                    self.net_window = false;
                 } else if self.settings {
                     self.settings = false;
                 } else if self.rules {
@@ -578,6 +634,8 @@ impl App {
         if esc {
             if self.journal {
                 self.journal = false;
+            } else if self.net_window {
+                self.net_window = false;
             } else if self.settings {
                 self.settings = false;
             } else if self.rules {
@@ -589,8 +647,8 @@ impl App {
         if h && !self.settings && !self.journal {
             self.rules = !self.rules;
         }
-        if space && !self.rules && !self.settings && !self.journal {
-            self.game.paused = !self.game.paused;
+        if space && !self.rules && !self.settings && !self.journal && !self.net_window {
+            self.net_set_pause(!self.game.paused);
         }
         if r && !self.rules && !self.settings && !self.journal {
             self.new_game();
@@ -630,6 +688,7 @@ impl App {
                 "с компьютером ({level})",
                 &[("level", self.difficulty.label_log())],
             ),
+            Mode::Network => i18n::log("по сети").to_string(),
         }
     }
 
@@ -667,6 +726,10 @@ impl App {
     }
 
     fn new_game(&mut self) {
+        // сетевая партия синхронна — пересоздавать её локально нельзя
+        if self.net_active() {
+            return;
+        }
         self.finalize_log("прервана (новая партия)");
         let smooth = self.game.move_anim_secs;
         let promotion_choice = self.game.promotion_choice;
@@ -818,6 +881,227 @@ impl App {
         }
     }
 
+    // ------------------------- сеть -------------------------
+
+    fn net_session(&self) -> Option<net::SessionInfo> {
+        self.net.as_ref().and_then(|n| n.session())
+    }
+
+    fn net_active(&self) -> bool {
+        self.net_session().is_some()
+    }
+
+    fn net_send(&self, msg: net::OutMsg) {
+        if let Some(n) = &self.net {
+            n.send(msg);
+        }
+    }
+
+    /// Применить ход соперника: сумерки откладывают, превращение доводит.
+    fn net_apply_move(&mut self, from: Square, to: Square, captured: Option<Square>, promo: Option<Kind>) {
+        let mv = Move { from, to, captured };
+        if self.game.trans > 0.0 {
+            self.net_pending_apply = Some((mv, promo));
+            return;
+        }
+        let mark = self.sound_mark();
+        self.game.apply(mv);
+        if let Some(kind) = promo {
+            if self.game.pending_promotion.is_some() {
+                self.game.choose_promotion(kind);
+            }
+        }
+        self.play_sound_since(mark);
+    }
+
+    /// Пауза в сетевой партии: свой флаг и сообщение сопернику.
+    fn net_set_pause(&mut self, on: bool) {
+        self.game.paused = on;
+        if self.net_active() {
+            self.net_send(net::OutMsg::Pause(on));
+        }
+    }
+
+    /// Сверить позицию с соперником; расхождение останавливает партию.
+    fn net_check_hash(&mut self, hash: u64) {
+        let my_hash = net::position_hash(&self.game);
+        if my_hash != hash {
+            self.net_status =
+                i18n::tr("Позиции разошлись — партия остановлена").to_string();
+            self.game.paused = true;
+            self.net_close("позиции разошлись");
+            self.finalize_log("прервана (позиции разошлись)");
+        }
+    }
+
+    /// Отправить ход и хеш позиции после него.
+    fn net_send_move(&mut self, mv: Move, promo: Option<Kind>) {
+        if !self.net_active() {
+            return;
+        }
+        self.net_send(net::OutMsg::Move {
+            from: mv.from,
+            to: mv.to,
+            captured: mv.captured,
+            promo,
+        });
+        let hash = net::position_hash(&self.game);
+        self.net_send(net::OutMsg::Hash { ply: self.game.ply, hash });
+    }
+
+    /// После локального клика: если применён ход — отправить его.
+    /// `before` — позиция last_move до клика, чтобы не отправить старый ход.
+    fn net_after_local_move(&mut self, before: Option<(Square, Square)>) {
+        if !self.net_active() {
+            return;
+        }
+        if self.game.pending_promotion.is_some() {
+            // превращение ждёт выбора фигуры — ход уйдёт после выбора
+            if let Some((from, to)) = self.game.last_move {
+                if before != Some((from, to)) {
+                    let captured = self.game.last_capture.map(|(sq, _)| sq);
+                    self.net_pending_move = Some(Move { from, to, captured });
+                }
+            }
+        } else if self.game.last_move != before {
+            if let Some((from, to)) = self.game.last_move {
+                let captured = self.game.last_capture.map(|(sq, _)| sq);
+                // пешка дошла до последней горизонтали без диалога — это ферзь
+                let promo = self.game.history.last().and_then(|r| {
+                    if r.from == from && r.to == to && r.kind == Kind::Pawn {
+                        Some(Kind::Queen)
+                    } else {
+                        None
+                    }
+                });
+                self.net_send_move(Move { from, to, captured }, promo);
+            }
+        }
+    }
+
+    /// Новая сетевая партия: правила хоста + seed.
+    fn net_start_game(&mut self, seed: u64) {
+        let smooth = self.game.move_anim_secs;
+        let mut g = Game::new(self.game.chess_len);
+        if let Some(rules) = self.net_rules.take() {
+            rules.apply(&mut g);
+        }
+        g.seed_rng(seed);
+        g.refresh_phase_timer();
+        g.move_anim_secs = smooth;
+        self.game = g;
+        self.started = true;
+        self.game.paused = false;
+        self.net_pending_move = None;
+        self.net_pending_apply = None;
+        self.twilight_sounded = false;
+        self.replay = 0.0;
+        self.net_status = "Партия началась".to_string();
+    }
+
+    /// Закрыть сеанс: прощание, сброс сетевого состояния, возврат в «вдвоём».
+    fn net_close(&mut self, reason: &str) {
+        if let Some(net) = &mut self.net {
+            net.close_session(reason);
+        }
+        self.net_side = None;
+        self.net_pending_move = None;
+        self.net_pending_apply = None;
+        self.net_pending_hash = None;
+        self.net_rules = None;
+        self.net_wait = 0.0;
+        self.mode = Mode::Hotseat;
+        self.game.paused = false;
+    }
+
+    /// События сети за кадр.
+    fn net_poll(&mut self) {
+        let Some(net) = &self.net else { return };
+        let events = net.poll();
+        for ev in events {
+            match ev {
+                net::NetEvent::Connected { role, peer_id, rules, text } => {
+                    self.net_status = format!(
+                        "Соединение установлено: {} · правила {}",
+                        net::display_id(&peer_id),
+                        rulecode::encode(&rules)
+                    );
+                    self.net_side = Some(role.side());
+                    self.mode = Mode::Network;
+                    self.started = true;
+                    self.game.paused = false;
+                    self.net_rules = Some(rules);
+                    if !text.is_empty() {
+                        self.net_chat.push((text, false, std::time::Instant::now()));
+                    }
+                    if role == net::Role::Host {
+                        let seed = random_seed();
+                        self.net_send(net::OutMsg::Seed(seed));
+                        self.net_start_game(seed);
+                    }
+                }
+                net::NetEvent::Seed(seed) => {
+                    if self.mode == Mode::Network {
+                        self.net_start_game(seed);
+                    }
+                }
+                net::NetEvent::Move { from, to, captured, promo } => {
+                    if self.mode == Mode::Network {
+                        self.net_apply_move(from, to, captured, promo);
+                    }
+                }
+                net::NetEvent::Hash { ply: _, hash } => {
+                    if self.mode == Mode::Network {
+                        if self.net_pending_apply.is_some() {
+                            // ход ещё в очереди сумерек — сравним после его применения
+                            self.net_pending_hash = Some(hash);
+                        } else {
+                            self.net_check_hash(hash);
+                        }
+                    }
+                }
+                net::NetEvent::Pause(on) => {
+                    if self.mode == Mode::Network {
+                        self.game.paused = on;
+                    }
+                }
+                net::NetEvent::Chat(text) => {
+                    if self.mode == Mode::Network {
+                        self.net_chat.push((text, false, std::time::Instant::now()));
+                    }
+                }
+                net::NetEvent::Bye(reason) => {
+                    if self.mode == Mode::Network {
+                        self.net_status = format!("Соединение закрыто: {}", reason);
+                        self.net_close("");
+                        self.finalize_log("прервана (соперник закрыл соединение)");
+                    }
+                }
+                net::NetEvent::ChainEnd => {
+                    if self.mode == Mode::Network {
+                        self.game.end_chain();
+                    }
+                }
+                net::NetEvent::PromoFree { sq, kind } => {
+                    if self.mode == Mode::Network && self.game.pending_promotion == Some(sq) {
+                        self.game.choose_promotion(kind);
+                    }
+                }
+                net::NetEvent::Disconnected(reason) => {
+                    if self.mode == Mode::Network {
+                        self.net_status = format!("Связь потеряна: {}", reason);
+                        self.net_wait = 60.0;
+                        self.game.paused = true;
+                        self.finalize_log("прервана (связь потеряна)");
+                    }
+                }
+                net::NetEvent::Failed(msg) => {
+                    self.net_status = msg;
+                }
+            }
+        }
+    }
+
     fn start_review(&mut self) {
         if self.game.snapshots.len() < 2 {
             return;
@@ -948,6 +1232,12 @@ impl App {
             }
             return;
         }
+        if self.net_window {
+            if !self.net_rect.contains(pos) {
+                self.net_window = false;
+            }
+            return;
+        }
         if self.game.pending_promotion.is_some() {
             return;
         }
@@ -963,7 +1253,7 @@ impl App {
         if self.game.paused {
             let pill = Rect::from_center_size(layout.board.center(), Vec2::new(470.0, 104.0));
             if pill.contains(pos) {
-                self.game.paused = false;
+                self.net_set_pause(false);
             }
             return;
         }
@@ -973,10 +1263,16 @@ impl App {
         if self.mode == Mode::Computer && self.game.turn == Side::Black {
             return;
         }
+        // в сетевой партии ходит только своя сторона
+        if self.mode == Mode::Network && self.net_side != Some(self.game.turn) {
+            return;
+        }
         if let Some(sq) = layout.square_at(pos) {
+            let before = self.game.last_move;
             let mark = self.sound_mark();
             self.game.click(sq);
             self.play_sound_since(mark);
+            self.net_after_local_move(before);
         }
     }
 
@@ -1001,6 +1297,9 @@ impl App {
                     }
                     if self.rules && !self.settings {
                         self.paint_rules(ui, ctx, &painter, layout);
+                    }
+                    if self.net_window {
+                        self.paint_net(ui, &painter, layout);
                     }
                     if self.game.is_over() && !self.rules && !self.settings {
                         self.paint_result(ui, ctx, &painter, layout);
@@ -2105,11 +2404,13 @@ impl App {
         let chip_h = 24.0;
         let chips_x = x + label_w;
         let chips_w = w - label_w;
-        let chip_half = (chips_w - 8.0) * 0.5;
-        let hot = Rect::from_min_size(Pos2::new(chips_x, y), Vec2::new(chip_half, chip_h));
+        // «по сети» появляется только после включения в настройках
+        let net_count = if self.net_enabled { 3 } else { 2 };
+        let chip_w = (chips_w - (net_count - 1) as f32 * 8.0) / net_count as f32;
+        let hot = Rect::from_min_size(Pos2::new(chips_x, y), Vec2::new(chip_w, chip_h));
         let comp = Rect::from_min_size(
-            Pos2::new(chips_x + chip_half + 8.0, y),
-            Vec2::new(chip_half, chip_h),
+            Pos2::new(chips_x + chip_w + 8.0, y),
+            Vec2::new(chip_w, chip_h),
         );
         if chip(ui, hot, "вдвоём", self.mode == Mode::Hotseat, &cur) {
             self.mode = Mode::Hotseat;
@@ -2117,6 +2418,18 @@ impl App {
         if chip(ui, comp, "с компьютером", self.mode == Mode::Computer, &cur) {
             self.mode = Mode::Computer;
             self.ai_wait = 0.5;
+        }
+        if self.net_enabled {
+            let net_chip = Rect::from_min_size(
+                Pos2::new(chips_x + (chip_w + 8.0) * 2.0, y),
+                Vec2::new(chip_w, chip_h),
+            );
+            if chip(ui, net_chip, "по сети", self.mode == Mode::Network, &cur) {
+                self.mode = Mode::Network;
+                if !self.net_active() {
+                    self.net_window = true;
+                }
+            }
         }
         y += chip_h + 8.0;
         if self.mode == Mode::Computer {
@@ -2391,7 +2704,7 @@ impl App {
             if !self.started {
                 self.start_game();
             } else {
-                self.game.paused = !self.game.paused;
+                self.net_set_pause(!self.game.paused);
             }
         }
         if button(ui, new_btn, "Новая партия", false, &cur, 14.5) {
@@ -2409,6 +2722,9 @@ impl App {
         }
         if end_chain_clicked {
             self.game.end_chain();
+            if self.net_active() {
+                self.net_send(net::OutMsg::ChainEnd);
+            }
         }
     }
 
@@ -2552,7 +2868,7 @@ impl App {
             11.0,
             alpha(pal.text_dim, 0.95),
         );
-        ly += 26.0;
+        ly += 20.0;
 
         text(
             painter,
@@ -2592,7 +2908,7 @@ impl App {
             11.0,
             alpha(pal.text_dim, 0.95),
         );
-        ly += 24.0;
+        ly += 20.0;
 
         text(
             painter,
@@ -2635,7 +2951,114 @@ impl App {
             11.0,
             alpha(pal.text_dim, 0.92),
         );
-        ly += 24.0;
+        ly += 20.0;
+
+        // код правил: текущий код + ввод чужого кода
+        text(
+            painter,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            "КОД ПРАВИЛ",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ly += 15.0;
+        let code = rulecode::encode(&rulecode::Rules::from_game(&self.game));
+        text(
+            painter,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            &code,
+            15.0,
+            pal.accent,
+        );
+        let copy_btn = Rect::from_min_size(Pos2::new(x + 132.0, ly - 2.0), Vec2::new(120.0, 28.0));
+        if button(ui, copy_btn, "Копировать", false, &pal, 11.5) {
+            ui.ctx().copy_text(code);
+            self.rules_code_msg = i18n::tr("Код скопирован").to_string();
+        }
+        ly += 30.0;
+
+        let input_w = left_w - 132.0;
+        let input_rect = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(input_w, 28.0));
+        rr(
+            painter,
+            input_rect,
+            8.0,
+            alpha(pal.text, 0.06),
+            Stroke::new(1.0_f32, alpha(pal.text, 0.18)),
+        );
+        let code_field = egui::TextEdit::singleline(&mut self.rules_code_input)
+            .font(FontId::proportional(13.0))
+            .text_color(pal.text)
+            .frame(false)
+            .hint_text(i18n::tr("код правил"));
+        ui.put(input_rect, code_field);
+        let apply_btn = Rect::from_min_size(
+            Pos2::new(x + input_w + 8.0, ly),
+            Vec2::new(124.0, 28.0),
+        );
+        if button(ui, apply_btn, "Применить", false, &pal, 11.5) {
+            match rulecode::decode(&self.rules_code_input) {
+                Some(rules) => {
+                    rules.apply(&mut self.game);
+                    self.rules_code_msg = rules.summary();
+                }
+                None => {
+                    self.rules_code_msg = i18n::tr("Неверный код").to_string();
+                }
+            }
+        }
+        ly += 30.0;
+        if !self.rules_code_msg.is_empty() {
+            text_fit(
+                painter,
+                Pos2::new(x, ly),
+                &self.rules_code_msg,
+                left_w,
+                11.0,
+                alpha(pal.text_dim, 0.95),
+            );
+            ly += 16.0;
+        }
+
+        // сеть: режим «по сети» скрыт, пока не включён здесь
+        text(
+            painter,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            "СЕТЕВАЯ ИГРА",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ly += 15.0;
+        let net_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 36.0));
+        let net_label = if self.net_enabled {
+            "Сетевая игра: включена"
+        } else {
+            "Сетевая игра: выключена"
+        };
+        if button(ui, net_btn, net_label, self.net_enabled, &pal, 12.5) {
+            self.net_enabled = !self.net_enabled;
+            if !self.net_enabled {
+                if self.net_active() {
+                    self.net_close("сетевой режим выключен");
+                } else if let Some(n) = self.net.as_mut() {
+                    n.cancel_hosting();
+                }
+                self.mode = Mode::Hotseat;
+            }
+        }
+        ly += 38.0;
+        text_fit(
+            painter,
+            Pos2::new(x, ly),
+            "Соперники рядом — без сервера. Включите, чтобы появился режим «по сети».",
+            left_w,
+            11.0,
+            alpha(pal.text_dim, 0.95),
+        );
+        ly += 20.0;
 
         // правая колонка: превращение, время фаз, плавность
         let mut ry = top;
@@ -3053,15 +3476,7 @@ impl App {
         text_fit(
             painter,
             Pos2::new(x, summary_y + 26.0),
-            "Свои звуки — в папке sounds (WAV или MP3), музыка — music/theme.wav,",
-            w,
-            11.0,
-            alpha(pal.text_dim, 0.95),
-        );
-        text_fit(
-            painter,
-            Pos2::new(x, summary_y + 42.0),
-            "картинки фигур — в папке pieces (PNG с прозрачным фоном).",
+            "Свои звуки — sounds (WAV/MP3), музыка — music/theme.wav, фигуры — pieces (PNG).",
             w,
             11.0,
             alpha(pal.text_dim, 0.95),
@@ -3073,6 +3488,338 @@ impl App {
         );
         if button(ui, close, "Готово", true, &pal, 14.0) {
             self.settings = false;
+        }
+    }
+
+    // ------------------------- сетевое окно -------------------------
+
+    fn net_connect_addr(&mut self, addr: std::net::SocketAddr) {
+        if let Some(net) = self.net.as_mut() {
+            net.connect(addr);
+            self.net_status = format!("Подключение к {}…", addr);
+        }
+    }
+
+    /// Разобрать адрес из поля: «192.168.1.5» или «192.168.1.5:47771».
+    fn net_connect_input(&mut self) {
+        let raw = self.net_addr_input.trim().to_string();
+        if raw.is_empty() {
+            return;
+        }
+        let (ip, port) = match raw.rsplit_once(':') {
+            Some((ip, port)) => (ip.to_string(), port.to_string()),
+            None => (raw.clone(), net::TCP_PORT.to_string()),
+        };
+        match format!("{}:{}", ip, port).parse::<std::net::SocketAddr>() {
+            Ok(addr) => self.net_connect_addr(addr),
+            Err(_) => {
+                self.net_status = i18n::tr("Неверный адрес").to_string();
+            }
+        }
+    }
+
+    fn net_chat_send(&mut self) {
+        let text = self.net_chat_input.trim().to_string();
+        if text.is_empty() {
+            return;
+        }
+        self.net_chat_input.clear();
+        self.net_chat.push((text.clone(), true, std::time::Instant::now()));
+        self.net_send(net::OutMsg::Chat(text));
+    }
+
+    fn paint_net(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
+        let pal = Palette::for_phase(self.game.phase);
+        let next = Palette::for_phase(self.game.phase.other());
+        let cur = blend(pal, next, smooth(self.game.trans));
+        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(175));
+        let card = Rect::from_center_size(layout.board.center(), Vec2::new(560.0, 430.0));
+        self.net_rect = card;
+        rr(
+            painter,
+            card,
+            22.0,
+            Color32::from_rgb(22, 20, 30),
+            Stroke::new(1.0_f32, alpha(cur.accent, 0.25)),
+        );
+        let p = card.shrink(24.0);
+        let x = p.left();
+        let w = p.width();
+        let mut y = p.top();
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            "СЕТЕВАЯ ИГРА",
+            15.0,
+            cur.accent,
+        );
+        let close = Rect::from_min_size(
+            Pos2::new(p.right() - 30.0, y - 6.0),
+            Vec2::new(30.0, 30.0),
+        );
+        if button(ui, close, "×", false, &cur, 15.0) {
+            self.net_window = false;
+        }
+        y += 38.0;
+
+        let Some(net) = self.net.as_ref() else {
+            text_fit(
+                painter,
+                Pos2::new(x, y + 20.0),
+                "Сеть недоступна в этой сборке.",
+                w,
+                13.0,
+                cur.text_dim,
+            );
+            return;
+        };
+
+        if self.net_active() {
+            // --- активный сеанс: соперник, чат, закрытие ---
+            let sess = self.net_session().unwrap();
+            let side_label = match self.net_side {
+                Some(Side::White) => i18n::tr("вы играете белыми").to_string(),
+                Some(Side::Black) => i18n::tr("вы играете чёрными").to_string(),
+                None => String::new(),
+            };
+            text_fit(
+                painter,
+                Pos2::new(x, y),
+                &format!(
+                    "{} · {} · {}",
+                    i18n::trf("Соперник {id}", &[("id", &net::display_id(&sess.peer_id))]),
+                    side_label,
+                    sess.peer_addr
+                ),
+                w,
+                13.0,
+                cur.text,
+            );
+            y += 22.0;
+            text_fit(painter, Pos2::new(x, y), &self.net_status, w, 11.5, cur.accent);
+            y += 26.0;
+
+            // чат: сообщения живут 60 секунд, в логи не пишутся
+            text(
+                painter,
+                Pos2::new(x, y),
+                Align2::LEFT_TOP,
+                "ЧАТ",
+                9.0,
+                alpha(cur.text_dim, 0.75),
+            );
+            y += 16.0;
+            let chat_h = 190.0;
+            let chat_top = y;
+            let chat_bottom = y + chat_h;
+            let mut cy = chat_bottom - 16.0;
+            for (msg, mine, _) in self.net_chat.iter().rev() {
+                if cy < chat_top {
+                    break;
+                }
+                let prefix = if *mine {
+                    i18n::tr("вы").to_string()
+                } else {
+                    i18n::tr("соперник").to_string()
+                };
+                let line = format!("{}: {}", prefix, msg);
+                let color = if *mine { cur.accent } else { cur.text };
+                text_fit(painter, Pos2::new(x, cy), &line, w, 12.0, color);
+                cy -= 17.0;
+            }
+            y = chat_bottom + 12.0;
+
+            // ввод чата
+            let input_w = w - 96.0;
+            let input_rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(input_w, 28.0));
+            rr(
+                painter,
+                input_rect,
+                8.0,
+                alpha(Color32::WHITE, 0.05),
+                Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.10)),
+            );
+            let field = egui::TextEdit::singleline(&mut self.net_chat_input)
+                .font(FontId::proportional(12.5))
+                .text_color(cur.text)
+                .frame(false)
+                .hint_text(i18n::tr("сообщение…"));
+            let resp = ui.put(input_rect.shrink(6.0), field);
+            let send = Rect::from_min_size(
+                Pos2::new(x + input_w + 8.0, y),
+                Vec2::new(88.0, 28.0),
+            );
+            let enter = ui.input(|i| i.key_pressed(egui::Key::Enter)) && resp.has_focus();
+            if button(ui, send, "Отправить", false, &cur, 11.5) || enter {
+                self.net_chat_send();
+            }
+            y += 40.0;
+
+            let close_btn = Rect::from_min_size(Pos2::new(x, y), Vec2::new(200.0, 30.0));
+            if button(ui, close_btn, "Закрыть сеанс", true, &cur, 12.5) {
+                self.net_close("закрыт вами");
+            }
+        } else {
+            // --- поиск соперника ---
+            let id = net.my_id();
+            let hosting = net.hosting();
+            let peers = net.peers();
+            text(
+                painter,
+                Pos2::new(x, y),
+                Align2::LEFT_TOP,
+                "МОЙ ID",
+                9.0,
+                alpha(cur.text_dim, 0.75),
+            );
+            text(
+                painter,
+                Pos2::new(x, y + 16.0),
+                Align2::LEFT_TOP,
+                &id,
+                20.0,
+                cur.text,
+            );
+            let copy = Rect::from_min_size(
+                Pos2::new(x + 150.0, y + 12.0),
+                Vec2::new(112.0, 28.0),
+            );
+            if button(ui, copy, "Копировать", false, &cur, 11.5) {
+                ui.ctx().copy_text(id.clone());
+                self.net_status = i18n::tr("ID скопирован").to_string();
+            }
+            y += 52.0;
+
+            // приветствие — единственное сообщение до начала партии
+            text(
+                painter,
+                Pos2::new(x, y),
+                Align2::LEFT_TOP,
+                "ПРИВЕТСТВИЕ",
+                9.0,
+                alpha(cur.text_dim, 0.75),
+            );
+            y += 16.0;
+            let greet_rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 28.0));
+            rr(
+                painter,
+                greet_rect,
+                8.0,
+                alpha(Color32::WHITE, 0.05),
+                Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.10)),
+            );
+            let greet = egui::TextEdit::singleline(&mut self.net_greeting)
+                .font(FontId::proportional(12.5))
+                .text_color(cur.text)
+                .frame(false)
+                .hint_text(i18n::tr("короткое сообщение сопернику"));
+            ui.put(greet_rect.shrink(6.0), greet);
+            y += 38.0;
+
+            // игроки рядом
+            text(
+                painter,
+                Pos2::new(x, y),
+                Align2::LEFT_TOP,
+                "ИГРОКИ РЯДОМ",
+                9.0,
+                alpha(cur.text_dim, 0.75),
+            );
+            y += 16.0;
+            if peers.is_empty() {
+                text_fit(
+                    painter,
+                    Pos2::new(x, y),
+                    &i18n::tr("Пока никого. Откройте игру на другом компьютере.").to_string(),
+                    w,
+                    11.5,
+                    cur.text_dim,
+                );
+                y += 24.0;
+            } else {
+                for peer in peers.iter().take(5) {
+                    let row = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 30.0));
+                    rr(
+                        painter,
+                        row,
+                        8.0,
+                        alpha(Color32::WHITE, 0.04),
+                        Stroke::NONE,
+                    );
+                    text_fit(
+                        painter,
+                        Pos2::new(x + 10.0, y + 8.0),
+                        &format!("{} · {}", net::display_id(&peer.id), peer.addr),
+                        w - 130.0,
+                        12.0,
+                        cur.text,
+                    );
+                    let btn = Rect::from_min_size(
+                        Pos2::new(row.right() - 116.0, y + 1.0),
+                        Vec2::new(110.0, 28.0),
+                    );
+                    if button(ui, btn, "Подключиться", false, &cur, 11.0) {
+                        self.net_connect_addr(peer.addr);
+                    }
+                    y += 34.0;
+                }
+            }
+            y += 6.0;
+
+            // адрес вручную
+            text(
+                painter,
+                Pos2::new(x, y),
+                Align2::LEFT_TOP,
+                "ПО АДРЕСУ (IP:ПОРТ)",
+                9.0,
+                alpha(cur.text_dim, 0.75),
+            );
+            y += 16.0;
+            let addr_w = w - 120.0;
+            let addr_rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(addr_w, 28.0));
+            rr(
+                painter,
+                addr_rect,
+                8.0,
+                alpha(Color32::WHITE, 0.05),
+                Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.10)),
+            );
+            let addr_field = egui::TextEdit::singleline(&mut self.net_addr_input)
+                .font(FontId::proportional(12.5))
+                .text_color(cur.text)
+                .frame(false)
+                .hint_text("192.168.1.5");
+            ui.put(addr_rect.shrink(6.0), addr_field);
+            let go = Rect::from_min_size(
+                Pos2::new(x + addr_w + 8.0, y),
+                Vec2::new(112.0, 28.0),
+            );
+            if button(ui, go, "Подключить", false, &cur, 11.5) {
+                self.net_connect_input();
+            }
+            y += 38.0;
+
+            // ожидание соперника
+            let wait_btn = Rect::from_min_size(Pos2::new(x, y), Vec2::new(220.0, 30.0));
+            if hosting {
+                if button(ui, wait_btn, "Отменить ожидание", true, &cur, 12.5) {
+                    if let Some(n) = self.net.as_mut() {
+                        n.cancel_hosting();
+                    }
+                }
+            } else if button(ui, wait_btn, "Ждать соперника", true, &cur, 12.5) {
+                if let Some(n) = self.net.as_mut() {
+                    n.host();
+                }
+            }
+            y += 38.0;
+
+            if !self.net_status.is_empty() {
+                text_fit(painter, Pos2::new(x, y), &self.net_status, w, 11.5, cur.accent);
+            }
         }
     }
 
@@ -3164,7 +3911,20 @@ impl App {
                 ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
             }
             if resp.clicked() {
-                self.game.choose_promotion(*kind);
+                let kind = *kind;
+                let free = self.game.promotion_free;
+                let promo_sq = self.game.pending_promotion;
+                self.game.choose_promotion(kind);
+                if self.net_active() {
+                    if free {
+                        // свободное превращение после сумерек — без хода
+                        if let Some(sq) = promo_sq {
+                            self.net_send(net::OutMsg::PromoFree { sq, kind });
+                        }
+                    } else if let Some(mv) = self.net_pending_move.take() {
+                        self.net_send_move(mv, Some(kind));
+                    }
+                }
             }
         }
     }
@@ -4179,6 +4939,40 @@ impl eframe::App for App {
                 && !self.game.is_over();
             self.game.tick(dt);
         }
+        // сеть: события, отложенные сумерками ходы, ожидание связи
+        self.net_poll();
+        if self.net_wait > 0.0 {
+            self.net_wait -= dt;
+            if self.net_wait <= 0.0 {
+                self.net_close("связь не восстановилась");
+                self.finalize_log("прервана (связь потеряна)");
+            }
+        }
+        if self.mode == Mode::Network && self.game.trans == 0.0 {
+            if let Some((mv, promo)) = self.net_pending_apply.take() {
+                let mark = self.sound_mark();
+                self.game.apply(mv);
+                if let Some(kind) = promo {
+                    if self.game.pending_promotion.is_some() {
+                        self.game.choose_promotion(kind);
+                    }
+                }
+                self.play_sound_since(mark);
+                if let Some(hash) = self.net_pending_hash.take() {
+                    self.net_check_hash(hash);
+                }
+            }
+        }
+        // правила и приветствие всегда отражают текущее состояние
+        if let Some(net) = &self.net {
+            net.set_rules(rulecode::Rules::from_game(&self.game));
+            net.set_greeting(self.net_greeting.clone());
+        }
+        // чат живёт в памяти 60 секунд
+        let now = std::time::Instant::now();
+        self.net_chat.retain(|(_, _, at)| {
+            now.duration_since(*at).as_secs() < net::CHAT_TTL_SECS
+        });
         if self.game.trans > 0.0 {
             if !self.twilight_sounded {
                 sound::twilight();

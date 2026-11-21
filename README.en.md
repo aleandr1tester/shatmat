@@ -72,6 +72,18 @@ The **Settings** button in the panel:
   fonts from the `fonts` folder;
 - move smoothness: from 0.05 to 0.60 seconds.
 
+## Rules code
+
+The settings show the code of the current rules — 8 characters like
+`S3HW-5RTD`. It packs the phase switching (by time or by moves), phase
+durations, move limit, pawn promotion, mandatory capture and the damka mode.
+
+- the **Copy** button puts the code into the clipboard;
+- the code can be shared with another player and applied in the "rules code"
+  field — **Apply** sets all parameters at once;
+- a corrupted code (a wrong character) is rejected by the checksum: the game
+  reports "Invalid code" and keeps the rules unchanged.
+
 ## Custom pieces
 
 Place PNG files in the `pieces` folder next to the program — the game will

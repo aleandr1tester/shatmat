@@ -146,6 +146,16 @@ can be disabled in the **Mate · trajectories** setting.
   randomly), **medium** (looks two half-moves ahead) and **hard** (three, with
   pruning). The computer thinks for half a second and respects all phase
   rules, including mandatory captures and jump chains.
+- **Over the network** — hidden until **Network game** is enabled in the
+  settings. The game itself becomes the server: port 47771 opens
+  automatically, nothing to configure. Players in the same local network find
+  each other on their own; you can also connect by `IP:port` (for play over
+  the internet the host needs a public IP or a forwarded port). The connection
+  is encrypted (Noise_XX + ChaCha20-Poly1305); keys live in `keys.bin` next
+  to the game. The host plays White and sets the rules — the opponent receives
+  them as a code when connecting. Before the game there is a short greeting,
+  during it — a chat (lives 60 seconds and is never logged). Moves are checked
+  against a position hash: if they diverge, the game stops.
 
 ## Starting position
 
@@ -179,7 +189,8 @@ The game starts from the classic setup: 16 pieces each — 8 pawns and 8 pieces
 - You may move into attack if there is no mandatory capture.
 - At the start of the checkers phase there are no queens. A simple checker
   that reaches the last rank becomes a queen; queens fly diagonally any
-  distance.
+  distance. With **Queens: all** on, pieces that already stand on the last
+  rank become queens right away when the phase flips to checkers.
 - The king in the checkers phase is an ordinary checker with a small dot; it
   can be told apart, captured and defeated.
 - Capturing is mandatory; a capture chain continues while there is a target.
@@ -189,9 +200,10 @@ The game starts from the classic setup: 16 pieces each — 8 pawns and 8 pieces
   capturing, and a started chain can be finished with the **Finish** button.
 - If, with mandatory capture on, the only move is a capture, the checker that
   must capture pulses with a red ring; **FIGHT** lights up in the panel.
-- By default any checker can become a queen, including the king, knight,
-  bishop, rook and queen. **Queens: pawns** in the settings leaves crowning
-  only to pawns.
+- By default (**Queens: all**) any piece can become a queen, including the
+  king, knight, bishop, rook and queen: both by reaching the last rank and by
+  standing on it when the phase flips to checkers. **Queens: pawns** leaves
+  crowning only to pawns.
 - In the **Pieces** reference checkers are described in three groups:
   **Pawns** (the pawn and all pieces with chess marks — the marks can be
   hidden in the settings), **Pawn-king** (an ordinary-looking pawn with a
@@ -213,8 +225,9 @@ The game starts from the classic setup: 16 pieces each — 8 pawns and 8 pieces
 - In the last 5 seconds before the change, the timer waits while you hold a
   piece: the move finishes and shows its result before the game changes.
 - After a move twilight appears with a 2-second pause, so the move result is
-  visible before the game changes. After twilight the computer waits at least
-  3 seconds before its move.
+  visible before the game changes. If you already hold a piece, the pause
+  waits for the move to finish and starts counting again. After twilight the
+  computer waits at least 3 seconds before its move.
 - The transition waits until the player finishes the capture chain.
 - If both are stuck in the checkers phase, the transition starts immediately —
   this is a temporary exit to chess; after it the normal cycle continues.

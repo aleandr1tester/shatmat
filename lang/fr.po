@@ -894,3 +894,101 @@ msgstr "par temps, aléatoire 10–{max} s"
 
 msgid "по времени, шахматы {chess} с, шашки {checkers} с"
 msgstr "par temps, échecs {chess} s, dames {checkers} s"
+msgid "СЕТЕВАЯ ИГРА"
+msgstr "JEU EN RÉSEAU"
+
+msgid "Сетевая игра: включена"
+msgstr "Jeu en réseau : activé"
+
+msgid "Сетевая игра: выключена"
+msgstr "Jeu en réseau : désactivé"
+
+msgid "Соперники рядом — без сервера. Включите, чтобы появился режим «по сети»."
+msgstr "Adversaires proches — sans serveur. Activez pour voir le mode « par réseau »."
+
+msgid "по сети"
+msgstr "réseau"
+
+msgid "Сеть недоступна в этой сборке."
+msgstr "Le réseau n'est pas disponible dans cette version."
+
+msgid "Соперник {id}"
+msgstr "Adversaire {id}"
+
+msgid "вы играете белыми"
+msgstr "vous jouez les blancs"
+
+msgid "вы играете чёрными"
+msgstr "vous jouez les noirs"
+
+msgid "ЧАТ"
+msgstr "CHAT"
+
+msgid "вы"
+msgstr "vous"
+
+msgid "соперник"
+msgstr "adversaire"
+
+msgid "сообщение…"
+msgstr "message…"
+
+msgid "Отправить"
+msgstr "Envoyer"
+
+msgid "Закрыть сеанс"
+msgstr "Fermer la session"
+
+msgid "МОЙ ID"
+msgstr "MON ID"
+
+msgid "ПРИВЕТСТВИЕ"
+msgstr "SALUTATION"
+
+msgid "короткое сообщение сопернику"
+msgstr "petit mot pour l'adversaire"
+
+msgid "ИГРОКИ РЯДОМ"
+msgstr "JOUEURS PROCHES"
+
+msgid "Пока никого. Откройте игру на другом компьютере."
+msgstr "Personne pour l'instant. Ouvre le jeu sur un autre ordinateur."
+
+msgid "Подключиться"
+msgstr "Se connecter"
+
+msgid "ПО АДРЕСУ (IP:ПОРТ)"
+msgstr "PAR ADRESSE (IP:PORT)"
+
+msgid "Подключить"
+msgstr "Connecter"
+
+msgid "Отменить ожидание"
+msgstr "Annuler l'attente"
+
+msgid "Ждать соперника"
+msgstr "Attendre un adversaire"
+
+msgid "Неверный адрес"
+msgstr "Adresse invalide"
+
+msgid "ID скопирован"
+msgstr "ID copié"
+
+msgid "Партия началась"
+msgstr "La partie commence"
+
+msgid "Соединение установлено: {id} · правила {rules}"
+msgstr "Connecté : {id} · règles {rules}"
+
+msgid "Соединение закрыто: {reason}"
+msgstr "Connexion fermée : {reason}"
+
+msgid "Связь потеряна: {reason}"
+msgstr "Connexion perdue : {reason}"
+
+msgid "Подключение к {addr}…"
+msgstr "Connexion à {addr}…"
+
+msgid "Позиции разошлись — партия остановлена"
+msgstr "Positions divergentes — partie arrêtée"

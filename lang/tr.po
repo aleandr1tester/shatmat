@@ -894,3 +894,101 @@ msgstr "süreye göre, rastgele 10–{max} sn"
 
 msgid "по времени, шахматы {chess} с, шашки {checkers} с"
 msgstr "süreye göre, satranç {chess} sn, dama {checkers} sn"
+msgid "СЕТЕВАЯ ИГРА"
+msgstr "AĞ OYUNU"
+
+msgid "Сетевая игра: включена"
+msgstr "Ağ oyunu: açık"
+
+msgid "Сетевая игра: выключена"
+msgstr "Ağ oyunu: kapalı"
+
+msgid "Соперники рядом — без сервера. Включите, чтобы появился режим «по сети»."
+msgstr "Yakındaki rakipler — sunucu gerekmez. «Ağ üzerinden» modu için açın."
+
+msgid "по сети"
+msgstr "ağ"
+
+msgid "Сеть недоступна в этой сборке."
+msgstr "Bu sürümde ağ kullanılamıyor."
+
+msgid "Соперник {id}"
+msgstr "Rakip {id}"
+
+msgid "вы играете белыми"
+msgstr "beyazları oynuyorsunuz"
+
+msgid "вы играете чёрными"
+msgstr "siyahları oynuyorsunuz"
+
+msgid "ЧАТ"
+msgstr "SOHBET"
+
+msgid "вы"
+msgstr "sen"
+
+msgid "соперник"
+msgstr "rakip"
+
+msgid "сообщение…"
+msgstr "mesaj…"
+
+msgid "Отправить"
+msgstr "Gönder"
+
+msgid "Закрыть сеанс"
+msgstr "Oturumu kapat"
+
+msgid "МОЙ ID"
+msgstr "ID'M"
+
+msgid "ПРИВЕТСТВИЕ"
+msgstr "SELAM"
+
+msgid "короткое сообщение сопернику"
+msgstr "rakibe kısa not"
+
+msgid "ИГРОКИ РЯДОМ"
+msgstr "YAKINDAKI OYUNCULAR"
+
+msgid "Пока никого. Откройте игру на другом компьютере."
+msgstr "Henüz kimse yok. Oyunu başka bilgisayarda aç."
+
+msgid "Подключиться"
+msgstr "Bağlan"
+
+msgid "ПО АДРЕСУ (IP:ПОРТ)"
+msgstr "ADRESE GÖRE (IP:PORT)"
+
+msgid "Подключить"
+msgstr "Bağlan"
+
+msgid "Отменить ожидание"
+msgstr "Beklemeyi iptal et"
+
+msgid "Ждать соперника"
+msgstr "Rakip bekle"
+
+msgid "Неверный адрес"
+msgstr "Geçersiz adres"
+
+msgid "ID скопирован"
+msgstr "ID kopyalandı"
+
+msgid "Партия началась"
+msgstr "Oyun başladı"
+
+msgid "Соединение установлено: {id} · правила {rules}"
+msgstr "Bağlandı: {id} · kurallar {rules}"
+
+msgid "Соединение закрыто: {reason}"
+msgstr "Bağlantı kapandı: {reason}"
+
+msgid "Связь потеряна: {reason}"
+msgstr "Bağlantı koptu: {reason}"
+
+msgid "Подключение к {addr}…"
+msgstr "{addr} bağlanılıyor…"
+
+msgid "Позиции разошлись — партия остановлена"
+msgstr "Konumlar ayrıldı — oyun durduruldu"

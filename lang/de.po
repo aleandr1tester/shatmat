@@ -893,3 +893,101 @@ msgstr "nach Zeit, zufällig 10–{max} s"
 
 msgid "по времени, шахматы {chess} с, шашки {checkers} с"
 msgstr "nach Zeit, Schach {chess} s, Dame {checkers} s"
+msgid "СЕТЕВАЯ ИГРА"
+msgstr "NETZWERKSPIEL"
+
+msgid "Сетевая игра: включена"
+msgstr "Netzwerkspiel: aktiviert"
+
+msgid "Сетевая игра: выключена"
+msgstr "Netzwerkspiel: deaktiviert"
+
+msgid "Соперники рядом — без сервера. Включите, чтобы появился режим «по сети»."
+msgstr "Gegner in der Nähe — ohne Server. Aktivieren, um den Modus „Über Netz“ freizuschalten."
+
+msgid "по сети"
+msgstr "Netzwerk"
+
+msgid "Сеть недоступна в этой сборке."
+msgstr "Netzwerk ist in dieser Version nicht verfügbar."
+
+msgid "Соперник {id}"
+msgstr "Gegner {id}"
+
+msgid "вы играете белыми"
+msgstr "du spielst Weiß"
+
+msgid "вы играете чёрными"
+msgstr "du spielst Schwarz"
+
+msgid "ЧАТ"
+msgstr "CHAT"
+
+msgid "вы"
+msgstr "du"
+
+msgid "соперник"
+msgstr "Gegner"
+
+msgid "сообщение…"
+msgstr "Nachricht…"
+
+msgid "Отправить"
+msgstr "Senden"
+
+msgid "Закрыть сеанс"
+msgstr "Sitzung beenden"
+
+msgid "МОЙ ID"
+msgstr "MEINE ID"
+
+msgid "ПРИВЕТСТВИЕ"
+msgstr "GRUSS"
+
+msgid "короткое сообщение сопернику"
+msgstr "kurze Nachricht an den Gegner"
+
+msgid "ИГРОКИ РЯДОМ"
+msgstr "SPIELER IN DER NÄHE"
+
+msgid "Пока никого. Откройте игру на другом компьютере."
+msgstr "Noch niemand. Öffne das Spiel auf einem anderen Computer."
+
+msgid "Подключиться"
+msgstr "Verbinden"
+
+msgid "ПО АДРЕСУ (IP:ПОРТ)"
+msgstr "ÜBER ADRESSE (IP:PORT)"
+
+msgid "Подключить"
+msgstr "Verbinden"
+
+msgid "Отменить ожидание"
+msgstr "Warten abbrechen"
+
+msgid "Ждать соперника"
+msgstr "Auf Gegner warten"
+
+msgid "Неверный адрес"
+msgstr "Ungültige Adresse"
+
+msgid "ID скопирован"
+msgstr "ID kopiert"
+
+msgid "Партия началась"
+msgstr "Partie gestartet"
+
+msgid "Соединение установлено: {id} · правила {rules}"
+msgstr "Verbunden: {id} · Regeln {rules}"
+
+msgid "Соединение закрыто: {reason}"
+msgstr "Verbindung geschlossen: {reason}"
+
+msgid "Связь потеряна: {reason}"
+msgstr "Verbindung verloren: {reason}"
+
+msgid "Подключение к {addr}…"
+msgstr "Verbindung zu {addr}…"
+
+msgid "Позиции разошлись — партия остановлена"
+msgstr "Positionen weichen ab — Partie gestoppt"

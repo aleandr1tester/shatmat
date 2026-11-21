@@ -894,3 +894,101 @@ msgstr "by time, random 10–{max} s"
 
 msgid "по времени, шахматы {chess} с, шашки {checkers} с"
 msgstr "by time, chess {chess} s, checkers {checkers} s"
+msgid "СЕТЕВАЯ ИГРА"
+msgstr "NETWORK GAME"
+
+msgid "Сетевая игра: включена"
+msgstr "Network game: on"
+
+msgid "Сетевая игра: выключена"
+msgstr "Network game: off"
+
+msgid "Соперники рядом — без сервера. Включите, чтобы появился режим «по сети»."
+msgstr "Opponents nearby — no server needed. Turn on to unlock the network mode."
+
+msgid "по сети"
+msgstr "network"
+
+msgid "Сеть недоступна в этой сборке."
+msgstr "Networking is unavailable in this build."
+
+msgid "Соперник {id}"
+msgstr "Opponent {id}"
+
+msgid "вы играете белыми"
+msgstr "you play white"
+
+msgid "вы играете чёрными"
+msgstr "you play black"
+
+msgid "ЧАТ"
+msgstr "CHAT"
+
+msgid "вы"
+msgstr "you"
+
+msgid "соперник"
+msgstr "opponent"
+
+msgid "сообщение…"
+msgstr "message…"
+
+msgid "Отправить"
+msgstr "Send"
+
+msgid "Закрыть сеанс"
+msgstr "End session"
+
+msgid "МОЙ ID"
+msgstr "MY ID"
+
+msgid "ПРИВЕТСТВИЕ"
+msgstr "GREETING"
+
+msgid "короткое сообщение сопернику"
+msgstr "a short note for your opponent"
+
+msgid "ИГРОКИ РЯДОМ"
+msgstr "PLAYERS NEARBY"
+
+msgid "Пока никого. Откройте игру на другом компьютере."
+msgstr "Nobody yet. Open the game on another computer."
+
+msgid "Подключиться"
+msgstr "Connect"
+
+msgid "ПО АДРЕСУ (IP:ПОРТ)"
+msgstr "BY ADDRESS (IP:PORT)"
+
+msgid "Подключить"
+msgstr "Connect"
+
+msgid "Отменить ожидание"
+msgstr "Cancel waiting"
+
+msgid "Ждать соперника"
+msgstr "Wait for opponent"
+
+msgid "Неверный адрес"
+msgstr "Invalid address"
+
+msgid "ID скопирован"
+msgstr "ID copied"
+
+msgid "Партия началась"
+msgstr "Game started"
+
+msgid "Соединение установлено: {id} · правила {rules}"
+msgstr "Connected: {id} · rules {rules}"
+
+msgid "Соединение закрыто: {reason}"
+msgstr "Connection closed: {reason}"
+
+msgid "Связь потеряна: {reason}"
+msgstr "Connection lost: {reason}"
+
+msgid "Подключение к {addr}…"
+msgstr "Connecting to {addr}…"
+
+msgid "Позиции разошлись — партия остановлена"
+msgstr "Positions diverged — game stopped"

@@ -24,11 +24,15 @@ or by moves.
 - Moves and captures have short sounds; twilight has a noise wave. Each sound
   plays once and does not loop; the long twilight sound is not restarted while
   it is still playing.
+- A capture uses the capture sound, not the move sound. Twilight plays on its
+  own audio channel, so a move or capture does not cut it off.
 - Sounds and music can be enabled or disabled in **Settings**.
 - Your own sounds can be placed in the `sounds` folder next to the program:
   `move`, `capture`, `twilight` as `.wav` or `.mp3` (if both exist, `.mp3` wins).
 - The right panel shows: the current phase, the countdown, whose turn it is,
-  the move log, phase times and the opponent.
+  the move log, phase times and the opponent. By default you play against the
+  computer as White; switch to two-player play with the opponent chip in the
+  panel.
 - The **Pieces** button in the **Rules** window opens the reference: first
   choose the game (Chess/Checkers), then a piece. On the left is the piece
   image, on the right are the **How it moves** and **How it captures**
@@ -63,8 +67,9 @@ The **Settings** button in the panel:
 - mate trajectories: separate **Attack** (red lines to the king) and
   **Surrounding** (yellow lines of pieces covering escape squares); both are
   on by default;
-- interface font: Prosto by default; the **Font** button cycles the built-in
-  and custom fonts from the `fonts` folder;
+- interface font: Noto Sans by default (Cyrillic + Latin, including Turkish
+  letters); the **Font** button cycles the built-in Noto Sans/Prosto and custom
+  fonts from the `fonts` folder;
 - move smoothness: from 0.05 to 0.60 seconds.
 
 ## Custom pieces
@@ -86,10 +91,12 @@ drawn on top of the normal checker.
 
 ## Custom fonts
 
-The default interface font is **Prosto**. Place `.ttf` or `.otf` files in the
-`fonts` folder next to the program and restart the game. In the settings press
-the **Font** button to cycle through fonts: the built-in Prosto and custom
-fonts go in a circle. Details are in `fonts/README.txt`.
+The default interface font is **Noto Sans**: it covers Cyrillic and Latin,
+including Turkish letters, and reads noticeably better at small sizes. Place
+`.ttf` or `.otf` files in the `fonts` folder next to the program and restart the
+game. In the settings press the **Font** button to cycle through fonts: the
+built-in Noto Sans/Prosto and custom fonts go in a circle. Details are in
+`fonts/README.txt`.
 
 ## Logs and journal
 
@@ -191,6 +198,11 @@ The game starts from the classic setup: 16 pieces each — 8 pawns and 8 pieces
 - **By moves**: within one move the game does not change; after a move the
   phase may stay the same or change — at random. Each move has a time of
   10–180 s; when it runs out, the move passes to the opponent.
+- In the last 5 seconds before the change, the timer waits while you hold a
+  piece: the move finishes and shows its result before the game changes.
+- After a move twilight appears with a 2-second pause, so the move result is
+  visible before the game changes. After twilight the computer waits at least
+  3 seconds before its move.
 - The transition waits until the player finishes the capture chain.
 - If both are stuck in the checkers phase, the transition starts immediately —
   this is a temporary exit to chess; after it the normal cycle continues.

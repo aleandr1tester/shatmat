@@ -46,6 +46,12 @@ mod imp {
     #[link(name = "winmm")]
     extern "system" {
         fn PlaySoundW(sound: *const u16, module: *mut core::ffi::c_void, flags: u32) -> i32;
+        fn mciSendStringW(
+            cmd: *const u16,
+            ret: *mut u16,
+            ret_len: u32,
+            hwnd: *mut core::ffi::c_void,
+        ) -> u32;
     }
 
     const SND_ASYNC: u32 = 0x0001;
@@ -67,6 +73,19 @@ mod imp {
     static TWILIGHT_LAST: OnceLock<Mutex<Option<(Instant, Duration)>>> = OnceLock::new();
     static FILE_WAVS: OnceLock<Mutex<HashMap<String, Vec<u8>>>> = OnceLock::new();
 
+    /// Алиас отдельного MCI-канала для сумерек. Он не пересекается с PlaySound,
+    /// поэтому звук хода или взятия не обрывает длинную «музыку» перехода.
+    const TWILIGHT_ALIAS: &str = "shatmat_twilight";
+
+    fn wide(cmd: &str) -> Vec<u16> {
+        cmd.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+
+    fn mci(cmd: &str) -> u32 {
+        let cmd = wide(cmd);
+        unsafe { mciSendStringW(cmd.as_ptr(), std::ptr::null_mut(), 0, std::ptr::null_mut()) }
+    }
+
     /// Короткий одиночный «тык» — фигуру поставили.
     pub fn piece_move() {
         play(MOVE_FILE, &MOVE_WAV, move_samples);
@@ -82,17 +101,9 @@ mod imp {
         // Не перезапускаем длинный звук, пока он ещё играет: иначе при
         // быстрой смене фаз он звучал бы повторно.
         let duration = match user_sound_path(&sounds_dir(), TWILIGHT_FILE) {
-            Some((path, is_mp3)) => std::fs::read(&path)
-                .ok()
-                .and_then(|raw| {
-                    if is_mp3 {
-                        mp3_to_wav(&raw)
-                    } else {
-                        Some(raw)
-                    }
-                })
-                .and_then(|wav| wav_duration(&wav))
-                .unwrap_or_else(|| Duration::from_secs(2)),
+            Some((path, is_mp3)) => {
+                prepare_user_sound(&path, is_mp3).unwrap_or_else(|| Duration::from_secs(2))
+            }
             None => Duration::from_secs_f32(TWILIGHT_SECS),
         };
         let last = TWILIGHT_LAST.get_or_init(|| Mutex::new(None));
@@ -104,7 +115,80 @@ mod imp {
         }
         *guard = Some((Instant::now(), duration));
         drop(guard);
-        play(TWILIGHT_FILE, &TWILIGHT_WAV, twilight_samples);
+        // Сумерки играют на своём MCI-канале, а ход/взятие — через PlaySound:
+        // так короткий звук не обрывает длинную музыку перехода.
+        if !play_twilight_channel() {
+            play(TWILIGHT_FILE, &TWILIGHT_WAV, twilight_samples);
+        }
+    }
+
+    /// Пробует проиграть сумерки отдельным каналом. Возвращает false, если
+    /// MCI не смог открыть файл — тогда вызывающий сыграет встроенный звук.
+    fn play_twilight_channel() -> bool {
+        let Some((path, is_mp3)) = user_sound_path(&sounds_dir(), TWILIGHT_FILE) else {
+            return false;
+        };
+        let play_path = if is_mp3 {
+            // MP3 MCI играет напрямую устройством mpegvideo.
+            path
+        } else {
+            // WAV: убираем loop-метаданные (smpl/inst); если файл уже чистый,
+            // играем его как есть.
+            let Ok(raw) = std::fs::read(&path) else {
+                return false;
+            };
+            let Some(clean) = sanitize_wav(&raw) else {
+                return false;
+            };
+            if clean.len() == raw.len() && clean == raw {
+                path
+            } else {
+                let temp = std::env::temp_dir().join("shatmat_twilight_play.wav");
+                if std::fs::write(&temp, &clean).is_err() {
+                    return false;
+                }
+                temp
+            }
+        };
+        let kind = if is_mp3 { "mpegvideo" } else { "waveaudio" };
+        let _ = mci(&format!("close {TWILIGHT_ALIAS}"));
+        let cmd = format!(
+            "open \"{}\" type {} alias {}",
+            play_path.to_string_lossy().replace('"', ""),
+            kind,
+            TWILIGHT_ALIAS
+        );
+        if mci(&cmd) != 0 {
+            return false;
+        }
+        if mci(&format!("play {TWILIGHT_ALIAS} from 0")) != 0 {
+            let _ = mci(&format!("close {TWILIGHT_ALIAS}"));
+            return false;
+        }
+        true
+    }
+
+    /// Декодирует пользовательский звук один раз и кладёт в кэш.
+    /// Возвращает длительность готового WAV.
+    fn prepare_user_sound(path: &Path, is_mp3: bool) -> Option<Duration> {
+        let key = path.to_string_lossy().to_string();
+        let files = FILE_WAVS.get_or_init(|| Mutex::new(HashMap::new()));
+        {
+            let guard = files.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(bytes) = guard.get(&key) {
+                return wav_duration(bytes);
+            }
+        }
+        let raw = std::fs::read(path).ok()?;
+        let clean = if is_mp3 {
+            mp3_to_wav(&raw)
+        } else {
+            sanitize_wav(&raw)
+        }?;
+        let duration = wav_duration(&clean);
+        let mut guard = files.lock().unwrap_or_else(|e| e.into_inner());
+        guard.insert(key, clean);
+        duration
     }
 
     fn play(file: &str, cache: &'static OnceLock<Vec<u8>>, samples: fn() -> Vec<i16>) {
@@ -113,6 +197,15 @@ mod imp {
         }
         if super::use_files() {
             if let Some((path, is_mp3)) = user_sound_path(&sounds_dir(), file) {
+                let key = path.to_string_lossy().to_string();
+                let files = FILE_WAVS.get_or_init(|| Mutex::new(HashMap::new()));
+                {
+                    let guard = files.lock().unwrap_or_else(|e| e.into_inner());
+                    if let Some(bytes) = guard.get(&key) {
+                        play_memory(bytes);
+                        return;
+                    }
+                }
                 // Играем пользовательский файл из памяти, а не по имени: так
                 // PlaySound не может зациклить файл по loop-метаданным WAV.
                 if let Ok(raw) = std::fs::read(&path) {
@@ -124,10 +217,8 @@ mod imp {
                         sanitize_wav(&raw)
                     };
                     if let Some(clean) = wav {
-                        let key = path.to_string_lossy().to_string();
-                        let files = FILE_WAVS.get_or_init(|| Mutex::new(HashMap::new()));
                         let mut guard = files.lock().unwrap_or_else(|e| e.into_inner());
-                        guard.entry(key.clone()).or_insert(clean);
+                        guard.insert(key.clone(), clean);
                         if let Some(bytes) = guard.get(&key) {
                             play_memory(bytes);
                         }
@@ -148,8 +239,9 @@ mod imp {
                             SND_FILENAME | SND_ASYNC | SND_NODEFAULT,
                         );
                     }
+                    return;
                 }
-                return;
+                // MP3 не декодировался — ниже сыграем встроенный звук.
             }
         }
         let wav = cache.get_or_init(|| wav_bytes(&samples()));
@@ -214,10 +306,38 @@ mod imp {
         None
     }
 
+    /// Отрезает ID3v2-тег в начале и ID3v1-тег в конце файла.
+    /// puremp3 ищет кадры с первого байта, а в тегах встречаются байты 0xFF,
+    /// похожие на синхрослово, — из-за них декодер может «сломаться» на теге.
+    fn strip_id3(raw: &[u8]) -> &[u8] {
+        let mut start = 0usize;
+        if raw.len() >= 10 && &raw[0..3] == b"ID3" {
+            let size = ((raw[6] as usize & 0x7f) << 21)
+                | ((raw[7] as usize & 0x7f) << 14)
+                | ((raw[8] as usize & 0x7f) << 7)
+                | (raw[9] as usize & 0x7f);
+            let mut skip = 10 + size;
+            if raw[5] & 0x10 != 0 {
+                skip += 10; // футер ID3v2.4
+            }
+            start = skip.min(raw.len());
+        }
+        let mut end = raw.len();
+        if end >= 128 && &raw[end - 128..end - 125] == b"TAG" {
+            end -= 128;
+        }
+        if start < end {
+            &raw[start..end]
+        } else {
+            raw
+        }
+    }
+
     /// Декодирует MP3 в WAV 16-бит/моно/22,05 кГц — тот же формат, что у
     /// встроенных звуков и у пользовательских WAV. Так PlaySound может играть
     /// любой пользовательский файл, независимо от исходного формата.
     fn mp3_to_wav(raw: &[u8]) -> Option<Vec<u8>> {
+        let raw = strip_id3(raw);
         let (header, frames) = puremp3::read_mp3(raw).ok()?;
         let src_rate = header.sample_rate.hz().max(1) as f32;
         let step = src_rate / RATE as f32;
@@ -247,6 +367,7 @@ mod imp {
         unsafe {
             PlaySoundW(core::ptr::null(), core::ptr::null_mut(), 0);
         }
+        let _ = mci(&format!("close {TWILIGHT_ALIAS}"));
     }
 
     /// Создаёт папку `sounds` и недостающие стандартные файлы.
@@ -427,6 +548,33 @@ mod imp {
                 duration.as_secs_f32() > 1.0,
                 "звук не пустой: {duration:?}"
             );
+        }
+
+        #[test]
+        fn id3_tag_is_skipped_before_decoding() {
+            let Ok(mp3) = std::fs::read("tests/vectors/mono_cbr192.mp3") else {
+                return;
+            };
+            // Синтетический ID3v2.3 с UTF-16 BOM: байты 0xFF в теге
+            // выглядят как синхрослово и раньше ломали декодер.
+            let mut tagged = Vec::new();
+            tagged.extend_from_slice(b"ID3");
+            tagged.extend_from_slice(&[3, 0, 0]);
+            let size = 64usize;
+            tagged.extend_from_slice(&[
+                ((size >> 21) & 0x7f) as u8,
+                ((size >> 14) & 0x7f) as u8,
+                ((size >> 7) & 0x7f) as u8,
+                (size & 0x7f) as u8,
+            ]);
+            tagged.extend_from_slice(b"TIT2");
+            tagged.extend_from_slice(&[0, 0, 0, 6]);
+            tagged.extend_from_slice(&[0xFF, 0xFE, b'T', 0, b'x', 0]);
+            tagged.resize(10 + size, 0);
+            tagged.extend_from_slice(&mp3);
+            let wav = mp3_to_wav(&tagged).expect("MP3 с ID3-тегом декодируется");
+            assert_eq!(&wav[0..4], b"RIFF");
+            assert!(wav_duration(&wav).is_some());
         }
 
         #[test]

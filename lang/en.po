@@ -75,6 +75,9 @@ msgstr "pause"
 msgid "ход перейдёт противнику через {time}"
 msgstr "the turn will pass to the opponent in {time}"
 
+msgid "таймер ждёт вашего хода"
+msgstr "the timer waits for your move"
+
 msgid "переход ждёт конца взятия"
 msgstr "the transition waits for the capture to finish"
 
@@ -452,6 +455,9 @@ msgstr "In by-moves mode there is always one game within a move, and after the m
 
 msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
 msgstr "In by-moves mode every move has a time limit of 10–180 s; when it runs out, the turn passes to the opponent."
+
+msgid "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры."
+msgstr "In the last 5 seconds the timer waits while you hold a piece, so the move finishes before the game changes."
 
 msgid "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт."
 msgstr "The computer thinks for 2–3 s and highlights which piece it is capturing."

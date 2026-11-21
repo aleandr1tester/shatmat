@@ -75,6 +75,9 @@ msgstr "pause"
 msgid "ход перейдёт противнику через {time}"
 msgstr "le trait passera à l'adversaire dans {time}"
 
+msgid "таймер ждёт вашего хода"
+msgstr "le minuteur attend votre coup"
+
 msgid "переход ждёт конца взятия"
 msgstr "la transition attend la fin de la prise"
 
@@ -452,6 +455,9 @@ msgstr "En mode par coups, une seule phase s'applique pendant un coup ; après l
 
 msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
 msgstr "En mode par coups, chaque coup dispose de 10–180 s ; une fois écoulé, le trait passe à l'adversaire."
+
+msgid "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры."
+msgstr "Pendant les 5 dernières secondes, le minuteur attend tant que vous tenez une pièce, pour que le coup se termine avant le changement de jeu."
 
 msgid "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт."
 msgstr "L'ordinateur réfléchit 2–3 s et met en évidence la pièce qu'il prend."

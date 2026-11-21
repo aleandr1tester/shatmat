@@ -75,6 +75,9 @@ msgstr "Pause"
 msgid "ход перейдёт противнику через {time}"
 msgstr "Zug geht in {time} an den Gegner über"
 
+msgid "таймер ждёт вашего хода"
+msgstr "der Timer wartet auf deinen Zug"
+
 msgid "переход ждёт конца взятия"
 msgstr "Wechsel wartet auf das Ende des Schlagens"
 
@@ -452,6 +455,9 @@ msgstr "Im Modus nach Zügen gilt innerhalb eines Zuges immer ein Spiel; nach de
 
 msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
 msgstr "Im Modus nach Zügen hat jeder Zug 10–180 s; nach Ablauf geht der Zug an den Gegner über."
+
+msgid "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры."
+msgstr "In den letzten 5 Sekunden wartet der Timer, solange du eine Figur hältst, damit der Zug vor dem Spielwechsel endet."
 
 msgid "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт."
 msgstr "Der Computer denkt 2–3 s und hebt hervor, welche Figur er schlägt."

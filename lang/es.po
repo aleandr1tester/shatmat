@@ -75,6 +75,9 @@ msgstr "pausa"
 msgid "ход перейдёт противнику через {time}"
 msgstr "el turno pasará al rival en {time}"
 
+msgid "таймер ждёт вашего хода"
+msgstr "el temporizador espera tu jugada"
+
 msgid "переход ждёт конца взятия"
 msgstr "el cambio espera al final de la captura"
 
@@ -452,6 +455,9 @@ msgstr "En el modo por movimientos, dentro de un movimiento siempre hay un solo 
 
 msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
 msgstr "En el modo por movimientos cada turno tiene un tiempo de 10–180 s; al agotarse, el turno pasa al rival."
+
+msgid "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры."
+msgstr "En los últimos 5 segundos el temporizador espera mientras sostienes una pieza, para que el movimiento termine antes de que cambie el juego."
 
 msgid "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт."
 msgstr "La computadora piensa 2–3 s y resalta qué pieza captura."

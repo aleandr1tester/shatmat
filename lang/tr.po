@@ -75,6 +75,9 @@ msgstr "durakla"
 msgid "ход перейдёт противнику через {time}"
 msgstr "sıra {time} sonra rakibe geçecek"
 
+msgid "таймер ждёт вашего хода"
+msgstr "sayaç hamlenizi bekliyor"
+
 msgid "переход ждёт конца взятия"
 msgstr "geçiş, alma işleminin bitmesini bekliyor"
 
@@ -452,6 +455,9 @@ msgstr "Hamleye göre kipinde hamle içinde her zaman tek oyun geçerlidir, haml
 
 msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
 msgstr "Hamleye göre kipinde her hamlenin 10–180 s süresi vardır; süre dolunca sıra rakibe geçer."
+
+msgid "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры."
+msgstr "Son 5 saniyede bir taşı tuttuğunuz sürece sayaç bekler; böylece hamle oyun değişmeden tamamlanır."
 
 msgid "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт."
 msgstr "Bilgisayar 2–3 s düşünür ve hangi taşı alacağını vurgular."

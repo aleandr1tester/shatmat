@@ -13,6 +13,12 @@ pub const MIN_AUTO_SECS: f32 = 10.0;
 pub const MIN_MOVE_SECS: f32 = 10.0;
 pub const MAX_MOVE_SECS: f32 = 180.0;
 pub const DEFAULT_MOVE_SECS: f32 = 60.0;
+/// Последние секунды перед сменой: если игрок взял фигуру, таймер ждёт,
+/// чтобы ход успел завершиться и его результат был виден до смены игры.
+pub const GRACE_SECS: f32 = 5.0;
+/// Пауза после хода перед появлением сумерек в режиме «по ходам»:
+/// игрок успевает увидеть результат хода.
+pub const MOVE_TWILIGHT_PAUSE: f32 = 2.0;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Side {
@@ -263,6 +269,8 @@ pub struct Game {
     pub twilight_by_moves: bool,
     /// Ход завершён: на следующем тике можно бросить «остаться/смениться».
     pub move_twilight_pending: bool,
+    /// Сколько ещё ждать перед решением о сумерках после хода.
+    pub move_twilight_wait: f32,
     /// Время на один ход в режиме «по ходам» (10–180 с).
     pub move_time_limit: f32,
     /// Остаток времени на текущий ход.
@@ -336,6 +344,7 @@ impl Game {
             crown_non_pawns: true,
             twilight_by_moves: true,
             move_twilight_pending: false,
+            move_twilight_wait: 0.0,
             move_time_limit: DEFAULT_MOVE_SECS,
             move_left: DEFAULT_MOVE_SECS,
             phase_hold: false,
@@ -366,6 +375,25 @@ impl Game {
 
     pub fn twilight_pending(&self) -> bool {
         self.trans == 0.0 && self.phase_left <= 0.0 && !self.is_over()
+    }
+
+    /// Остаток таймера текущего режима: фаза по времени или часы хода.
+    pub fn active_left(&self) -> f32 {
+        if self.twilight_by_moves {
+            self.move_left
+        } else {
+            self.phase_left
+        }
+    }
+
+    /// Игрок держит фигуру в последние 5 секунд до смены — таймер замирает,
+    /// чтобы ход успел завершиться и его результат был виден до смены игры.
+    pub fn grace_hold(&self) -> bool {
+        !self.is_over()
+            && !self.paused
+            && self.trans == 0.0
+            && self.selected.is_some()
+            && self.active_left() <= GRACE_SECS
     }
 
     pub fn count(&self, side: Side) -> usize {
@@ -517,6 +545,7 @@ impl Game {
     pub fn set_twilight_by_moves(&mut self, on: bool) {
         self.twilight_by_moves = on;
         self.move_twilight_pending = false;
+        self.move_twilight_wait = 0.0;
         if on {
             self.move_left = self.move_time_limit;
         } else {
@@ -541,6 +570,7 @@ impl Game {
             && self.pending_promotion.is_none()
         {
             self.move_twilight_pending = true;
+            self.move_twilight_wait = MOVE_TWILIGHT_PAUSE;
         }
     }
 
@@ -894,15 +924,26 @@ impl Game {
                 && self.move_anim >= 1.0
                 && self.chain.is_none()
             {
-                self.move_twilight_pending = false;
-                if self.next_rand() < 0.5 {
-                    self.trans = 0.0001;
-                    self.selected = None;
-                    self.legal.clear();
+                // Пауза после хода: игрок видит результат до смены игры.
+                self.move_twilight_wait -= dt;
+                if self.move_twilight_wait <= 0.0 {
+                    self.move_twilight_pending = false;
+                    if self.next_rand() < 0.5 {
+                        self.trans = 0.0001;
+                        self.selected = None;
+                        self.legal.clear();
+                    }
                 }
             }
             // Часы хода: по истечении ход переходит противнику.
-            if self.trans == 0.0 && self.move_anim >= 1.0 && self.chain.is_none() {
+            // В последние 5 секунд игрок, взявший фигуру, задерживает часы:
+            // ход должен завершиться и показать результат до смены игры.
+            if self.trans == 0.0
+                && !self.phase_hold
+                && !self.grace_hold()
+                && self.move_anim >= 1.0
+                && self.chain.is_none()
+            {
                 self.move_left -= dt;
                 if self.move_left <= 0.0 {
                     self.move_left = 0.0;
@@ -919,7 +960,11 @@ impl Game {
                     }
                 }
             }
-        } else if !self.phase_hold && self.move_anim >= 1.0 && self.chain.is_none() {
+        } else if !self.phase_hold
+            && !self.grace_hold()
+            && self.move_anim >= 1.0
+            && self.chain.is_none()
+        {
             self.phase_left -= dt;
             if self.phase_left <= 0.0 {
                 self.phase_left = 0.0;
@@ -2027,6 +2072,50 @@ mod tests {
     }
 
     #[test]
+    fn grace_hold_stops_phase_timer_in_last_seconds() {
+        let mut g = test_game();
+        g.twilight_by_moves = false;
+        g.phase_left = 4.0;
+        g.move_anim = 1.0;
+        // Игрок взял фигуру в последние 5 секунд до смены.
+        g.selected = Some((4, 1));
+        g.tick(0.1);
+        assert_eq!(g.phase_left, 4.0, "таймер замер, пока фигура в руке");
+        assert_eq!(g.trans, 0.0, "сумерки не начались");
+        // Ход сделан — таймер снова идёт.
+        g.selected = None;
+        g.tick(0.1);
+        assert!(g.phase_left < 4.0, "после хода таймер продолжил отсчёт");
+    }
+
+    #[test]
+    fn grace_hold_stops_move_clock_in_last_seconds() {
+        let mut g = test_game();
+        g.twilight_by_moves = true;
+        g.move_time_limit = 60.0;
+        g.move_left = 4.0;
+        g.move_anim = 1.0;
+        g.selected = Some((4, 1));
+        g.tick(0.1);
+        assert_eq!(g.move_left, 4.0, "часы хода замерли, пока фигура в руке");
+        assert_eq!(g.turn, Side::White, "ход не перешёл противнику");
+        g.selected = None;
+        g.tick(0.1);
+        assert!(g.move_left < 4.0, "после хода часы снова идут");
+    }
+
+    #[test]
+    fn grace_hold_only_in_last_five_seconds() {
+        let mut g = test_game();
+        g.twilight_by_moves = false;
+        g.phase_left = 30.0;
+        g.move_anim = 1.0;
+        g.selected = Some((4, 1));
+        g.tick(0.1);
+        assert!(g.phase_left < 30.0, "вне последних 5 секунд таймер идёт");
+    }
+
+    #[test]
     fn crown_option_can_restrict_damki_to_pawns() {
         let mut g = test_game();
         g.board = [[None; 8]; 8];
@@ -2091,6 +2180,25 @@ mod tests {
         g.phase_left = 10.0;
         g.tick(0.1);
         assert_eq!(g.phase_left, 10.0, "таймер по-прежнему не идёт");
+    }
+
+    #[test]
+    fn move_twilight_waits_two_seconds_after_move() {
+        let mut g = test_game();
+        g.twilight_by_moves = true;
+        g.move_twilight_pending = true;
+        g.move_twilight_wait = MOVE_TWILIGHT_PAUSE;
+        g.move_anim = 1.0;
+        // 0,5 с: решение ещё не принято.
+        for _ in 0..5 {
+            g.tick(0.1);
+        }
+        assert!(g.move_twilight_pending, "через 0,5 с сумерки ещё не решены");
+        // Ещё 1,6 с: суммарно 2,1 с — решение принято.
+        for _ in 0..16 {
+            g.tick(0.1);
+        }
+        assert!(!g.move_twilight_pending, "через 2,1 с решение уже принято");
     }
 
     #[test]

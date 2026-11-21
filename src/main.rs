@@ -392,6 +392,8 @@ pub struct App {
     ai_seed: u64,
     ai_preview: Option<Move>,
     ai_preview_phase: Option<Phase>,
+    /// true — сумерки уже были: компьютер ждёт не меньше 3 с перед ходом.
+    ai_after_twilight: bool,
     shot: Option<Shot>,
     frames: u32,
     twilight_sounded: bool,
@@ -457,12 +459,19 @@ impl App {
             settings: settings_open,
             settings_rect: Rect::NOTHING,
             piece_tex,
-            mode: Mode::Hotseat,
+            // По умолчанию играем против компьютера; демо-сценарии
+            // остаются за двумя людьми, чтобы не мешать показам.
+            mode: if demo.is_some() {
+                Mode::Hotseat
+            } else {
+                Mode::Computer
+            },
             difficulty: Difficulty::Medium,
             ai_wait: 0.6,
             ai_seed: 0x9E37_79B9_7F4A_7C15,
             ai_preview: None,
             ai_preview_phase: None,
+            ai_after_twilight: false,
             shot: shot.map(|path| Shot {
                 path,
                 requested: false,
@@ -685,6 +694,7 @@ impl App {
         self.ai_wait = 0.6;
         self.ai_preview = None;
         self.ai_preview_phase = None;
+        self.ai_after_twilight = false;
         self.review = false;
         self.review_saved = None;
         self.review_ply = 0;
@@ -719,6 +729,7 @@ impl App {
     }
 
     /// Компьютер играет чёрными: 2–3 секунды показывает цель, затем ходит.
+    /// После сумерек пауза не меньше 3 секунд.
     fn update_ai(&mut self, dt: f32) {
         if !self.started {
             self.ai_preview = None;
@@ -731,6 +742,14 @@ impl App {
             self.ai_preview_phase = None;
             self.ai_wait = 0.6;
             return;
+        }
+        if self.game.trans > 0.0 {
+            // Сумерки: прежний выбор компьютера больше не годится,
+            // а на ход после смены игры ему нужно не меньше 3 секунд.
+            self.ai_after_twilight = true;
+            self.ai_preview = None;
+            self.ai_preview_phase = None;
+            self.ai_wait = 0.0;
         }
         if self.rules
             || self.settings
@@ -763,7 +782,12 @@ impl App {
                 self.ai_preview = Some(mv);
                 self.ai_preview_phase = Some(self.game.phase);
                 let frac = (seed % 1000) as f32 / 1000.0;
-                self.ai_wait = 2.0 + frac;
+                self.ai_wait = if self.ai_after_twilight {
+                    // После сумерек — пауза не меньше 3 секунд.
+                    3.0 + frac
+                } else {
+                    2.0 + frac
+                };
             } else {
                 self.ai_wait = 0.6;
             }
@@ -785,6 +809,7 @@ impl App {
                 }
                 self.play_sound_since(mark);
                 self.ai_wait = 0.6;
+                self.ai_after_twilight = false;
             } else {
                 self.ai_wait = 0.3;
             }
@@ -1241,26 +1266,13 @@ impl App {
             }
         }
 
-        // сумеречная дымка и водяной знак — под фигурами
+        // сумеречная дымка — под фигурами; без надписи, переход виден по анимации
         if g.trans > 0.0 {
             let a = bell(g.trans);
             painter.rect_filled(
                 layout.board,
                 8.0,
                 alpha(Color32::from_rgb(48, 30, 62), 0.10 * a),
-            );
-            let wm = "СУМЕРКИ";
-            let wm_w = art::spaced_width(painter, wm, 46.0, 12.0);
-            spaced_text(
-                painter,
-                Pos2::new(
-                    layout.board.center().x - wm_w * 0.5,
-                    layout.board.center().y - 32.0,
-                ),
-                wm,
-                46.0,
-                alpha(Color32::from_rgb(244, 226, 196), 0.20 * a),
-                12.0,
             );
         }
 
@@ -1997,30 +2009,35 @@ impl App {
             if g.twilight_by_moves { 36.0 } else { 44.0 },
             countdown_color,
         );
-        text(
+        let sub = if g.trans > 0.0 {
+            // Во время сумерек подпись не нужна: переход виден по анимации.
+            String::new()
+        } else if g.paused {
+            "пауза".to_string()
+        } else if g.grace_hold() {
+            // Последние 5 секунд: фигура в руке — таймер ждёт её хода.
+            i18n::tr("таймер ждёт вашего хода").to_string()
+        } else if g.twilight_by_moves {
+            // Обратный отсчёт уже показан крупным таймером выше —
+            // подпись только называет событие, без дублирования времени.
+            i18n::tr("ход перейдёт противнику").to_string()
+        } else if g.twilight_pending() {
+            "переход ждёт конца взятия".to_string()
+        } else if g.passes >= 2 {
+            "нет ходов — сумерки выводят из тупика".to_string()
+        } else if self.mode == Mode::Computer && g.turn == Side::Black {
+            "компьютер думает…".to_string()
+        } else {
+            i18n::trf(
+                "до превращения в {phase}",
+                &[("phase", g.phase.other().one_ru())],
+            )
+        };
+        text_fit(
             painter,
             Pos2::new(x + 4.0, y + 50.0),
-            Align2::LEFT_TOP,
-            if g.trans > 0.0 {
-                "сумерки: фигуры меняются".to_string()
-            } else if g.paused {
-                "пауза".to_string()
-            } else if g.twilight_by_moves {
-                // Обратный отсчёт уже показан крупным таймером выше —
-                // подпись только называет событие, без дублирования времени.
-                i18n::tr("ход перейдёт противнику").to_string()
-            } else if g.twilight_pending() {
-                "переход ждёт конца взятия".to_string()
-            } else if g.passes >= 2 {
-                "нет ходов — сумерки выводят из тупика".to_string()
-            } else if self.mode == Mode::Computer && g.turn == Side::Black {
-                "компьютер думает…".to_string()
-            } else {
-                i18n::trf(
-                    "до превращения в {phase}",
-                    &[("phase", g.phase.other().one_ru())],
-                )
-            },
+            &sub,
+            w - 4.0,
             11.5,
             alpha(cur.text_dim, 0.95),
         );
@@ -2135,11 +2152,11 @@ impl App {
         };
         painter.circle_filled(dot, 5.0, side_color);
         painter.circle_stroke(dot, 5.0, Stroke::new(1.0_f32, alpha(cur.text_dim, 0.6)));
-        text(
+        text_fit(
             painter,
             Pos2::new(x + 18.0, y),
-            Align2::LEFT_TOP,
-            i18n::trf("Ход {side}", &[("side", g.turn.gen_ru())]),
+            &i18n::trf("Ход {side}", &[("side", g.turn.gen_ru())]),
+            w - 18.0,
             19.0,
             cur.text,
         );
@@ -2169,11 +2186,10 @@ impl App {
             d if d > 0 => i18n::trf("белые впереди на {n}", &[("n", &d.to_string())]),
             d => i18n::trf("чёрные впереди на {n}", &[("n", &(-d).to_string())]),
         };
-        text(
+        text_fit(
             painter,
             Pos2::new(x, y),
-            Align2::LEFT_TOP,
-            i18n::trf(
+            &i18n::trf(
                 "{material} · взято {white} : {black}",
                 &[
                     ("material", &material),
@@ -2181,6 +2197,7 @@ impl App {
                     ("black", &g.captured_by_black.to_string()),
                 ],
             ),
+            w,
             11.5,
             alpha(cur.text_dim, 0.95),
         );
@@ -2239,11 +2256,11 @@ impl App {
             let mut ly = log_top;
             for (idx, line) in g.log[start..].iter().enumerate() {
                 let is_last = start + idx + 1 == g.log.len();
-                text(
+                text_fit(
                     painter,
                     Pos2::new(x, ly),
-                    Align2::LEFT_TOP,
                     line,
+                    w,
                     12.5,
                     if is_last {
                         alpha(cur.text, 0.95)
@@ -2254,19 +2271,22 @@ impl App {
                 ly += line_h;
             }
         } else if max_lines > 0 {
-            text(
+            text_fit(
                 painter,
                 Pos2::new(x, log_top),
-                Align2::LEFT_TOP,
                 "пока тихо — сделайте первый ход",
+                w,
                 12.5,
                 alpha(cur.text_dim, 0.78),
             );
-            let tip = "Совет: в шашечной фазе король превращается в дамку — съешьте его и победите.";
+            let tip = i18n::tr_owned(
+                "Совет: в шашечной фазе король превращается в дамку — съешьте его и победите."
+                    .to_string(),
+            );
             let galley = painter.layout(
-                tip.to_string(),
+                tip,
                 FontId::proportional(11.5),
-                alpha(cur.text_dim, 0.65),
+                alpha(cur.text_dim, 0.72),
                 w,
             );
             painter.galley(Pos2::new(x, log_top + 30.0), galley, Color32::WHITE);
@@ -2300,47 +2320,47 @@ impl App {
             alpha(cur.text_dim, 0.9),
         );
         if g.twilight_by_moves {
-            text(
+            text_fit(
                 painter,
                 Pos2::new(x, chips_y),
-                Align2::LEFT_TOP,
                 "По ходам: случайно",
+                w,
                 12.5,
                 cur.accent,
             );
-            text(
+            text_fit(
                 painter,
                 Pos2::new(x, chips_y + 19.0),
-                Align2::LEFT_TOP,
                 "После хода может остаться или смениться",
+                w,
                 11.0,
                 alpha(cur.text_dim, 0.85),
             );
         } else if g.auto_phase {
-            text(
+            text_fit(
                 painter,
                 Pos2::new(x, chips_y),
-                Align2::LEFT_TOP,
-                i18n::trf("Случайно: 10–{max} с", &[("max", &format!("{:.0}", g.auto_max))]),
+                &i18n::trf("Случайно: 10–{max} с", &[("max", &format!("{:.0}", g.auto_max))]),
+                w,
                 12.5,
                 cur.accent,
             );
-            text(
+            text_fit(
                 painter,
                 Pos2::new(x, chips_y + 19.0),
-                Align2::LEFT_TOP,
                 "Следующий интервал будет другим",
+                w,
                 11.0,
                 alpha(cur.text_dim, 0.85),
             );
         }
-        text(
+        text_fit(
             painter,
             Pos2::new(x, chips_y + 35.0),
-            Align2::LEFT_TOP,
             "клик — ход · Space — пауза · R — новая партия · H — правила",
-            10.0,
-            alpha(cur.text_dim, 0.82),
+            w,
+            10.5,
+            alpha(cur.text_dim, 0.85),
         );
 
         // --- взаимодействие ---
@@ -2396,7 +2416,9 @@ impl App {
 
     fn paint_settings(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(165));
-        let card = Rect::from_center_size(layout.full.center(), Vec2::new(680.0, 660.0));
+        // Чуть шире, чем раньше: длинные переводы (es/de/fr/tr) в правой
+        // колонке должны помещаться целиком, без обрезки.
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, 660.0));
         self.settings_rect = card;
         let pal = Palette::for_phase(self.game.phase);
         rr(
@@ -2522,13 +2544,13 @@ impl App {
             music::set_enabled(!music_on);
         }
         ly += 40.0;
-        text(
+        text_fit(
             painter,
             Pos2::new(x, ly),
-            Align2::LEFT_TOP,
             "Фоновая музыка не прерывается звуками ходов.",
-            10.0,
-            alpha(pal.text_dim, 0.8),
+            left_w,
+            11.0,
+            alpha(pal.text_dim, 0.95),
         );
         ly += 26.0;
 
@@ -2562,13 +2584,13 @@ impl App {
             }
         }
         ly += 38.0;
-        text(
+        text_fit(
             painter,
             Pos2::new(x, ly),
-            Align2::LEFT_TOP,
             "Файлы — в папке logs рядом с игрой.",
-            10.0,
-            alpha(pal.text_dim, 0.8),
+            left_w,
+            11.0,
+            alpha(pal.text_dim, 0.95),
         );
         ly += 24.0;
 
@@ -2605,13 +2627,13 @@ impl App {
             }
         }
         ly += 40.0;
-        text(
+        text_fit(
             painter,
             Pos2::new(x, ly),
-            Align2::LEFT_TOP,
             "Свои .ttf/.otf — в папке fonts рядом с игрой.",
-            9.0,
-            alpha(pal.text_dim, 0.75),
+            left_w,
+            11.0,
+            alpha(pal.text_dim, 0.92),
         );
         ly += 24.0;
 
@@ -2664,22 +2686,22 @@ impl App {
         ry += 36.0;
 
         if self.game.twilight_by_moves {
-            text(
+            text_fit(
                 painter,
                 Pos2::new(right_x, ry),
-                Align2::LEFT_TOP,
                 "После хода фаза может остаться или смениться случайно.",
-                9.0,
-                alpha(pal.text, 0.85),
+                right_w,
+                11.0,
+                alpha(pal.text, 0.95),
             );
-            ry += 14.0;
-            text(
+            ry += 15.0;
+            text_fit(
                 painter,
                 Pos2::new(right_x, ry),
-                Align2::LEFT_TOP,
                 "Внутри одного хода всегда одна игра.",
-                9.0,
-                alpha(pal.text_dim, 0.75),
+                right_w,
+                11.0,
+                alpha(pal.text_dim, 0.95),
             );
             ry += 22.0;
             text(
@@ -2706,13 +2728,13 @@ impl App {
                 self.game.set_move_time_limit(secs);
             }
             ry += 30.0;
-            text(
+            text_fit(
                 painter,
                 Pos2::new(right_x, ry),
-                Align2::LEFT_TOP,
                 "По истечении ход переходит противнику.",
-                9.0,
-                alpha(pal.text_dim, 0.75),
+                right_w,
+                11.0,
+                alpha(pal.text_dim, 0.95),
             );
             ry += 24.0;
         } else {
@@ -2764,15 +2786,15 @@ impl App {
                     self.game.set_auto_max(secs);
                 }
                 ry += 28.0;
-                text(
+                text_fit(
                     painter,
                     Pos2::new(right_x, ry),
-                    Align2::LEFT_TOP,
                     "Каждая смена случайна; следующий интервал отличается.",
-                    9.0,
-                    alpha(pal.text_dim, 0.75),
+                    right_w,
+                    10.0,
+                    alpha(pal.text_dim, 0.88),
                 );
-                ry += 24.0;
+                ry += 25.0;
             } else {
                 text(
                     painter,
@@ -2888,27 +2910,27 @@ impl App {
             self.game.crown_non_pawns = !crown;
         }
         ry += 34.0;
-        text(
+        text_fit(
             painter,
             Pos2::new(right_x, ry),
-            Align2::LEFT_TOP,
             if mandatory {
                 "Бить обязательно; серию нужно продолжать."
             } else {
                 "Можно без взятия; серию можно закончить."
             },
-            9.0,
-            alpha(pal.text_dim, 0.75),
+            right_w,
+            11.0,
+            alpha(pal.text_dim, 0.95),
         );
-        text(
+        text_fit(
             painter,
-            Pos2::new(right_x, ry + 13.0),
-            Align2::LEFT_TOP,
+            Pos2::new(right_x, ry + 15.0),
             "Иконки — кроме пешек; дамки — все или только пешки.",
-            9.0,
-            alpha(pal.text_dim, 0.75),
+            right_w,
+            11.0,
+            alpha(pal.text_dim, 0.95),
         );
-        ry += 32.0;
+        ry += 35.0;
 
         text(
             painter,
@@ -3020,29 +3042,29 @@ impl App {
                 ],
             )
         };
-        text(
+        text_fit(
             painter,
             Pos2::new(x, summary_y),
-            Align2::LEFT_TOP,
-            summary,
+            &summary,
+            w,
             12.0,
             alpha(pal.text, 0.92),
         );
-        text(
+        text_fit(
             painter,
             Pos2::new(x, summary_y + 26.0),
-            Align2::LEFT_TOP,
             "Свои звуки — в папке sounds (WAV или MP3), музыка — music/theme.wav,",
-            10.0,
-            alpha(pal.text_dim, 0.75),
+            w,
+            11.0,
+            alpha(pal.text_dim, 0.95),
         );
-        text(
+        text_fit(
             painter,
             Pos2::new(x, summary_y + 42.0),
-            Align2::LEFT_TOP,
             "картинки фигур — в папке pieces (PNG с прозрачным фоном).",
-            10.0,
-            alpha(pal.text_dim, 0.75),
+            w,
+            11.0,
+            alpha(pal.text_dim, 0.95),
         );
 
         let close = Rect::from_min_size(
@@ -3235,6 +3257,7 @@ impl App {
             "Смена фаз: по времени или после ходов; по ходам — случайно.",
             "В режиме по ходам внутри хода всегда одна игра, после хода фаза может смениться.",
             "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику.",
+            "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры.",
             "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт.",
             "После партии «Просмотр» показывает ходы по шагам с анимацией.",
             "При мате видны красные линии атак на короля, жёлтые линии фигур, перекрывающих выходы, и список матующих фигур.",
@@ -3255,23 +3278,56 @@ impl App {
                 egui::TextFormat {
                     font_id: egui::FontId::proportional(size),
                     color,
+                    // Чуть больше воздуха между строками — длинные правила
+                    // читаются легче, особенно на испанском и немецком.
+                    line_height: Some(size * 1.5),
                     ..Default::default()
                 },
             );
         }
-        push_line(&mut job, "КОГДА ФИГУРЫ — ШАХМАТЫ\n", 14.5, chess_col);
+        push_line(
+            &mut job,
+            &i18n::tr_owned("КОГДА ФИГУРЫ — ШАХМАТЫ\n".to_string()),
+            14.5,
+            chess_col,
+        );
         for line in chess_rules {
-            push_line(&mut job, &format!("• {line}\n"), 13.0, body);
+            push_line(
+                &mut job,
+                &format!("• {}\n", i18n::tr_owned(line.to_string())),
+                13.5,
+                body,
+            );
         }
-        push_line(&mut job, "\n\n", 13.0, body);
-        push_line(&mut job, "КОГДА ФИГУРЫ — ШАШКИ\n", 14.5, check_col);
+        push_line(&mut job, "\n\n", 13.5, body);
+        push_line(
+            &mut job,
+            &i18n::tr_owned("КОГДА ФИГУРЫ — ШАШКИ\n".to_string()),
+            14.5,
+            check_col,
+        );
         for line in checkers_rules {
-            push_line(&mut job, &format!("• {line}\n"), 13.0, body);
+            push_line(
+                &mut job,
+                &format!("• {}\n", i18n::tr_owned(line.to_string())),
+                13.5,
+                body,
+            );
         }
-        push_line(&mut job, "\n\n", 13.0, body);
-        push_line(&mut job, "СУМЕРКИ\n", 14.5, shared_col);
+        push_line(&mut job, "\n\n", 13.5, body);
+        push_line(
+            &mut job,
+            &i18n::tr_owned("СУМЕРКИ\n".to_string()),
+            14.5,
+            shared_col,
+        );
         for line in shared {
-            push_line(&mut job, &format!("• {line}\n"), 13.0, body);
+            push_line(
+                &mut job,
+                &format!("• {}\n", i18n::tr_owned(line.to_string())),
+                13.5,
+                body,
+            );
         }
 
         let text_rect = Rect::from_min_max(
@@ -4186,7 +4242,7 @@ fn wrapped_text(
     color: Color32,
 ) -> f32 {
     let galley = painter.layout(
-        s.to_string(),
+        i18n::tr_owned(s.to_string()),
         FontId::proportional(size),
         color,
         width,
@@ -4194,6 +4250,18 @@ fn wrapped_text(
     let h = galley.size().y;
     painter.galley(pos, galley, color);
     h
+}
+
+/// Текст в одну строку с автоподжатием под ширину: длинные переводы
+/// уменьшаются, но не выходят за границу.
+fn text_fit(painter: &egui::Painter, pos: Pos2, s: &str, max_w: f32, size: f32, color: Color32) {
+    let s = i18n::tr_owned(s.to_string());
+    let mut galley = painter.layout_no_wrap(s.clone(), FontId::proportional(size), color);
+    if galley.size().x > max_w && max_w > 1.0 {
+        let scaled = (size * max_w / galley.size().x).max(8.0);
+        galley = painter.layout_no_wrap(s, FontId::proportional(scaled), color);
+    }
+    painter.galley(pos, galley, color);
 }
 
 fn piece_ru(kind: Kind) -> &'static str {
@@ -4625,7 +4693,21 @@ fn button(
         )
     };
     rr(ui.painter(), rect, 10.0, bg, stroke);
-    text(ui.painter(), rect.center(), Align2::CENTER_CENTER, label, font, fg);
+    // Длинные переводы (немецкий, турецкий) поджимаем, чтобы текст не
+    // выходил за кнопку.
+    let label = i18n::tr_owned(label.to_string());
+    let mut galley = ui
+        .painter()
+        .layout_no_wrap(label.clone(), FontId::proportional(font), fg);
+    let max_w = rect.width() - 14.0;
+    if galley.size().x > max_w && max_w > 1.0 {
+        let scaled = (font * max_w / galley.size().x).max(8.0);
+        galley = ui
+            .painter()
+            .layout_no_wrap(label, FontId::proportional(scaled), fg);
+    }
+    ui.painter()
+        .galley(rect.center() - galley.size() * 0.5, galley, fg);
     if hovered {
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
     }
@@ -4681,12 +4763,21 @@ fn button_gear(
     };
     rr(ui.painter(), rect, 10.0, bg, stroke);
     let label = i18n::tr_owned(label.to_string());
-    let galley = ui
-        .painter()
-        .layout_no_wrap(label, FontId::proportional(font), fg);
+    let mut font = font;
     let icon_r = 7.0;
     let gap = 8.0;
-    let total = icon_r * 2.0 + gap + galley.size().x;
+    let mut galley = ui
+        .painter()
+        .layout_no_wrap(label.clone(), FontId::proportional(font), fg);
+    let max_w = rect.width() - 12.0;
+    let icon_w = icon_r * 2.0 + gap;
+    if icon_w + galley.size().x > max_w && max_w > icon_w + 1.0 {
+        font = (font * (max_w - icon_w) / galley.size().x).max(8.0);
+        galley = ui
+            .painter()
+            .layout_no_wrap(label, FontId::proportional(font), fg);
+    }
+    let total = icon_w + galley.size().x;
     let start = rect.center().x - total * 0.5;
     let cy = rect.center().y;
     draw_gear(ui.painter(), Pos2::new(start + icon_r, cy), icon_r, fg);
@@ -4762,7 +4853,19 @@ fn chip(ui: &mut egui::Ui, rect: Rect, label: &str, selected: bool, pal: &Palett
         (alpha(Color32::WHITE, 0.03), alpha(pal.text_dim, 0.9), Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.06)))
     };
     rr(ui.painter(), rect, 8.0, bg, stroke);
-    text(ui.painter(), rect.center(), Align2::CENTER_CENTER, label, 12.0, fg);
+    let label = i18n::tr_owned(label.to_string());
+    let mut galley = ui
+        .painter()
+        .layout_no_wrap(label.clone(), FontId::proportional(12.0), fg);
+    let max_w = rect.width() - 10.0;
+    if galley.size().x > max_w && max_w > 1.0 {
+        let scaled = (12.0 * max_w / galley.size().x).max(8.0);
+        galley = ui
+            .painter()
+            .layout_no_wrap(label, FontId::proportional(scaled), fg);
+    }
+    ui.painter()
+        .galley(rect.center() - galley.size() * 0.5, galley, fg);
     if hovered {
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
     }

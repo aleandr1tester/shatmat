@@ -992,3 +992,17 @@ msgstr "Connexion à {addr}…"
 
 msgid "Позиции разошлись — партия остановлена"
 msgstr "Positions divergentes — partie arrêtée"
+msgid "Обновления"
+msgstr "Mises à jour"
+
+msgid "Проверка…"
+msgstr "Vérification…"
+
+msgid "Обновлений нет"
+msgstr "À jour"
+
+msgid "Скачать {ver}"
+msgstr "Télécharger {ver}"
+
+msgid "Сеть недоступна"
+msgstr "Réseau indisponible"

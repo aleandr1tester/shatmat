@@ -992,3 +992,17 @@ msgstr "Connecting to {addr}…"
 
 msgid "Позиции разошлись — партия остановлена"
 msgstr "Positions diverged — game stopped"
+msgid "Обновления"
+msgstr "Updates"
+
+msgid "Проверка…"
+msgstr "Checking…"
+
+msgid "Обновлений нет"
+msgstr "Up to date"
+
+msgid "Скачать {ver}"
+msgstr "Download {ver}"
+
+msgid "Сеть недоступна"
+msgstr "Network unavailable"

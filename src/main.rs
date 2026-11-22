@@ -10,6 +10,7 @@ mod music;
 mod net;
 mod rulecode;
 mod sound;
+mod updater;
 
 use std::path::PathBuf;
 
@@ -446,6 +447,9 @@ pub struct App {
     /// Прокрутка и высота содержимого окна настроек (для скроллбара).
     settings_scroll: f32,
     settings_content_h: f32,
+    /// Проверка обновлений: фоновый запрос и его состояние.
+    update_check: Option<std::sync::mpsc::Receiver<updater::CheckResult>>,
+    update_state: updater::UpdateState,
     /// Наша сторона в сетевой партии.
     net_side: Option<Side>,
     /// Ход, применённый локально, но ещё не отправленный (ждёт превращения).
@@ -557,6 +561,8 @@ impl App {
     net_scroll: 0.0,
     settings_scroll: 0.0,
     settings_content_h: 0.0,
+    update_check: None,
+    update_state: updater::UpdateState::Idle,
             net_side: None,
             net_pending_move: None,
             net_pending_apply: None,
@@ -2744,6 +2750,41 @@ impl App {
         }
     }
 
+    /// Запустить проверку обновлений в фоне.
+    fn update_check_start(&mut self) {
+        if self.update_check.is_some() {
+            return;
+        }
+        let (tx, rx) = std::sync::mpsc::channel::<updater::CheckResult>();
+        self.update_check = Some(rx);
+        self.update_state = updater::UpdateState::Checking;
+        std::thread::spawn(move || {
+            let _ = tx.send(updater::check_latest());
+        });
+    }
+
+    /// Забрать результат фоновой проверки, если он уже готов.
+    fn update_check_poll(&mut self) {
+        let Some(rx) = &self.update_check else {
+            return;
+        };
+        match rx.try_recv() {
+            Ok(Ok(ver)) => {
+                self.update_state = if updater::is_newer(&ver, updater::VERSION) {
+                    updater::UpdateState::Available(ver)
+                } else {
+                    updater::UpdateState::UpToDate
+                };
+                self.update_check = None;
+            }
+            Ok(Err(())) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                self.update_state = updater::UpdateState::Failed;
+                self.update_check = None;
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {}
+        }
+    }
+
     // ------------------------- настройки -------------------------
 
     fn paint_settings(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
@@ -3069,7 +3110,7 @@ impl App {
         }
 
         // правая колонка: превращение, время фаз, плавность
-        let mut ry = top;
+        let mut ry = top - off;
         text(
             painter,
             Pos2::new(right_x, ry),
@@ -3540,6 +3581,41 @@ impl App {
             11.0,
             alpha(pal.text_dim, 0.95),
         );
+
+        // кнопка обновлений: проверка версии на GitHub, при наличии —
+        // открытие страницы релизов (скачивание делает сам пользователь)
+        self.update_check_poll();
+        let upd_state = self.update_state.clone();
+        let upd_label: String = match &upd_state {
+            updater::UpdateState::Idle => i18n::tr("Обновления").to_string(),
+            updater::UpdateState::Checking => i18n::tr("Проверка…").to_string(),
+            updater::UpdateState::UpToDate => i18n::tr("Обновлений нет").to_string(),
+            updater::UpdateState::Available(ver) => {
+                i18n::trf("Скачать {ver}", &[("ver", ver)])
+            }
+            updater::UpdateState::Failed => i18n::tr("Сеть недоступна").to_string(),
+        };
+        let upd_btn = Rect::from_min_size(
+            Pos2::new(
+                card.right() - pad - 160.0 - 8.0 - 168.0,
+                card.bottom() - pad - 42.0,
+            ),
+            Vec2::new(168.0, 42.0),
+        );
+        if button(
+            ui,
+            upd_btn,
+            &upd_label,
+            matches!(upd_state, updater::UpdateState::Available(_)),
+            &pal,
+            12.5,
+        ) {
+            match self.update_state {
+                updater::UpdateState::Available(_) => updater::open_downloads(),
+                updater::UpdateState::Checking => {}
+                _ => self.update_check_start(),
+            }
+        }
 
         let close = Rect::from_min_size(
             Pos2::new(card.right() - pad - 160.0, card.bottom() - pad - 42.0),

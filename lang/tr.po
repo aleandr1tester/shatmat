@@ -992,3 +992,17 @@ msgstr "{addr} bağlanılıyor…"
 
 msgid "Позиции разошлись — партия остановлена"
 msgstr "Konumlar ayrıldı — oyun durduruldu"
+msgid "Обновления"
+msgstr "Güncellemeler"
+
+msgid "Проверка…"
+msgstr "Kontrol…"
+
+msgid "Обновлений нет"
+msgstr "Güncel"
+
+msgid "Скачать {ver}"
+msgstr "{ver} indir"
+
+msgid "Сеть недоступна"
+msgstr "Ağ yok"

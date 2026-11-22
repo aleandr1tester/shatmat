@@ -991,3 +991,17 @@ msgstr "Verbindung zu {addr}…"
 
 msgid "Позиции разошлись — партия остановлена"
 msgstr "Positionen weichen ab — Partie gestoppt"
+msgid "Обновления"
+msgstr "Updates"
+
+msgid "Проверка…"
+msgstr "Prüfe…"
+
+msgid "Обновлений нет"
+msgstr "Aktuell"
+
+msgid "Скачать {ver}"
+msgstr "{ver} laden"
+
+msgid "Сеть недоступна"
+msgstr "Netzwerk nicht erreichbar"

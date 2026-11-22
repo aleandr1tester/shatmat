@@ -3,8 +3,8 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Language: fr\n"
 
-msgid "ModeShift: Bipolar — режимный сдвиг: биполярность"
-msgstr "ModeShift: Bipolar — décalage de mode : bipolarité"
+msgid "ShatMat — режимный сдвиг: биполярность"
+msgstr "ShatMat — décalage de mode : bipolarité"
 
 msgid "победа {side} — {reason}"
 msgstr "victoire {side} — {reason}"
@@ -372,8 +372,8 @@ msgstr "Fou"
 msgid "Конь"
 msgstr "Cavalier"
 
-msgid "Правила ModeShift: Bipolar"
-msgstr "Règles de ModeShift: Bipolar"
+msgid "Правила ShatMat"
+msgstr "Règles de ShatMat"
 
 msgid "Одна партия — две игры. Раз в N секунд фигуры превращаются, и правила меняются вместе с ними."
 msgstr "Une partie, deux jeux. Toutes les N secondes, les pièces se transforment et les règles changent avec elles."
@@ -789,8 +789,8 @@ msgstr "difficile"
 msgid "Шашка"
 msgstr "Pion de dames"
 
-msgid "Партия «ModeShift: Bipolar»\n"
-msgstr "Partie « ModeShift: Bipolar »\n"
+msgid "Партия «ShatMat»\n"
+msgstr "Partie « ShatMat »\n"
 
 msgid "Версия: {version}\n"
 msgstr "Version : {version}\n"
@@ -1026,3 +1026,11 @@ msgstr "Adversaire introuvable sur ce réseau"
 
 msgid "Правила: {summary} — соперник не найден"
 msgstr "Règles : {summary} — adversaire introuvable"
+msgid "Соперник вернулся — партия продолжается"
+msgstr "L'adversaire est de retour — la partie continue"
+
+msgid "Пытаемся восстановить связь…"
+msgstr "Restauration de la connexion…"
+
+msgid "Не удалось продолжить партию"
+msgstr "Impossible de reprendre la partie"

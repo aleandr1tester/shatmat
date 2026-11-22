@@ -3,8 +3,8 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Language: en\n"
 
-msgid "ModeShift: Bipolar — режимный сдвиг: биполярность"
-msgstr "ModeShift: Bipolar — mode shift: bipolarity"
+msgid "ShatMat — режимный сдвиг: биполярность"
+msgstr "ShatMat — mode shift: bipolarity"
 
 msgid "победа {side} — {reason}"
 msgstr "{side} wins — {reason}"
@@ -372,8 +372,8 @@ msgstr "Bishop"
 msgid "Конь"
 msgstr "Knight"
 
-msgid "Правила ModeShift: Bipolar"
-msgstr "ModeShift: Bipolar rules"
+msgid "Правила ShatMat"
+msgstr "ShatMat rules"
 
 msgid "Одна партия — две игры. Раз в N секунд фигуры превращаются, и правила меняются вместе с ними."
 msgstr "One game — two games. Every N seconds the pieces transform, and the rules change with them."
@@ -789,8 +789,8 @@ msgstr "hard"
 msgid "Шашка"
 msgstr "Checker"
 
-msgid "Партия «ModeShift: Bipolar»\n"
-msgstr "Game \"ModeShift: Bipolar\"\n"
+msgid "Партия «ShatMat»\n"
+msgstr "Game \"ShatMat\"\n"
 
 msgid "Версия: {version}\n"
 msgstr "Version: {version}\n"
@@ -1026,3 +1026,11 @@ msgstr "Opponent not found on this network"
 
 msgid "Правила: {summary} — соперник не найден"
 msgstr "Rules: {summary} — opponent not found"
+msgid "Соперник вернулся — партия продолжается"
+msgstr "Opponent is back — the game continues"
+
+msgid "Пытаемся восстановить связь…"
+msgstr "Restoring the connection…"
+
+msgid "Не удалось продолжить партию"
+msgstr "Could not resume the game"

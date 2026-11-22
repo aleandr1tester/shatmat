@@ -57,6 +57,10 @@ const MSG_CHAT: u8 = 6;
 const MSG_BYE: u8 = 8;
 const MSG_CHAIN_END: u8 = 9;
 const MSG_PROMO_FREE: u8 = 10;
+/// Полное состояние партии: продолжение после переподключения.
+const MSG_SYNC: u8 = 11;
+/// Проверка живости связи: обе стороны шлют каждые 5 секунд.
+const MSG_PING: u8 = 12;
 
 // ---------------------------------------------------------------------------
 // Личность игрока
@@ -373,6 +377,10 @@ pub enum OutMsg {
     ChainEnd,
     /// Свободное превращение после сумерек: игрок выбрал фигуру без хода.
     PromoFree { sq: Square, kind: Kind },
+    /// Полное состояние партии: хост пересылает его гостю после реконнекта.
+    Sync(Vec<u8>),
+    /// Внутренний пинг: поддержание связи, в интерфейс не попадает.
+    Ping,
 }
 
 /// Событие сети → интерфейс.
@@ -404,6 +412,10 @@ pub enum NetEvent {
     ChainEnd,
     /// Свободное превращение после сумерек: игрок выбрал фигуру без хода.
     PromoFree { sq: Square, kind: Kind },
+    /// Полное состояние партии: продолжение после переподключения.
+    Sync(Vec<u8>),
+    /// Внутренний пинг — признак живой связи; обрабатывается в session_loop.
+    Ping,
     Disconnected(String),
     Failed(String),
 }
@@ -475,6 +487,13 @@ fn encode_out(msg: &OutMsg) -> Vec<u8> {
         OutMsg::Bye(reason) => text_msg(MSG_BYE, reason),
         OutMsg::ChainEnd => vec![MSG_CHAIN_END],
         OutMsg::PromoFree { sq, kind } => vec![MSG_PROMO_FREE, sq_byte(*sq), kind_byte(*kind)],
+        OutMsg::Sync(data) => {
+            let mut b = vec![MSG_SYNC];
+            b.extend_from_slice(&(data.len() as u16).to_le_bytes());
+            b.extend_from_slice(data);
+            b
+        }
+        OutMsg::Ping => vec![MSG_PING],
     }
 }
 
@@ -541,6 +560,15 @@ fn decode_event(bytes: &[u8]) -> Option<NetEvent> {
             let kind = kind_from_byte(rest[1])?;
             Some(NetEvent::PromoFree { sq, kind })
         }
+        MSG_SYNC => {
+            let (len_b, rest) = rest.split_first_chunk::<2>()?;
+            let len = u16::from_le_bytes(*len_b) as usize;
+            if len > rest.len() || len > MAX_FRAME {
+                return None;
+            }
+            Some(NetEvent::Sync(rest[..len].to_vec()))
+        }
+        MSG_PING => Some(NetEvent::Ping),
         _ => None,
     }
 }
@@ -912,6 +940,14 @@ impl Net {
         self.state.lock().unwrap().session = None;
     }
 
+    /// Сеанс оборвался без прощания: освободить слот без попытки попрощаться.
+    pub fn mark_dropped(&mut self) {
+        let mut st = self.state.lock().unwrap();
+        st.outbox = None;
+        st.stop = None;
+        st.session = None;
+    }
+
     fn greeting(&self) -> String {
         self.state.lock().unwrap().greeting.clone()
     }
@@ -1040,9 +1076,29 @@ fn session_loop(
 ) {
     let _ = stream.set_nodelay(true);
     let mut fr = FrameReader::new(stream);
+    // Поддержание связи: пинг каждые 5 секунд; тишина дольше 15 секунд
+    // означает обрыв — интерфейс запустит автоматическое восстановление.
+    let mut last_ping = Instant::now();
+    let mut last_recv = Instant::now();
     loop {
         if stop.load(Ordering::SeqCst) {
             return;
+        }
+        if last_ping.elapsed() > Duration::from_secs(5) {
+            last_ping = Instant::now();
+            let bytes = encode_out(&OutMsg::Ping);
+            let mut buf = vec![0u8; bytes.len() + 18];
+            let n = match noise.write_message(&bytes, &mut buf) {
+                Ok(n) => n,
+                Err(e) => {
+                    let _ = tx.send(NetEvent::Disconnected(format!("шифрование: {}", e)));
+                    return;
+                }
+            };
+            if let Err(e) = fr.write_frame(&buf[..n]) {
+                let _ = tx.send(NetEvent::Disconnected(format!("нет связи: {}", e)));
+                return;
+            }
         }
         let mut sent_bye = false;
         while let Ok(msg) = out_rx.try_recv() {
@@ -1073,7 +1129,12 @@ fn session_loop(
                 let res = noise.read_message(&frame, &mut payload);
                 match res {
                     Ok(n) => match decode_event(&payload[..n]) {
+                        Some(NetEvent::Ping) => {
+                            // любая полученная посылка — признак живой связи
+                            last_recv = Instant::now();
+                        }
                         Some(ev) => {
+                            last_recv = Instant::now();
                             let _ = tx.send(ev);
                         }
                         None => {
@@ -1089,7 +1150,12 @@ fn session_loop(
                     }
                 }
             }
-            Ok(None) => {}
+            Ok(None) => {
+                if last_recv.elapsed() > Duration::from_secs(15) {
+                    let _ = tx.send(NetEvent::Disconnected("тишина в канале".into()));
+                    return;
+                }
+            }
             Err(e) => {
                 let _ = tx.send(NetEvent::Disconnected(format!("нет связи: {}", e)));
                 return;

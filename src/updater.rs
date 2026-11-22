@@ -117,7 +117,7 @@ pub fn check_latest() -> CheckResult {
     };
 
     unsafe {
-        let agent = wide("ModeShift Bipolar");
+        let agent = wide("ShatMat");
         // Доступ по умолчанию: системный прокси пользователя.
         let session = WinHttpOpen(agent.as_ptr(), 0, std::ptr::null(), std::ptr::null(), 0);
         if session.is_null() {
@@ -146,7 +146,7 @@ pub fn check_latest() -> CheckResult {
             WinHttpCloseHandle(session);
             return Err(());
         }
-        let headers = wide("User-Agent: ModeShift-Bipolar\r\n");
+        let headers = wide("User-Agent: ShatMat\r\n");
         let sent = WinHttpSendRequest(
             request,
             headers.as_ptr(),

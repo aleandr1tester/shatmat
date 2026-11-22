@@ -71,7 +71,7 @@ fn main() -> eframe::Result<()> {
     let shot_mode = shot_path.is_some();
 
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("ModeShift: Bipolar — режимный сдвиг: биполярность")
+        .with_title("ShatMat — режимный сдвиг: биполярность")
         .with_inner_size([1240.0, 820.0])
         .with_min_inner_size([1040.0, 700.0]);
 
@@ -449,6 +449,10 @@ pub struct App {
     settings_content_h: f32,
     /// Отображаемый код приглашения (выделяемое поле).
     net_code_view: String,
+    /// Реконнект: адрес соперника, признак ожидания продолжения и таймер повтора.
+    net_last_addr: Option<std::net::SocketAddr>,
+    net_resume: bool,
+    net_retry: f32,
     /// Проверка обновлений: фоновый запрос и его состояние.
     update_check: Option<std::sync::mpsc::Receiver<updater::CheckResult>>,
     update_state: updater::UpdateState,
@@ -564,6 +568,9 @@ impl App {
     settings_scroll: 0.0,
     settings_content_h: 0.0,
     net_code_view: String::new(),
+    net_last_addr: None,
+    net_resume: false,
+    net_retry: 0.0,
     update_check: None,
     update_state: updater::UpdateState::Idle,
             net_side: None,
@@ -1054,15 +1061,51 @@ impl App {
                         self.net_chat.push((text, false, std::time::Instant::now()));
                     }
                     if role == net::Role::Host {
-                        let seed = random_seed();
-                        self.net_send(net::OutMsg::Seed(seed));
-                        self.net_start_game(seed);
+                        if self.net_resume {
+                            // Реконнект: хост пересылает состояние — партия
+                            // продолжается с того же места.
+                            self.net_resume = false;
+                            let data = self.game.export_state();
+                            self.net_send(net::OutMsg::Sync(data));
+                            self.game.paused = false;
+                            self.net_wait = 0.0;
+                            self.net_status =
+                                i18n::tr("Соперник вернулся — партия продолжается").to_string();
+                        } else {
+                            let seed = random_seed();
+                            self.net_send(net::OutMsg::Seed(seed));
+                            self.net_start_game(seed);
+                        }
+                    } else if self.net_resume {
+                        // Гость ждёт состояние от хоста; обычный старт
+                        // придёт сообщением Seed.
+                        self.game.paused = true;
                     }
                 }
                 net::NetEvent::Seed(seed) => {
                     if self.mode == Mode::Network {
+                        self.net_resume = false;
+                        self.net_wait = 0.0;
                         self.net_start_game(seed);
                     }
+                }
+                net::NetEvent::Sync(data) => {
+                    if self.mode == Mode::Network {
+                        if self.game.import_state(&data) {
+                            self.net_resume = false;
+                            self.net_wait = 0.0;
+                            self.game.paused = false;
+                            self.twilight_sounded = false;
+                            self.net_status =
+                                i18n::tr("Соперник вернулся — партия продолжается").to_string();
+                        } else {
+                            self.net_status =
+                                i18n::tr("Не удалось продолжить партию").to_string();
+                        }
+                    }
+                }
+                net::NetEvent::Ping => {
+                    // внутренний пинг: живость связи проверяет session_loop
                 }
                 net::NetEvent::Move { from, to, captured, promo } => {
                     if self.mode == Mode::Network {
@@ -1111,10 +1154,16 @@ impl App {
                 }
                 net::NetEvent::Disconnected(reason) => {
                     if self.mode == Mode::Network {
+                        self.net_last_addr = self.net_session().map(|s| s.peer_addr);
+                        if let Some(n) = self.net.as_mut() {
+                            n.mark_dropped();
+                        }
                         self.net_status = i18n::trf(
                             "Связь потеряна: {reason}",
                             &[("reason", &reason)],
                         );
+                        self.net_resume = true;
+                        self.net_retry = 3.0;
                         self.net_wait = 60.0;
                         self.game.paused = true;
                         self.finalize_log("прервана (связь потеряна)");
@@ -1420,7 +1469,7 @@ impl App {
         spaced_text(
             painter,
             Pos2::new(x, layout.header.top() + 22.0),
-            "MODESHIFT: BIPOLAR",
+            "ShatMat",
             28.0,
             pal.text,
             3.5,
@@ -4294,7 +4343,7 @@ impl App {
             painter,
             Pos2::new(x, y),
             Align2::LEFT_TOP,
-            "Правила ModeShift: Bipolar",
+            "Правила ShatMat",
             22.0,
             Color32::from_rgb(240, 231, 217),
         );
@@ -5284,7 +5333,33 @@ impl eframe::App for App {
         self.net_poll();
         if self.net_wait > 0.0 {
             self.net_wait -= dt;
+            // автоматическое восстановление: гость долбится сам,
+            // хост сам снова слушает порт — вручную ничего нажимать не надо
+            if self.net_resume && self.net_retry > 0.0 {
+                self.net_retry -= dt;
+                if self.net_retry <= 0.0 {
+                    self.net_retry = 4.0;
+                    let joiner = self.net_side == Some(Side::Black);
+                    let host = self.net_side == Some(Side::White);
+                    let addr = self.net_last_addr;
+                    if let Some(net) = self.net.as_mut() {
+                        if joiner && net.session().is_none() {
+                            if let Some(a) = addr {
+                                net.connect(a);
+                            }
+                        } else if host && !net.hosting() && net.session().is_none() {
+                            net.host();
+                        }
+                    }
+                    if joiner && addr.is_some() {
+                        self.net_status =
+                            i18n::tr("Пытаемся восстановить связь…").to_string();
+                    }
+                }
+            }
             if self.net_wait <= 0.0 {
+                self.net_resume = false;
+                self.net_last_addr = None;
                 self.net_close("связь не восстановилась");
                 self.finalize_log("прервана (связь потеряна)");
             }

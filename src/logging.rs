@@ -130,7 +130,7 @@ pub fn format_game_log(
         .filter(|m| m.side == Side::Black)
         .count();
     let mut s = String::new();
-    s.push_str(&crate::i18n::logf("Партия «ModeShift: Bipolar»\n", &[]));
+    s.push_str(&crate::i18n::logf("Партия «ShatMat»\n", &[]));
     s.push_str(&crate::i18n::logf(
         "Версия: {version}\n",
         &[("version", env!("CARGO_PKG_VERSION"))],

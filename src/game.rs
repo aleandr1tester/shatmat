@@ -1155,6 +1155,147 @@ impl Game {
         }
     }
 
+    // ---------- перенос состояния (реконнект) ----------
+
+    /// Полное состояние партии для продолжения после переподключения.
+    /// Включает состояние генератора случайности: без него хеши позиций
+    /// сторон разъедутся на первой же случайной смене фаз.
+    pub fn export_state(&self) -> Vec<u8> {
+        let mut b = Vec::with_capacity(300);
+        b.extend_from_slice(b"SMST");
+        b.push(1); // версия формата
+        b.push(match self.phase {
+            Phase::Chess => 0,
+            Phase::Checkers => 1,
+        });
+        b.push(match self.turn {
+            Side::White => 0,
+            Side::Black => 1,
+        });
+        b.push(self.twilight_by_moves as u8);
+        b.push(self.auto_phase as u8);
+        b.push(self.mandatory_capture as u8);
+        b.push(self.crown_non_pawns as u8);
+        b.push(self.promotion_choice as u8);
+        b.push(self.promotion_free as u8);
+        b.push(self.passes);
+        b.push(match self.royal_captured {
+            None => 0xFF,
+            Some(s) => match s {
+                Side::White => 0,
+                Side::Black => 1,
+            },
+        });
+        for v in [
+            self.phase_left,
+            self.phase_total,
+            self.chess_len,
+            self.checkers_len,
+            self.auto_max,
+            self.move_time_limit,
+            self.move_left,
+            self.move_anim_secs,
+            self.move_twilight_wait,
+        ] {
+            b.extend_from_slice(&v.to_le_bytes());
+        }
+        b.push(self.move_twilight_pending as u8);
+        // Сумеречный переход в момент обрыва: обе стороны завершат его
+        // одинаково, потому что зерно генератора переносится вместе.
+        b.extend_from_slice(&self.trans.to_le_bytes());
+        b.extend_from_slice(&self.rng_state.to_le_bytes());
+        b.extend_from_slice(&self.ply.to_le_bytes());
+        b.extend_from_slice(&(self.captured_by_white as u32).to_le_bytes());
+        b.extend_from_slice(&(self.captured_by_black as u32).to_le_bytes());
+        for row in &self.board {
+            for cell in row {
+                match cell {
+                    None => b.push(0xFF),
+                    Some(p) => {
+                        b.push(match p.side {
+                            Side::White => 0,
+                            Side::Black => 1,
+                        });
+                        b.push(match p.kind {
+                            Kind::Pawn => 0,
+                            Kind::King => 1,
+                            Kind::Queen => 2,
+                            Kind::Rook => 3,
+                            Kind::Bishop => 4,
+                            Kind::Knight => 5,
+                        });
+                        b.push(p.crowned as u8);
+                    }
+                }
+            }
+        }
+        match self.chain {
+            None => b.push(0xFF),
+            Some(s) => b.push(pack_sq(s)),
+        }
+        match self.last_move {
+            None => {
+                b.push(0xFF);
+                b.push(0xFF);
+            }
+            Some((from, to)) => {
+                b.push(pack_sq(from));
+                b.push(pack_sq(to));
+            }
+        }
+        match self.pending_promotion {
+            None => b.push(0xFF),
+            Some(s) => b.push(pack_sq(s)),
+        }
+        b
+    }
+
+    /// Применяет переданное состояние. false — данные повреждены.
+    pub fn import_state(&mut self, data: &[u8]) -> bool {
+        let Some(st) = parse_game_state(data) else {
+            return false;
+        };
+        self.phase = st.phase;
+        self.turn = st.turn;
+        self.board = st.board;
+        self.twilight_by_moves = st.twilight_by_moves;
+        self.auto_phase = st.auto_phase;
+        self.mandatory_capture = st.mandatory_capture;
+        self.crown_non_pawns = st.crown_non_pawns;
+        self.promotion_choice = st.promotion_choice;
+        self.promotion_free = st.promotion_free;
+        self.passes = st.passes;
+        self.royal_captured = st.royal_captured;
+        self.phase_left = st.phase_left;
+        self.phase_total = st.phase_total;
+        self.chess_len = st.chess_len;
+        self.checkers_len = st.checkers_len;
+        self.auto_max = st.auto_max;
+        self.move_time_limit = st.move_time_limit;
+        self.move_left = st.move_left;
+        self.move_anim_secs = st.move_anim_secs;
+        self.move_twilight_wait = st.move_twilight_wait;
+        self.move_twilight_pending = st.move_twilight_pending;
+        self.rng_state = st.rng_state;
+        self.ply = st.ply;
+        self.captured_by_white = st.captured_by_white;
+        self.captured_by_black = st.captured_by_black;
+        self.chain = st.chain;
+        self.last_move = st.last_move;
+        self.pending_promotion = st.pending_promotion;
+        self.trans = st.trans;
+        self.selected = None;
+        self.legal.clear();
+        self.pending.clear();
+        self.anim = 0.0;
+        self.move_anim = 1.0;
+        self.crowned_flash = None;
+        self.last_capture = None;
+        self.refresh_status();
+        self.push_snapshot();
+        true
+    }
+
     fn refresh_status(&mut self) {
         if let Some(loser) = self.royal_captured {
             self.status = Status::Win {
@@ -1648,12 +1789,250 @@ fn at_b(b: &Board, f: i32, r: i32) -> Option<Piece> {
     }
 }
 
+/// Клетка в один байт: файл × 8 + ряд; 0xFF — пусто.
+fn pack_sq(sq: Square) -> u8 {
+    (sq.0 as u8) * 8 + sq.1 as u8
+}
+
+fn unpack_sq(b: u8) -> Option<Square> {
+    if b == 0xFF {
+        return None;
+    }
+    let f = (b / 8) as usize;
+    let r = (b % 8) as usize;
+    if f < 8 && r < 8 {
+        Some((f, r))
+    } else {
+        None
+    }
+}
+
+/// Разобранное состояние партии (см. `Game::export_state`).
+struct GameStateData {
+    phase: Phase,
+    turn: Side,
+    twilight_by_moves: bool,
+    auto_phase: bool,
+    mandatory_capture: bool,
+    crown_non_pawns: bool,
+    promotion_choice: bool,
+    promotion_free: bool,
+    passes: u8,
+    royal_captured: Option<Side>,
+    phase_left: f32,
+    phase_total: f32,
+    chess_len: f32,
+    checkers_len: f32,
+    auto_max: f32,
+    move_time_limit: f32,
+    move_left: f32,
+    move_anim_secs: f32,
+    move_twilight_wait: f32,
+    move_twilight_pending: bool,
+    trans: f32,
+    rng_state: u64,
+    ply: u32,
+    captured_by_white: u32,
+    captured_by_black: u32,
+    board: Board,
+    chain: Option<Square>,
+    last_move: Option<(Square, Square)>,
+    pending_promotion: Option<Square>,
+}
+
+fn rd_u8(d: &[u8], i: &mut usize) -> Option<u8> {
+    let v = *d.get(*i)?;
+    *i += 1;
+    Some(v)
+}
+
+fn rd_f32(d: &[u8], i: &mut usize) -> Option<f32> {
+    if *i + 4 > d.len() {
+        return None;
+    }
+    let mut b = [0u8; 4];
+    b.copy_from_slice(&d[*i..*i + 4]);
+    *i += 4;
+    Some(f32::from_le_bytes(b))
+}
+
+fn rd_u32(d: &[u8], i: &mut usize) -> Option<u32> {
+    if *i + 4 > d.len() {
+        return None;
+    }
+    let mut b = [0u8; 4];
+    b.copy_from_slice(&d[*i..*i + 4]);
+    *i += 4;
+    Some(u32::from_le_bytes(b))
+}
+
+fn rd_u64(d: &[u8], i: &mut usize) -> Option<u64> {
+    if *i + 8 > d.len() {
+        return None;
+    }
+    let mut b = [0u8; 8];
+    b.copy_from_slice(&d[*i..*i + 8]);
+    *i += 8;
+    Some(u64::from_le_bytes(b))
+}
+
+fn parse_game_state(d: &[u8]) -> Option<GameStateData> {
+    if d.len() < 5 || &d[0..4] != b"SMST" || d[4] != 1 {
+        return None;
+    }
+    let mut i = 5usize;
+    let phase = match rd_u8(d, &mut i)? {
+        0 => Phase::Chess,
+        1 => Phase::Checkers,
+        _ => return None,
+    };
+    let turn = match rd_u8(d, &mut i)? {
+        0 => Side::White,
+        1 => Side::Black,
+        _ => return None,
+    };
+    let flags = [
+        rd_u8(d, &mut i)?,
+        rd_u8(d, &mut i)?,
+        rd_u8(d, &mut i)?,
+        rd_u8(d, &mut i)?,
+        rd_u8(d, &mut i)?,
+        rd_u8(d, &mut i)?,
+    ];
+    let passes = rd_u8(d, &mut i)?;
+    let royal = rd_u8(d, &mut i)?;
+    let royal_captured = match royal {
+        0xFF => None,
+        0 => Some(Side::White),
+        1 => Some(Side::Black),
+        _ => return None,
+    };
+    let phase_left = rd_f32(d, &mut i)?;
+    let phase_total = rd_f32(d, &mut i)?;
+    let chess_len = rd_f32(d, &mut i)?;
+    let checkers_len = rd_f32(d, &mut i)?;
+    let auto_max = rd_f32(d, &mut i)?;
+    let move_time_limit = rd_f32(d, &mut i)?;
+    let move_left = rd_f32(d, &mut i)?;
+    let move_anim_secs = rd_f32(d, &mut i)?;
+    let move_twilight_wait = rd_f32(d, &mut i)?;
+    let move_twilight_pending = rd_u8(d, &mut i)? != 0;
+    let trans = rd_f32(d, &mut i)?;
+    let rng_state = rd_u64(d, &mut i)?;
+    let ply = rd_u32(d, &mut i)?;
+    let captured_by_white = rd_u32(d, &mut i)?;
+    let captured_by_black = rd_u32(d, &mut i)?;
+    let mut board: Board = [[None; 8]; 8];
+    for r in 0..8 {
+        for f in 0..8 {
+            let side_b = rd_u8(d, &mut i)?;
+            if side_b == 0xFF {
+                continue;
+            }
+            let side = match side_b {
+                0 => Side::White,
+                1 => Side::Black,
+                _ => return None,
+            };
+            let kind = match rd_u8(d, &mut i)? {
+                0 => Kind::Pawn,
+                1 => Kind::King,
+                2 => Kind::Queen,
+                3 => Kind::Rook,
+                4 => Kind::Bishop,
+                5 => Kind::Knight,
+                _ => return None,
+            };
+            let crowned = rd_u8(d, &mut i)? != 0;
+            board[r][f] = Some(Piece { side, kind, crowned });
+        }
+    }
+    let opt_sq = |d: &[u8], i: &mut usize| -> Option<Option<Square>> {
+        let b = rd_u8(d, i)?;
+        if b == 0xFF {
+            return Some(None);
+        }
+        Some(unpack_sq(b))
+    };
+    let chain = opt_sq(d, &mut i)?;
+    let last_move = match (opt_sq(d, &mut i)?, opt_sq(d, &mut i)?) {
+        (None, None) => None,
+        (Some(from), Some(to)) => Some((from, to)),
+        _ => return None,
+    };
+    let pending_promotion = opt_sq(d, &mut i)?;
+    Some(GameStateData {
+        phase,
+        turn,
+        twilight_by_moves: flags[0] != 0,
+        auto_phase: flags[1] != 0,
+        mandatory_capture: flags[2] != 0,
+        crown_non_pawns: flags[3] != 0,
+        promotion_choice: flags[4] != 0,
+        promotion_free: flags[5] != 0,
+        passes,
+        royal_captured,
+        phase_left,
+        phase_total,
+        chess_len,
+        checkers_len,
+        auto_max,
+        move_time_limit,
+        move_left,
+        move_anim_secs,
+        move_twilight_wait,
+        move_twilight_pending,
+        trans,
+        rng_state,
+        ply,
+        captured_by_white,
+        captured_by_black,
+        board,
+        chain,
+        last_move,
+        pending_promotion,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn test_game() -> Game {
         Game::new(25.0)
+    }
+
+    #[test]
+    fn state_export_import_preserves_hash() {
+        let mut g = test_game();
+        let mv = g.all_moves()[0];
+        g.apply(mv);
+        let mv2 = g.all_moves()[0];
+        g.apply(mv2);
+        g.phase_left = 13.5;
+        g.move_left = 33.3;
+        g.seed_rng(0x1234_5678);
+        g.crown_non_pawns = true;
+        g.mandatory_capture = false;
+        let data = g.export_state();
+        let mut back = test_game();
+        assert!(back.import_state(&data));
+        assert_eq!(back.turn, g.turn);
+        assert_eq!(back.phase, g.phase);
+        assert_eq!(back.ply, g.ply);
+        assert_eq!(back.rng_state, 0x1234_5678);
+        assert!((back.phase_left - 13.5).abs() < 0.001);
+        assert!((back.move_left - 33.3).abs() < 0.001);
+        assert!(back.crown_non_pawns);
+        assert!(!back.mandatory_capture);
+        assert_eq!(
+            crate::net::position_hash(&back),
+            crate::net::position_hash(&g),
+            "хеши позиций совпадают после переноса"
+        );
+        // Повреждённые данные отклоняются.
+        assert!(!back.import_state(&data[..data.len() - 1]));
+        assert!(!back.import_state(b"XXXX"));
     }
 
     #[test]

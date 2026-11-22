@@ -1,4 +1,4 @@
-# ModeShift: Bipolar — mode shift: bipolarity
+# ShatMat — mode shift: bipolarity
 
 A board-game prototype: one board, two games. The pieces go through a twilight
 transition — a wave from the centre of the board turns chess pieces into
@@ -159,7 +159,10 @@ can be disabled in the **Mate · trajectories** setting.
   to the game. The host plays White and sets the rules — the opponent receives
   them as a code when connecting. Before the game there is a short greeting,
   during it — a chat (lives 60 seconds and is never logged). Moves are checked
-  against a position hash: if they diverge, the game stops.
+  against a position hash: if they diverge, the game stops. The connection
+  is maintained automatically: a ping every 5 seconds detects a drop, and
+  for 60 seconds after it both sides try to restore the connection on their
+  own — the game then continues where it stopped, nothing to press.
 
 ## Starting position
 

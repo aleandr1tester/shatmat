@@ -3,8 +3,8 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Language: tr\n"
 
-msgid "ModeShift: Bipolar — режимный сдвиг: биполярность"
-msgstr "ModeShift: Bipolar — mod geçişi: iki kutupluluk"
+msgid "ShatMat — режимный сдвиг: биполярность"
+msgstr "ShatMat — mod geçişi: iki kutupluluk"
 
 msgid "победа {side} — {reason}"
 msgstr "{side} kazandı — {reason}"
@@ -372,8 +372,8 @@ msgstr "Fil"
 msgid "Конь"
 msgstr "At"
 
-msgid "Правила ModeShift: Bipolar"
-msgstr "ModeShift: Bipolar kuralları"
+msgid "Правила ShatMat"
+msgstr "ShatMat kuralları"
 
 msgid "Одна партия — две игры. Раз в N секунд фигуры превращаются, и правила меняются вместе с ними."
 msgstr "Bir maç — iki oyun. Her N saniyede taşlar dönüşür ve kurallar da onlarla birlikte değişir."
@@ -789,8 +789,8 @@ msgstr "zor"
 msgid "Шашка"
 msgstr "Pul"
 
-msgid "Партия «ModeShift: Bipolar»\n"
-msgstr "«ModeShift: Bipolar» maçı\n"
+msgid "Партия «ShatMat»\n"
+msgstr "«ShatMat» maçı\n"
 
 msgid "Версия: {version}\n"
 msgstr "Sürüm: {version}\n"
@@ -1026,3 +1026,11 @@ msgstr "Rakip bu ağda bulunamadı"
 
 msgid "Правила: {summary} — соперник не найден"
 msgstr "Kurallar: {summary} — rakip bulunamadı"
+msgid "Соперник вернулся — партия продолжается"
+msgstr "Rakip geri döndü — oyun devam ediyor"
+
+msgid "Пытаемся восстановить связь…"
+msgstr "Bağlantı yeniden kuruluyor…"
+
+msgid "Не удалось продолжить партию"
+msgstr "Oyuna devam edilemedi"

@@ -2,7 +2,7 @@
 name = "shatmat"
 version = "0.18.0"
 edition = "2021"
-description = "ModeShift: Bipolar — режимный сдвиг: биполярность"
+description = "ShatMat — режимный сдвиг: биполярность"
 
 [dependencies]
 eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts", "x11", "wayland"] }

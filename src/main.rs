@@ -443,6 +443,9 @@ pub struct App {
     net_chat_input: String,
     /// Прокрутка содержимого сетевого окна, когда оно не влезает.
     net_scroll: f32,
+    /// Прокрутка и высота содержимого окна настроек (для скроллбара).
+    settings_scroll: f32,
+    settings_content_h: f32,
     /// Наша сторона в сетевой партии.
     net_side: Option<Side>,
     /// Ход, применённый локально, но ещё не отправленный (ждёт превращения).
@@ -552,6 +555,8 @@ impl App {
             net_chat: Vec::new(),
             net_chat_input: String::new(),
     net_scroll: 0.0,
+    settings_scroll: 0.0,
+    settings_content_h: 0.0,
             net_side: None,
             net_pending_move: None,
             net_pending_apply: None,
@@ -2800,7 +2805,32 @@ impl App {
         let top = y;
 
         // левая колонка: звук и музыка
-        let mut ly = top;
+        // Колонки прокручиваются, если содержимое не влезает: сдвиг,
+        // обрезка и полупрозрачный скроллбар справа — как в окне сети.
+        let bottom_limit = card.bottom() - 132.0;
+        let view_h = (bottom_limit - top).max(120.0);
+        let max_off = (self.settings_content_h - view_h).max(0.0);
+        let wheel = ui.input(|i| i.raw_scroll_delta.y);
+        if let Some(m) = ui.input(|i| i.pointer.latest_pos()) {
+            let zone = Rect::from_min_max(
+                Pos2::new(card.left() + 10.0, top),
+                Pos2::new(card.right() - 10.0, bottom_limit),
+            );
+            if zone.contains(m) && max_off > 0.5 {
+                self.settings_scroll = (self.settings_scroll - wheel * 0.5).clamp(0.0, max_off);
+            }
+        }
+        self.settings_scroll = self.settings_scroll.clamp(0.0, max_off);
+        let off = self.settings_scroll;
+        let clip_area = Rect::from_min_max(
+            Pos2::new(card.left() + 8.0, top),
+            Pos2::new(card.right() - 8.0, bottom_limit),
+        );
+        let mut columns_end = top;
+        let _ = ui.scope_builder(egui::UiBuilder::new().max_rect(clip_area), |ui| {
+            ui.set_clip_rect(clip_area);
+            let painter = &ui.painter().clone();
+            let mut ly = top - off;
         text(
             painter,
             Pos2::new(x, ly),
@@ -3460,8 +3490,18 @@ impl App {
         );
         ry += 26.0;
 
-        let columns_end = ly.max(ry);
-        let summary_y = (columns_end + 16.0).max(card.bottom() - 132.0);
+            columns_end = ly.max(ry);
+        });
+        // Реальная высота содержимого — для бегунка со следующего кадра.
+        let content_h = (columns_end - top + off).max(0.0);
+        self.settings_content_h = content_h;
+        let actual_max = (content_h - view_h).max(0.0);
+        self.settings_scroll = self.settings_scroll.clamp(0.0, actual_max);
+        let summary_y = if actual_max > 0.5 {
+            card.bottom() - 132.0
+        } else {
+            (columns_end + 16.0).max(card.bottom() - 132.0)
+        };
         let summary = if self.game.twilight_by_moves {
             i18n::trf(
                 "Сейчас: смена фаз по ходам, время хода {secs} с",
@@ -3507,6 +3547,32 @@ impl App {
         );
         if button(ui, close, "Готово", true, &pal, 14.0) {
             self.settings = false;
+        }
+
+        // скроллбар настроек: полупрозрачная дорожка и бегунок
+        if actual_max > 0.5 {
+            let track = Rect::from_min_max(
+                Pos2::new(card.right() - 12.0, top + 2.0),
+                Pos2::new(card.right() - 6.0, bottom_limit - 2.0),
+            );
+            painter.rect_filled(track, 3.0, alpha(Color32::WHITE, 0.08));
+            let thumb_h = (view_h / content_h * track.height()).clamp(28.0, track.height());
+            let thumb_y = track.top()
+                + self.settings_scroll / actual_max * (track.height() - thumb_h).max(0.0);
+            let thumb = Rect::from_min_size(
+                Pos2::new(track.left(), thumb_y),
+                Vec2::new(track.width(), thumb_h),
+            );
+            painter.rect_filled(thumb, 3.0, alpha(Color32::WHITE, 0.30));
+            let resp = ui.interact(thumb, ui.id().with("settings_scrollbar"), Sense::drag());
+            if resp.dragged() {
+                let factor = actual_max / (track.height() - thumb_h).max(1.0);
+                self.settings_scroll =
+                    (self.settings_scroll + resp.drag_delta().y * factor).clamp(0.0, actual_max);
+            }
+            if resp.hovered() {
+                ui.ctx().set_cursor_icon(CursorIcon::Grab);
+            }
         }
     }
 
@@ -3658,6 +3724,7 @@ impl App {
         let off = self.net_scroll;
 
         let _ = ui.scope_builder(egui::UiBuilder::new().max_rect(view), |ui| {
+            ui.set_clip_rect(view);
             let cp = &ui.painter().clone();
             let vy = |yy: f32| view.top() + yy - off;
             let mut y = 0.0;

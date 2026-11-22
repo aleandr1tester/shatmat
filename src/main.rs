@@ -447,6 +447,8 @@ pub struct App {
     /// Прокрутка и высота содержимого окна настроек (для скроллбара).
     settings_scroll: f32,
     settings_content_h: f32,
+    /// Отображаемый код приглашения (выделяемое поле).
+    net_code_view: String,
     /// Проверка обновлений: фоновый запрос и его состояние.
     update_check: Option<std::sync::mpsc::Receiver<updater::CheckResult>>,
     update_state: updater::UpdateState,
@@ -561,6 +563,7 @@ impl App {
     net_scroll: 0.0,
     settings_scroll: 0.0,
     settings_content_h: 0.0,
+    net_code_view: String::new(),
     update_check: None,
     update_state: updater::UpdateState::Idle,
             net_side: None,
@@ -3664,6 +3667,63 @@ impl App {
         }
     }
 
+    /// Разобрать поле подключения: адрес, ID или код приглашения.
+    fn net_route_connect(&mut self) {
+        let raw = self.net_addr_input.trim().to_string();
+        if raw.is_empty() {
+            return;
+        }
+        let Some(code) = normalize_code(&raw) else {
+            // Точка/двоеточие или иные символы — это адрес.
+            self.net_connect_input();
+            return;
+        };
+        let (id8, rules_part) = match code.chars().count() {
+            // Приглашение: 8 символов ID + 4 символа правил.
+            12 => (Some(code[..8].to_string()), Some(code[8..].to_string())),
+            8 => (Some(code), None),
+            _ => {
+                self.net_status = i18n::tr("Неверный код").to_string();
+                return;
+            }
+        };
+        let id8 = id8.expect("длина проверена выше");
+        let id = format!("{}-{}", &id8[..4], &id8[4..]);
+        if !net::valid_id(&id) {
+            self.net_status = i18n::tr("Неверный код").to_string();
+            return;
+        }
+        let rules_summary = rules_part
+            .and_then(|rc| rulecode::decode_compact(&rc))
+            .map(|r| r.summary());
+        // 1) Соперник уже виден в локальной сети — прямое подключение.
+        let peer = self.net.as_ref().and_then(|n| {
+            n.peers()
+                .iter()
+                .find(|p| strip_code(&p.id) == id8)
+                .cloned()
+        });
+        if let Some(p) = peer {
+            self.net_connect_addr(p.addr);
+            if let Some(s) = rules_summary {
+                self.net_status = i18n::trf(
+                    "Подключение к {addr}: {summary}",
+                    &[("addr", &p.addr.to_string()), ("summary", &s)],
+                );
+            }
+            return;
+        }
+        // 2) Соперника нет рядом: сейчас игра соединяется только в одной сети.
+        if let Some(s) = rules_summary {
+            self.net_status = i18n::trf(
+                "Правила: {summary} — соперник не найден",
+                &[("summary", &s)],
+            );
+        } else {
+            self.net_status = i18n::tr("Соперник не найден в этой сети").to_string();
+        }
+    }
+
     /// Разобрать адрес из поля: «192.168.1.5» или «192.168.1.5:47771».
     fn net_connect_input(&mut self) {
         let raw = self.net_addr_input.trim().to_string();
@@ -3732,13 +3792,13 @@ impl App {
         let content_h = if session {
             26.0 + 28.0 + 20.0 + 160.0 + 42.0 + 42.0 + 4.0
         } else {
-            let mut h = 16.0 + 46.0 + 16.0 + 44.0 + 16.0;
+            let mut h = 16.0 + 44.0 + 16.0 + 74.0 + 16.0;
             if peers_n == 0 {
                 h += 30.0;
             } else {
                 h += peers_n as f32 * 36.0 + 8.0;
             }
-            h += 16.0 + 44.0 + 50.0 + if self.net_status.is_empty() { 0.0 } else { 20.0 } + 4.0;
+            h += 16.0 + 42.0 + if self.net_status.is_empty() { 0.0 } else { 20.0 } + 4.0;
             h
         };
         let view_max = (layout.full.height() - 150.0).max(220.0);
@@ -3900,32 +3960,42 @@ impl App {
                 }
             } else {
                 // --- поиск соперника ---
+                // Код приглашения: сетевой ID + компактный блок настроек
+                // (4 символа). Поле выделяемое мышью — код можно скопировать
+                // и без кнопки.
+                let invite = format!(
+                    "{}-{}",
+                    id,
+                    rulecode::encode_compact(&rulecode::Rules::from_game(&self.game))
+                );
                 text(
                     cp,
                     Pos2::new(card.left() + pad, vy(y)),
                     Align2::LEFT_TOP,
-                    "МОЙ ID",
+                    "МОЙ КОД",
                     9.0,
                     alpha(cur.text_dim, 0.75),
                 );
                 y += 16.0;
-                text(
-                    cp,
-                    Pos2::new(card.left() + pad, vy(y) + 16.0),
-                    Align2::LEFT_CENTER,
-                    &id,
-                    20.0,
-                    cur.text,
+                self.net_code_view = invite.clone();
+                let code_rect = Rect::from_min_size(
+                    Pos2::new(card.left() + pad, vy(y)),
+                    Vec2::new(w - 120.0, 30.0),
                 );
+                let code_field = egui::TextEdit::singleline(&mut self.net_code_view)
+                    .font(FontId::proportional(14.0))
+                    .text_color(cur.text)
+                    .frame(false);
+                ui.put(code_rect, code_field);
                 let copy = Rect::from_min_size(
-                    Pos2::new(view.right() - 112.0, vy(y) + 2.0),
+                    Pos2::new(view.right() - 112.0, vy(y) + 1.0),
                     Vec2::new(112.0, 28.0),
                 );
                 if button(ui, copy, "Копировать", false, &cur, 11.5) {
-                    ui.ctx().copy_text(id.clone());
-                    self.net_status = i18n::tr("ID скопирован").to_string();
+                    ui.ctx().copy_text(invite);
+                    self.net_status = i18n::tr("Код скопирован").to_string();
                 }
-                y += 32.0 + 14.0;
+                y += 30.0 + 14.0;
 
                 // приветствие — единственное сообщение до начала партии
                 text(
@@ -3938,7 +4008,7 @@ impl App {
                 );
                 y += 16.0;
                 let greet_rect =
-                    Rect::from_min_size(Pos2::new(card.left() + pad, vy(y)), Vec2::new(w, 30.0));
+                    Rect::from_min_size(Pos2::new(card.left() + pad, vy(y)), Vec2::new(w, 60.0));
                 rr(
                     cp,
                     greet_rect,
@@ -3952,7 +4022,7 @@ impl App {
                     .frame(false)
                     .hint_text(i18n::tr("короткое сообщение сопернику"));
                 ui.put(greet_rect.shrink(6.0), greet);
-                y += 30.0 + 14.0;
+                y += 60.0 + 14.0;
 
                 // игроки рядом
                 text(
@@ -3999,18 +4069,24 @@ impl App {
                     y += 8.0;
                 }
 
-                // адрес вручную: поле слева, кнопка — у правого края
+                // подключение: адрес, ID или код приглашения — и ожидание
+                // соперника в одном ряду, кнопки — у правого края
                 text(
                     cp,
                     Pos2::new(card.left() + pad, vy(y)),
                     Align2::LEFT_TOP,
-                    "ПО АДРЕСУ (IP:ПОРТ)",
+                    "ПОДКЛЮЧЕНИЕ",
                     9.0,
                     alpha(cur.text_dim, 0.75),
                 );
                 y += 16.0;
-                let addr_rect =
-                    Rect::from_min_size(Pos2::new(card.left() + pad, vy(y)), Vec2::new(w - 124.0, 30.0));
+                let wait_w = 150.0;
+                let go_w = 116.0;
+                let input_w = (w - go_w - wait_w - 16.0).max(160.0);
+                let addr_rect = Rect::from_min_size(
+                    Pos2::new(card.left() + pad, vy(y)),
+                    Vec2::new(input_w, 30.0),
+                );
                 rr(
                     cp,
                     addr_rect,
@@ -4022,32 +4098,31 @@ impl App {
                     .font(FontId::proportional(12.5))
                     .text_color(cur.text)
                     .frame(false)
-                    .hint_text("192.168.1.5");
+                    .hint_text(i18n::tr("IP или код"));
                 ui.put(addr_rect.shrink(6.0), addr_field);
                 let go = Rect::from_min_size(
-                    Pos2::new(view.right() - 116.0, vy(y) + 1.0),
-                    Vec2::new(116.0, 28.0),
+                    Pos2::new(card.left() + pad + input_w + 8.0, vy(y) + 1.0),
+                    Vec2::new(go_w, 28.0),
                 );
                 if button(ui, go, "Подключить", false, &cur, 11.5) {
-                    self.net_connect_input();
+                    self.net_route_connect();
                 }
-                y += 30.0 + 14.0;
-
-                // ожидание соперника: во всю ширину
-                let wait_btn =
-                    Rect::from_min_size(Pos2::new(card.left() + pad, vy(y)), Vec2::new(w, 38.0));
+                let wait_btn = Rect::from_min_size(
+                    Pos2::new(card.left() + pad + input_w + go_w + 16.0, vy(y) + 1.0),
+                    Vec2::new(wait_w, 28.0),
+                );
                 if hosting {
-                    if button(ui, wait_btn, "Отменить ожидание", true, &cur, 12.5) {
+                    if button(ui, wait_btn, "Отменить ожидание", true, &cur, 11.5) {
                         if let Some(n) = self.net.as_mut() {
                             n.cancel_hosting();
                         }
                     }
-                } else if button(ui, wait_btn, "Ждать соперника", true, &cur, 12.5) {
+                } else if button(ui, wait_btn, "Ждать соперника", true, &cur, 11.5) {
                     if let Some(n) = self.net.as_mut() {
                         n.host();
                     }
                 }
-                y += 38.0 + 12.0;
+                y += 30.0 + 12.0;
 
                 if !self.net_status.is_empty() {
                     text_fit(
@@ -5722,6 +5797,35 @@ fn divider(painter: &egui::Painter, x: f32, y: f32, w: f32, c: Color32) {
         [Pos2::new(x, y), Pos2::new(x + w, y)],
         Stroke::new(1.0_f32, alpha(c, 0.14)),
     );
+}
+
+/// Нормализует код: верхний регистр, O→0, I/L→1, дефисы и пробелы вон.
+/// None — есть посторонние символы (точка, двоеточие и т.п.): это адрес.
+fn normalize_code(raw: &str) -> Option<String> {
+    let mut out = String::new();
+    for ch in raw.chars() {
+        let up = ch.to_ascii_uppercase();
+        let up = match up {
+            'O' => '0',
+            'I' | 'L' => '1',
+            other => other,
+        };
+        match up {
+            '-' | ' ' | '_' => continue,
+            '0'..='9' | 'A'..='Z' => out.push(up),
+            _ => return None,
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+/// Убирает дефисы из ID или кода — для сравнения.
+fn strip_code(s: &str) -> String {
+    s.chars().filter(|c| *c != '-').collect()
 }
 
 fn button(

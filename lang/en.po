@@ -1006,3 +1006,23 @@ msgstr "Download {ver}"
 
 msgid "Сеть недоступна"
 msgstr "Network unavailable"
+msgid "МОЙ КОД"
+msgstr "MY CODE"
+
+msgid "ПОДКЛЮЧЕНИЕ"
+msgstr "CONNECT"
+
+msgid "IP или код"
+msgstr "IP or code"
+
+msgid "Правила соперника: {summary}"
+msgstr "Opponent's rules: {summary}"
+
+msgid "Подключение к {addr}: {summary}"
+msgstr "Connecting to {addr}: {summary}"
+
+msgid "Соперник не найден в этой сети"
+msgstr "Opponent not found on this network"
+
+msgid "Правила: {summary} — соперник не найден"
+msgstr "Rules: {summary} — opponent not found"

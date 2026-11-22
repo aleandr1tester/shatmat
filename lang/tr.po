@@ -1006,3 +1006,23 @@ msgstr "{ver} indir"
 
 msgid "Сеть недоступна"
 msgstr "Ağ yok"
+msgid "МОЙ КОД"
+msgstr "KODUM"
+
+msgid "ПОДКЛЮЧЕНИЕ"
+msgstr "BAĞLANTI"
+
+msgid "IP или код"
+msgstr "IP veya kod"
+
+msgid "Правила соперника: {summary}"
+msgstr "Rakibin kuralları: {summary}"
+
+msgid "Подключение к {addr}: {summary}"
+msgstr "{addr} bağlanılıyor: {summary}"
+
+msgid "Соперник не найден в этой сети"
+msgstr "Rakip bu ağda bulunamadı"
+
+msgid "Правила: {summary} — соперник не найден"
+msgstr "Kurallar: {summary} — rakip bulunamadı"

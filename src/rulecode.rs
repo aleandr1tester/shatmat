@@ -238,6 +238,113 @@ pub fn decode_id(input: &str) -> Option<[u8; 5]> {
     Some(out)
 }
 
+// ---------------------------------------------------------------------------
+// Компактный код настроек для кода приглашения: 4 символа, 20 бит
+// ---------------------------------------------------------------------------
+
+/// Упаковывает правила в 18 бит (контейнер 20 бит = 4 символа base32).
+///
+/// Плотнее, чем `pack`: длины фаз — с шагом 5 с, время хода — с шагом 10 с.
+/// «Максимум случайности» едет только в режиме «по времени», а в режиме
+/// «по ходам» на его место — время хода. Неиспользуемые поля при разборе
+/// получают значения по умолчанию. Точные правила всё равно приходят в
+/// рукопожатии — компактный код нужен лишь для предпросмотра в приглашении.
+fn pack20(r: &Rules) -> u32 {
+    let chess = (((r.chess_len.round().clamp(5.0, 60.0) - 5.0) / 5.0).round().clamp(0.0, 11.0)) as u32;
+    let checkers =
+        (((r.checkers_len.round().clamp(5.0, 60.0) - 5.0) / 5.0).round().clamp(0.0, 11.0)) as u32;
+    let mtl =
+        (((r.move_time_limit.round().clamp(10.0, 180.0) - 10.0) / 10.0).round().clamp(0.0, 17.0))
+            as u32;
+    let auto = (((r.auto_max.round().clamp(10.0, 60.0) - 10.0) / 10.0).round().clamp(0.0, 5.0))
+        as u32;
+    let mut v: u32 = 0;
+    v |= r.twilight_by_moves as u32;
+    v |= (r.auto_phase as u32) << 1;
+    v |= (r.promotion_choice as u32) << 2;
+    v |= (r.mandatory_capture as u32) << 3;
+    v |= (r.crown_non_pawns as u32) << 4;
+    v |= chess << 5; // 4 бита: 5..9
+    v |= checkers << 9; // 4 бита: 9..13
+    if r.twilight_by_moves {
+        v |= mtl << 13; // 5 бит: 13..18
+    } else {
+        v |= auto << 13; // 3 бита: 13..16
+    }
+    v
+}
+
+/// Разбирает компактный код в правила (см. `pack20`).
+fn unpack20(v: u32) -> Rules {
+    let by_moves = v & 1 != 0;
+    Rules {
+        twilight_by_moves: by_moves,
+        auto_phase: (v >> 1) & 1 != 0,
+        promotion_choice: (v >> 2) & 1 != 0,
+        mandatory_capture: (v >> 3) & 1 != 0,
+        crown_non_pawns: (v >> 4) & 1 != 0,
+        chess_len: ((((v >> 5) & 0xF) as f32) * 5.0) + 5.0,
+        checkers_len: ((((v >> 9) & 0xF) as f32) * 5.0) + 5.0,
+        auto_max: if by_moves {
+            60.0
+        } else {
+            ((((v >> 13) & 0x7) as f32) * 10.0) + 10.0
+        },
+        move_time_limit: if by_moves {
+            ((((v >> 13) & 0x1F) as f32) * 10.0) + 10.0
+        } else {
+            60.0
+        },
+    }
+}
+
+/// Компактный код настроек для кода приглашения: ровно 4 символа.
+///
+/// Без контрольной суммы: ошибка в приглашении не страшна — точные правила
+/// приходят в рукопожатии, а блок настроек здесь служит предпросмотром.
+pub fn encode_compact(r: &Rules) -> String {
+    let v = pack20(r);
+    let mut out = [0u8; 4];
+    for (i, c) in out.iter_mut().enumerate() {
+        *c = ALPHABET[((v >> (i * 5)) & 0x1F) as usize];
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Разбирает компактный код настроек. None — посторонние символы или длина.
+pub fn decode_compact(input: &str) -> Option<Rules> {
+    let mut vals = [0u8; 4];
+    let mut n = 0;
+    for ch in input.chars() {
+        let up = ch.to_ascii_uppercase();
+        let up = match up {
+            'O' => '0',
+            'I' | 'L' => '1',
+            other => other,
+        };
+        match up {
+            '-' | ' ' => continue,
+            '0'..='9' | 'A'..='Z' => {
+                if n >= 4 {
+                    return None;
+                }
+                let pos = ALPHABET.iter().position(|&a| a == up as u8)?;
+                vals[n] = pos as u8;
+                n += 1;
+            }
+            _ => return None,
+        }
+    }
+    if n != 4 {
+        return None;
+    }
+    let mut v: u32 = 0;
+    for (i, &p) in vals.iter().enumerate() {
+        v |= (p as u32) << (i * 5);
+    }
+    Some(unpack20(v))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,6 +362,48 @@ mod tests {
         assert_eq!(code.len(), 9, "код XXXX-XXXX");
         let back = decode(&code).expect("код по умолчанию декодируется");
         assert_eq!(back, r);
+    }
+
+    #[test]
+    fn compact_code_roundtrip() {
+        // «По ходам»: время хода и длины фаз восстанавливаются точно.
+        let r = Rules {
+            twilight_by_moves: true,
+            auto_phase: false,
+            chess_len: 25.0,
+            checkers_len: 10.0,
+            auto_max: 60.0,
+            move_time_limit: 60.0,
+            promotion_choice: false,
+            mandatory_capture: true,
+            crown_non_pawns: true,
+        };
+        let code = encode_compact(&r);
+        assert_eq!(code.chars().count(), 4, "компактный код — 4 символа");
+        let back = decode_compact(&code).expect("компактный код декодируется");
+        assert_eq!(back.move_time_limit, 60.0);
+        assert_eq!(back.chess_len, 25.0);
+        assert_eq!(back.checkers_len, 10.0);
+        assert!(back.mandatory_capture && back.crown_non_pawns);
+        // «По времени, случайно»: восстанавливается максимум случайности.
+        let r2 = Rules {
+            twilight_by_moves: false,
+            auto_phase: true,
+            chess_len: 60.0,
+            checkers_len: 45.0,
+            auto_max: 30.0,
+            move_time_limit: 60.0,
+            promotion_choice: true,
+            mandatory_capture: false,
+            crown_non_pawns: false,
+        };
+        let back2 = decode_compact(&encode_compact(&r2)).unwrap();
+        assert_eq!(back2.auto_max, 30.0);
+        assert_eq!(back2.chess_len, 60.0);
+        assert_eq!(back2.checkers_len, 45.0);
+        assert!(back2.promotion_choice);
+        // Неиспользуемое в этом режиме поле — значение по умолчанию.
+        assert_eq!(back2.move_time_limit, 60.0);
     }
 
     #[test]

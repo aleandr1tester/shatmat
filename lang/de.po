@@ -1005,3 +1005,23 @@ msgstr "{ver} laden"
 
 msgid "Сеть недоступна"
 msgstr "Netzwerk nicht erreichbar"
+msgid "МОЙ КОД"
+msgstr "MEIN CODE"
+
+msgid "ПОДКЛЮЧЕНИЕ"
+msgstr "VERBINDEN"
+
+msgid "IP или код"
+msgstr "IP oder Code"
+
+msgid "Правила соперника: {summary}"
+msgstr "Regeln des Gegners: {summary}"
+
+msgid "Подключение к {addr}: {summary}"
+msgstr "Verbindung zu {addr}: {summary}"
+
+msgid "Соперник не найден в этой сети"
+msgstr "Gegner in diesem Netzwerk nicht gefunden"
+
+msgid "Правила: {summary} — соперник не найден"
+msgstr "Regeln: {summary} — Gegner nicht gefunden"

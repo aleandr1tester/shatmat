@@ -150,7 +150,11 @@ can be disabled in the **Mate · trajectories** setting.
   settings. The game itself becomes the server: port 47771 opens
   automatically, nothing to configure. Players in the same local network find
   each other on their own; you can also connect by `IP:port` (for play over
-  the internet the host needs a public IP or a forwarded port). The connection
+  the internet the host needs a public IP or a forwarded port). The invite
+  code in the network window is `XXXX-XXXX-XXXX`: the first two blocks are
+  the network ID, the third is a compact block of the current rules. The
+  opponent pastes the code into the connect field: the game finds the peer
+  on the network and shows their rules in advance. The connection
   is encrypted (Noise_XX + ChaCha20-Poly1305); keys live in `keys.bin` next
   to the game. The host plays White and sets the rules — the opponent receives
   them as a code when connecting. Before the game there is a short greeting,

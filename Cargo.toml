@@ -1,8 +1,8 @@
 [package]
 name = "shatmat"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2021"
-description = "ShatMat — режимный сдвиг: биполярность"
+description = "ShatMat — фигуры меняют природу"
 
 [dependencies]
 eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts", "x11", "wayland"] }

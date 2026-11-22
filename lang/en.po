@@ -42,8 +42,8 @@ msgstr "checkers"
 msgid "шахматы"
 msgstr "chess"
 
-msgid "режимный сдвиг: биполярность · фигуры меняют природу"
-msgstr "mode shift: bipolarity · pieces change their nature"
+msgid "фигуры меняют природу"
+msgstr "pieces change their nature"
 
 msgid "СУМЕРКИ"
 msgstr "TWILIGHT"

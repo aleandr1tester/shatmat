@@ -71,7 +71,7 @@ fn main() -> eframe::Result<()> {
     let shot_mode = shot_path.is_some();
 
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("ShatMat — режимный сдвиг: биполярность")
+        .with_title("ShatMat — фигуры меняют природу")
         .with_inner_size([1240.0, 820.0])
         .with_min_inner_size([1040.0, 700.0]);
 
@@ -1478,7 +1478,7 @@ impl App {
             painter,
             Pos2::new(x + 1.0, layout.header.top() + 57.0),
             Align2::LEFT_TOP,
-            "режимный сдвиг: биполярность · фигуры меняют природу",
+            "фигуры меняют природу",
             12.0,
             alpha(pal.text_dim, 0.95),
         );
@@ -1691,79 +1691,26 @@ impl App {
                         && !g.is_over()
                         && g.pending_promotion.is_none()
                         && !g.moves_for(sq).is_empty()
+                        && phase == Phase::Checkers
                     {
-                        // Мягкая пульсация по контуру фигур того, кто ходит.
+                        // В шашках подсвечиваем фигуру, которая может ходить,
+                        // мягким ореолом. В шахматах тень под фигурами не нужна.
                         let pulse = 0.5 + 0.5 * (self.time * 3.6 + seed * 0.35).sin();
-                        let (glow, strength) = if piece.side == Side::White {
-                            (
-                                Color32::from_rgb(255, 248, 236),
-                                0.18 + 0.28 * pulse,
-                            )
+                        let glow = if piece.side == Side::White {
+                            Color32::from_rgb(255, 248, 236)
                         } else {
-                            (
-                                Color32::from_rgb(104, 108, 118),
-                                0.20 + 0.30 * pulse,
-                            )
+                            Color32::from_rgb(104, 108, 118)
                         };
-                        if phase == Phase::Chess {
-                            if let Some(art) = self.piece_tex.get(piece.side, piece.kind) {
-                                let uv = Rect::from_min_max(
-                                    Pos2::new(0.0, 0.0),
-                                    Pos2::new(1.0, 1.0),
-                                );
-                                let rim = if piece.side == Side::White {
-                                    Color32::from_rgb(64, 46, 34)
-                                } else {
-                                    Color32::from_rgb(214, 218, 228)
-                                };
-                                let rim_tint = Color32::from_rgba_unmultiplied(
-                                    rim.r(),
-                                    rim.g(),
-                                    rim.b(),
-                                    (strength * 0.22 * 255.0) as u8,
-                                );
-                                painter.image(
-                                    art.mask.id(),
-                                    Rect::from_center_size(center, Vec2::splat(size * 1.18)),
-                                    uv,
-                                    rim_tint,
-                                );
-                                let tint = Color32::from_rgba_unmultiplied(
-                                    glow.r(),
-                                    glow.g(),
-                                    glow.b(),
-                                    (strength * 255.0) as u8,
-                                );
-                                painter.image(
-                                    art.mask.id(),
-                                    Rect::from_center_size(center, Vec2::splat(size * 1.12)),
-                                    uv,
-                                    tint,
-                                );
-                            } else {
-                                art::draw_piece_glow(
-                                    painter,
-                                    center,
-                                    size,
-                                    piece.kind,
-                                    piece.side,
-                                    false,
-                                    glow,
-                                    strength,
-                                );
-                            }
-                        } else {
-                            art::draw_piece_glow(
-                                painter,
-                                center,
-                                size,
-                                piece.kind,
-                                piece.side,
-                                true,
-                                glow,
-                                strength,
-                            );
-                        }
+                        art::draw_piece_glow(
+                            painter,
+                            center,
+                            size,
+                            piece.kind,
+                            piece.side,
+                            true,
+                            glow,
+                            0.18 + 0.28 * pulse,
+                        );
                     }
                     if g.trans > 0.0 {
                         let dn = (center - layout.board.center()).length() / (board_diag * 0.5);
@@ -1804,6 +1751,7 @@ impl App {
                             &pal,
                             old_a,
                             phase == Phase::Checkers,
+                            None,
                         );
                         self.paint_piece(
                             painter,
@@ -1815,6 +1763,7 @@ impl App {
                             &next,
                             new_a,
                             phase.other() == Phase::Checkers,
+                            None,
                         );
                     } else {
                         self.paint_piece(
@@ -1827,6 +1776,7 @@ impl App {
                             &pal,
                             1.0,
                             phase == Phase::Checkers,
+                            None,
                         );
                     }
 
@@ -1867,6 +1817,7 @@ impl App {
                 &pal,
                 ghost * 0.9,
                 g.phase == Phase::Checkers,
+                None,
             );
         }
 
@@ -2175,13 +2126,17 @@ impl App {
         pal: &Palette,
         a: f32,
         checkers_form: bool,
+        _hole: Option<Color32>,
     ) {
         if a <= 0.01 {
             return;
         }
         if !checkers_form {
             if let Some(art) = self.piece_tex.get(side, kind) {
-                let rect = Rect::from_center_size(center, Vec2::splat(size));
+                // Пропорции фигур заложены в самих SVG (пешка меньше),
+                // здесь — общий масштаб, чтобы фигуры не упирались в клетку.
+                let s = size * 0.82;
+                let rect = Rect::from_center_size(center, Vec2::splat(s));
                 let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
                 painter.image(art.color.id(), rect, uv, alpha(Color32::WHITE, a));
                 return;
@@ -2190,36 +2145,47 @@ impl App {
         if checkers_form {
             let show_icon = self.show_checker_icons && kind != Kind::Pawn;
             let royal = kind == Kind::King && !show_icon;
+            // Иконка-силуэт фигуры: маска из того же SVG — сплошная заливка,
+            // ровно по центру шашки, меньше диаметра, без артефактов.
+            let draw_icon = |painter: &egui::Painter| {
+                if !show_icon {
+                    return;
+                }
+                if let Some(ico) = self.piece_tex.get(side, kind) {
+                    let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
+                    let tint = if side == Side::White {
+                        alpha(Color32::from_rgb(46, 34, 22), a * 0.92)
+                    } else {
+                        alpha(Color32::from_rgb(240, 231, 209), a * 0.92)
+                    };
+                    painter.image(
+                        ico.mask.id(),
+                        Rect::from_center_size(center, Vec2::splat(size * 0.34)),
+                        uv,
+                        tint,
+                    );
+                } else {
+                    art::draw_checker_icon(painter, center, size, kind, side, a);
+                }
+            };
             if let Some(art) = self.piece_tex.checker_art(side, damka, royal) {
                 let rect = Rect::from_center_size(center, Vec2::splat(size));
                 let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
                 painter.image(art.color.id(), rect, uv, alpha(Color32::WHITE, a));
-                if damka && !self.piece_tex.has_damka(side) {
-                    // Своей картинки дамки нет — дорисуем корону поверх шашки.
-                    art::draw_damka_crown(painter, center, size, side, a);
-                }
-                if royal && !self.piece_tex.has_royal(side) {
-                    // Своей картинки пешки-короля нет — дорисуем точку.
-                    art::draw_royal_dot(painter, center, size, side, a);
-                }
-                if show_icon {
-                    art::draw_checker_icon(painter, center, size, kind, side, a);
-                }
-                return;
+            } else {
+                // Корона и точка рисуются отдельно, поверх иконки фигуры.
+                draw_checker(painter, center, size, false, false, side, pal, a);
             }
-            draw_checker(
-                painter,
-                center,
-                size,
-                damka,
-                royal,
-                side,
-                pal,
-                a,
-            );
-            if show_icon {
-                art::draw_checker_icon(painter, center, size, kind, side, a);
+            // Иконка фигуры — вписывается в круг дамки.
+            draw_icon(painter);
+            // Корона дамки — поверх фигуры.
+            if damka && !self.piece_tex.has_damka(side) {
+                art::draw_damka_crown(painter, center, size, side, a);
             }
+            if royal && !self.piece_tex.has_royal(side) {
+                art::draw_royal_dot(painter, center, size, side, a);
+            }
+            return;
         } else {
             draw_chess_piece(painter, center, size, kind, side, pal, a);
         }
@@ -4288,7 +4254,7 @@ impl App {
                 ),
             );
             let icon = Pos2::new(r.center().x, r.top() + 40.0);
-            self.paint_piece(painter, icon, 56.0, *kind, false, self.game.turn, &cur, 1.0, false);
+            self.paint_piece(painter, icon, 56.0, *kind, false, self.game.turn, &cur, 1.0, false, None);
             text(
                 painter,
                 Pos2::new(r.center().x, r.bottom() - 18.0),
@@ -4912,6 +4878,7 @@ impl App {
             &pal,
             1.0,
             self.guide_checkers,
+            None,
         );
         text(
             painter,
@@ -5117,6 +5084,7 @@ impl App {
                 pal,
                 fade,
                 checkers,
+                None,
             );
         }
         let c = lerp_pos(from_c, to_c, t);
@@ -5130,6 +5098,7 @@ impl App {
             pal,
             1.0,
             checkers,
+            None,
         );
     }
 
@@ -5711,6 +5680,46 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             game.turn = Side::White;
             game.pending_promotion = Some((0, 7));
             game.log.push("демо: превращение пешки".into());
+        }
+        Some("icons") => {
+            // Предпросмотр иконок шашек: по одной фигуре каждого вида
+            // с обеих сторон, режим «Иконки: да».
+            game.board = [[None; 8]; 8];
+            game.phase = Phase::Checkers;
+            game.mandatory_capture = false;
+            game.turn = Side::White;
+            let row_white = [
+                (0usize, Kind::Queen),
+                (1, Kind::Rook),
+                (2, Kind::Bishop),
+                (3, Kind::Knight),
+                (4, Kind::King),
+            ];
+            for (f, k) in row_white {
+                game.board[4][f] = Some(Piece::new(Side::White, k));
+            }
+            let row_black = [
+                (3usize, Kind::Queen),
+                (4, Kind::Rook),
+                (5, Kind::Bishop),
+                (6, Kind::Knight),
+                (7, Kind::King),
+            ];
+            for (f, k) in row_black {
+                game.board[3][f] = Some(Piece::new(Side::Black, k));
+            }
+            // Пешка-дамка у обеих сторон: корона на пешке. Конь-дамка:
+            // метка фигуры вместе с короной.
+            let mut white_pawn_d = Piece::new(Side::White, Kind::Pawn);
+            white_pawn_d.crowned = true;
+            game.board[4][5] = Some(white_pawn_d); // f5
+            let mut white_knight_d = Piece::new(Side::White, Kind::Knight);
+            white_knight_d.crowned = true;
+            game.board[5][2] = Some(white_knight_d); // c6
+            let mut black_pawn_d = Piece::new(Side::Black, Kind::Pawn);
+            black_pawn_d.crowned = true;
+            game.board[2][2] = Some(black_pawn_d); // c7
+            game.log.push("демо: иконки шашек".into());
         }
         Some("settings_times") => {
             game.auto_phase = false;

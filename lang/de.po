@@ -42,8 +42,8 @@ msgstr "Damespiel"
 msgid "шахматы"
 msgstr "Schach"
 
-msgid "режимный сдвиг: биполярность · фигуры меняют природу"
-msgstr "Moduswechsel: Bipolarität · Figuren ändern ihr Wesen"
+msgid "фигуры меняют природу"
+msgstr "Figuren ändern ihr Wesen"
 
 msgid "СУМЕРКИ"
 msgstr "DÄMMERUNG"

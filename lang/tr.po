@@ -42,8 +42,8 @@ msgstr "dama"
 msgid "шахматы"
 msgstr "satranç"
 
-msgid "режимный сдвиг: биполярность · фигуры меняют природу"
-msgstr "mod geçişi: iki kutupluluk · taşlar doğasını değiştirir"
+msgid "фигуры меняют природу"
+msgstr "taşlar doğasını değiştirir"
 
 msgid "СУМЕРКИ"
 msgstr "ALACAKARANLIK"

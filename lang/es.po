@@ -42,8 +42,8 @@ msgstr "damas"
 msgid "шахматы"
 msgstr "ajedrez"
 
-msgid "режимный сдвиг: биполярность · фигуры меняют природу"
-msgstr "cambio de modo: bipolaridad · las piezas cambian de naturaleza"
+msgid "фигуры меняют природу"
+msgstr "las piezas cambian de naturaleza"
 
 msgid "СУМЕРКИ"
 msgstr "CREPÚSCULO"

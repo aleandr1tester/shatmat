@@ -1,4 +1,4 @@
-# ShatMat — mode shift: bipolarity
+# ShatMat — pieces change their nature
 
 A board-game prototype: one board, two games. The pieces go through a twilight
 transition — a wave from the centre of the board turns chess pieces into

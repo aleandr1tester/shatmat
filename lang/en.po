@@ -1034,3 +1034,6 @@ msgstr "Restoring the connection…"
 
 msgid "Не удалось продолжить партию"
 msgstr "Could not resume the game"
+
+msgid "Проверка обновлений не удалась"
+msgstr "Update check failed"

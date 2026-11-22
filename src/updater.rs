@@ -10,8 +10,8 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const RELEASE_URL: &str = "https://github.com/aleandr1tester/shatmat/releases/latest";
 
-/// Результат фоновой проверки: версия последнего релиза («0.18.1») или ошибка.
-pub type CheckResult = Result<String, ()>;
+/// Результат фоновой проверки: версия последнего релиза или причина отказа.
+pub type CheckResult = Result<String, String>;
 
 /// Состояние кнопки обновлений в настройках.
 #[derive(Clone, PartialEq, Debug)]
@@ -49,65 +49,57 @@ fn parse_ver(s: &str) -> Option<Vec<u32>> {
 
 /// Запросить версию последнего релиза. Блокирующий вызов — держать в потоке.
 ///
-/// Хитрость без разбора JSON: «…/releases/latest» редиректит на
-/// «…/releases/tag/vX.Y.Z», а WinHTTP умеет отдать итоговый адрес
-/// после перехода (WINHTTP_OPTION_URL).
+/// WinINet берёт прокси из системных настроек так же, как браузер и сама
+/// Windows: работает и на обычных машинах, и там, где настроен локальный
+/// прокси. Редиректы WinINet проходит сам, а итоговый адрес отдаёт через
+/// INTERNET_OPTION_URL — так версия узнаётся без разбора JSON:
+/// «…/releases/latest» → «…/releases/tag/v0.18.1».
+///
+/// Импорт объявлен через `raw-dylib`: линковать сторонние библиотеки не
+/// нужно, зависимость — только системная wininet.dll из состава Windows.
 #[cfg(windows)]
 pub fn check_latest() -> CheckResult {
     use std::os::windows::ffi::OsStrExt;
 
-    #[link(name = "winhttp")]
+    #[link(name = "wininet", kind = "raw-dylib")]
     extern "system" {
-        fn WinHttpOpen(
+        fn InternetOpenW(
             agent: *const u16,
             access: u32,
             proxy: *const u16,
             bypass: *const u16,
             flags: u32,
         ) -> *mut core::ffi::c_void;
-        fn WinHttpSetTimeouts(
+        fn InternetOpenUrlW(
             h: *mut core::ffi::c_void,
-            resolve: i32,
-            connect: i32,
-            send: i32,
-            receive: i32,
-        ) -> i32;
-        fn WinHttpConnect(
-            h: *mut core::ffi::c_void,
-            host: *const u16,
-            port: u16,
-            reserved: u32,
-        ) -> *mut core::ffi::c_void;
-        fn WinHttpOpenRequest(
-            h: *mut core::ffi::c_void,
-            verb: *const u16,
-            object: *const u16,
-            version: *const u16,
-            referrer: *const u16,
-            accept: *const *const u16,
-            flags: u32,
-        ) -> *mut core::ffi::c_void;
-        fn WinHttpSendRequest(
-            h: *mut core::ffi::c_void,
+            url: *const u16,
             headers: *const u16,
-            len: u32,
-            optional: *const core::ffi::c_void,
-            optlen: u32,
-            total: u32,
+            headers_len: u32,
+            flags: u32,
             context: usize,
-        ) -> i32;
-        fn WinHttpReceiveResponse(h: *mut core::ffi::c_void, reserved: *mut core::ffi::c_void) -> i32;
-        fn WinHttpQueryOption(
+        ) -> *mut core::ffi::c_void;
+        fn InternetQueryOptionW(
             h: *mut core::ffi::c_void,
             option: u32,
             buffer: *mut core::ffi::c_void,
             len: *mut u32,
         ) -> i32;
-        fn WinHttpCloseHandle(h: *mut core::ffi::c_void) -> i32;
+        fn InternetSetOptionW(
+            h: *mut core::ffi::c_void,
+            option: u32,
+            buffer: *const core::ffi::c_void,
+            len: u32,
+        ) -> i32;
+        fn InternetCloseHandle(h: *mut core::ffi::c_void) -> i32;
     }
 
-    const WINHTTP_FLAG_SECURE: u32 = 0x0080_0000;
-    const WINHTTP_OPTION_URL: u32 = 93;
+    const INTERNET_OPEN_TYPE_PRECONFIG: u32 = 0;
+    const INTERNET_OPTION_URL: u32 = 34;
+    const INTERNET_OPTION_CONNECT_TIMEOUT: u32 = 2;
+    const INTERNET_OPTION_RECEIVE_TIMEOUT: u32 = 6;
+    const INTERNET_FLAG_RELOAD: u32 = 0x8000_0000;
+    const INTERNET_FLAG_NO_CACHE_WRITE: u32 = 0x0400_0000;
+    const INTERNET_FLAG_SECURE: u32 = 0x0080_0000;
 
     let wide = |s: &str| -> Vec<u16> {
         std::ffi::OsStr::new(s)
@@ -118,81 +110,85 @@ pub fn check_latest() -> CheckResult {
 
     unsafe {
         let agent = wide("ShatMat");
-        // Доступ по умолчанию: системный прокси пользователя.
-        let session = WinHttpOpen(agent.as_ptr(), 0, std::ptr::null(), std::ptr::null(), 0);
+        let session = InternetOpenW(
+            agent.as_ptr(),
+            INTERNET_OPEN_TYPE_PRECONFIG,
+            std::ptr::null(),
+            std::ptr::null(),
+            0,
+        );
         if session.is_null() {
-            return Err(());
+            return Err(win_err("InternetOpen"));
         }
-        WinHttpSetTimeouts(session, 4000, 4000, 4000, 4000);
-        let host = wide("github.com");
-        let connect = WinHttpConnect(session, host.as_ptr(), 443, 0);
-        if connect.is_null() {
-            WinHttpCloseHandle(session);
-            return Err(());
-        }
-        let verb = wide("GET");
-        let object = wide("/aleandr1tester/shatmat/releases/latest");
-        let request = WinHttpOpenRequest(
-            connect,
-            verb.as_ptr(),
-            object.as_ptr(),
-            std::ptr::null(), // HTTP/1.1 по умолчанию
-            std::ptr::null(),
-            std::ptr::null(),
-            WINHTTP_FLAG_SECURE,
+        let timeout: u32 = 6000;
+        InternetSetOptionW(
+            session,
+            INTERNET_OPTION_CONNECT_TIMEOUT,
+            &timeout as *const u32 as *const _,
+            4,
         );
-        if request.is_null() {
-            WinHttpCloseHandle(connect);
-            WinHttpCloseHandle(session);
-            return Err(());
-        }
-        let headers = wide("User-Agent: ShatMat\r\n");
-        let sent = WinHttpSendRequest(
-            request,
-            headers.as_ptr(),
-            (headers.len() as u32 - 1) * 2,
+        InternetSetOptionW(
+            session,
+            INTERNET_OPTION_RECEIVE_TIMEOUT,
+            &timeout as *const u32 as *const _,
+            4,
+        );
+        let url = wide("https://github.com/aleandr1tester/shatmat/releases/latest");
+        let req = InternetOpenUrlW(
+            session,
+            url.as_ptr(),
             std::ptr::null(),
             0,
-            0,
+            INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE | INTERNET_FLAG_SECURE,
             0,
         );
-        let received = if sent != 0 {
-            WinHttpReceiveResponse(request, std::ptr::null_mut())
-        } else {
-            0
-        };
+        if req.is_null() {
+            let e = win_err("InternetOpenUrl");
+            InternetCloseHandle(session);
+            return Err(e);
+        }
         let mut len: u32 = 0;
-        let mut url = String::new();
-        if sent != 0 && received != 0 {
-            WinHttpQueryOption(request, WINHTTP_OPTION_URL, std::ptr::null_mut(), &mut len);
-            if len > 0 {
-                let mut buf = vec![0u16; len as usize / 2];
-                if WinHttpQueryOption(
-                    request,
-                    WINHTTP_OPTION_URL,
-                    buf.as_mut_ptr() as *mut _,
-                    &mut len,
-                ) != 0
-                {
-                    url = String::from_utf16_lossy(&buf);
-                }
-            }
+        InternetQueryOptionW(req, INTERNET_OPTION_URL, std::ptr::null_mut(), &mut len);
+        if len == 0 {
+            InternetCloseHandle(req);
+            InternetCloseHandle(session);
+            return Err(win_err("InternetQueryOption(URL)"));
         }
-        WinHttpCloseHandle(request);
-        WinHttpCloseHandle(connect);
-        WinHttpCloseHandle(session);
-        // …/releases/tag/v0.18.1 → «0.18.1»
-        url.split("/tag/")
-            .nth(1)
-            .map(|t| t.trim().trim_start_matches('v').trim().to_string())
-            .filter(|t| !t.is_empty() && parse_ver(t).is_some())
-            .ok_or(())
+        let mut buf = vec![0u16; (len as usize / 2) + 2];
+        let mut len2 = (buf.len() * 2) as u32;
+        let ok = InternetQueryOptionW(
+            req,
+            INTERNET_OPTION_URL,
+            buf.as_mut_ptr() as *mut _,
+            &mut len2,
+        );
+        InternetCloseHandle(req);
+        InternetCloseHandle(session);
+        if ok == 0 {
+            return Err(win_err("InternetQueryOption(URL)"));
+        }
+        let final_url = String::from_utf16_lossy(&buf);
+        let tag = final_url.split("/tag/").nth(1).unwrap_or("").trim().to_string();
+        let cleaned: String = tag
+            .trim_start_matches('v')
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == '.')
+            .collect();
+        if parse_ver(&cleaned).is_none() {
+            return Err(format!("неожиданный адрес: {final_url}"));
+        }
+        Ok(cleaned)
     }
+}
+
+#[cfg(windows)]
+fn win_err(stage: &str) -> String {
+    format!("{}: {}", stage, std::io::Error::last_os_error())
 }
 
 #[cfg(not(windows))]
 pub fn check_latest() -> CheckResult {
-    Err(())
+    Err("нет WinINet".to_string())
 }
 
 /// Открыть страницу релизов в браузере (ShellExecuteW, без cmd).

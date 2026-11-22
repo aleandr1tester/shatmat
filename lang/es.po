@@ -1033,3 +1033,6 @@ msgstr "Restableciendo la conexión…"
 
 msgid "Не удалось продолжить партию"
 msgstr "No se pudo continuar la partida"
+
+msgid "Проверка обновлений не удалась"
+msgstr "No se pudo comprobar la actualización"

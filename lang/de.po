@@ -1033,3 +1033,6 @@ msgstr "Verbindung wird wiederhergestellt…"
 
 msgid "Не удалось продолжить партию"
 msgstr "Partie konnte nicht fortgesetzt werden"
+
+msgid "Проверка обновлений не удалась"
+msgstr "Update-Prüfung fehlgeschlagen"

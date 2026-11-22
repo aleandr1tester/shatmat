@@ -42,6 +42,7 @@ fn main() -> eframe::Result<()> {
     let mut shot_path: Option<PathBuf> = None;
     let mut demo: Option<String> = None;
     let mut write_sounds: Option<PathBuf> = None;
+    let mut check_update = false;
     let mut i = 1;
     while i < args.len() {
         if args[i] == "--screenshot" {
@@ -62,7 +63,18 @@ fn main() -> eframe::Result<()> {
                 i += 1;
             }
         }
+        if args[i] == "--check-update" {
+            check_update = true;
+        }
         i += 1;
+    }
+    if check_update {
+        // Диагностика проверки обновлений без запуска окна.
+        match updater::check_latest() {
+            Ok(v) => println!("последний релиз: {v}; текущая версия: {}", updater::VERSION),
+            Err(e) => println!("ошибка проверки: {e}"),
+        }
+        return Ok(());
     }
     if let Some(dir) = write_sounds {
         sound::write_defaults(&dir);
@@ -432,6 +444,8 @@ pub struct App {
     started: bool,
     /// Сетевой контекст: обнаружение, активный сеанс, события.
     net: Option<net::Net>,
+    /// Запрос на поднятие сети из интерфейса (выполняется в update()).
+    net_open_requested: bool,
     /// Открыто ли окно сети.
     net_window: bool,
     net_rect: Rect,
@@ -557,7 +571,8 @@ impl App {
             guide_damka: false,
             started: demo.is_some(),
             // --- Сеть ---
-            net: net::Net::new(),
+            net: None,
+    net_open_requested: false,
             net_window: demo.as_deref() == Some("net"),
             net_rect: Rect::NOTHING,
             net_addr_input: String::new(),
@@ -2465,6 +2480,9 @@ impl App {
                 Vec2::new(chip_w, chip_h),
             );
             if chip(ui, net_chip, "по сети", self.mode == Mode::Network, &cur) {
+                // Сеть поднимается в update(): сокеты не открываются до этого
+                // момента, поэтому ОС не спрашивает доступ к сети при запуске.
+                self.net_open_requested = true;
                 self.mode = Mode::Network;
                 if !self.net_active() {
                     self.net_window = true;
@@ -2768,6 +2786,16 @@ impl App {
         }
     }
 
+    /// Поднять сетевой контекст при первом обращении к сети.
+    /// Сокеты (UDP-обнаружение и приём TCP) открываются только здесь, поэтому
+    /// запрос доступа брандмауэра Windows появляется лишь при включении режима.
+    fn net_ensure(&mut self) -> bool {
+        if self.net.is_none() {
+            self.net = net::Net::new();
+        }
+        self.net.is_some()
+    }
+
     /// Запустить проверку обновлений в фоне.
     fn update_check_start(&mut self) {
         if self.update_check.is_some() {
@@ -2795,7 +2823,20 @@ impl App {
                 };
                 self.update_check = None;
             }
-            Ok(Err(())) | Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+            Ok(Err(reason)) => {
+                // Причина уходит в журнал — по нему видно, что именно не так
+                // (нет сети, блокировка, прокси).
+                self.game.log.push(format!(
+                    "{}: {reason}",
+                    i18n::tr("Проверка обновлений не удалась")
+                ));
+                if self.game.log.len() > 240 {
+                    self.game.log.remove(0);
+                }
+                self.update_state = updater::UpdateState::Failed;
+                self.update_check = None;
+            }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 self.update_state = updater::UpdateState::Failed;
                 self.update_check = None;
             }
@@ -3063,7 +3104,9 @@ impl App {
             alpha(pal.text_dim, 0.75),
         );
         ly += 15.0;
-        let code = rulecode::encode(&rulecode::Rules::from_game(&self.game));
+        // Код правил — один блок из 4 символов: тот же, что третий блок
+        // в сетевом коде приглашения (ID+ID+правила).
+        let code = rulecode::encode_compact(&rulecode::Rules::from_game(&self.game));
         let code_row_h = 30.0;
         // Код — по вертикальному центру строки, кнопка — у правого края колонки.
         text(
@@ -3097,14 +3140,14 @@ impl App {
             .font(FontId::proportional(13.0))
             .text_color(pal.text)
             .frame(false)
-            .hint_text(i18n::tr("код правил"));
+            .hint_text("XXXX");
         ui.put(input_rect, code_field);
         let apply_btn = Rect::from_min_size(
             Pos2::new(x + input_w + 8.0, ly),
             Vec2::new(124.0, 28.0),
         );
         if button(ui, apply_btn, "Применить", false, &pal, 11.5) {
-            match rulecode::decode(&self.rules_code_input) {
+            match rulecode::decode_compact(&self.rules_code_input) {
                 Some(rules) => {
                     rules.apply(&mut self.game);
                     self.rules_code_msg = rules.summary();
@@ -3529,11 +3572,19 @@ impl App {
         };
         if button(ui, net_btn, net_label, self.net_enabled, &pal, 12.5) {
             self.net_enabled = !self.net_enabled;
-            if !self.net_enabled {
+            if self.net_enabled {
+                // Сеть поднимается по требованию — здесь же ОС спросит
+                // разрешение на доступ к частным сетям.
+                if !self.net_ensure() {
+                    self.net_enabled = false;
+                    self.net_status = i18n::tr("Сеть недоступна").to_string();
+                }
+            } else {
                 if self.net_active() {
                     self.net_close("сетевой режим выключен");
-                } else if let Some(n) = self.net.as_mut() {
-                    n.cancel_hosting();
+                }
+                if let Some(mut n) = self.net.take() {
+                    n.shutdown();
                 }
                 self.mode = Mode::Hotseat;
             }
@@ -5299,6 +5350,17 @@ impl eframe::App for App {
             self.game.tick(dt);
         }
         // сеть: события, отложенные сумерками ходы, ожидание связи
+        if self.net_open_requested {
+            self.net_open_requested = false;
+            if self.net.is_none() {
+                self.net = net::Net::new();
+            }
+            if self.net.is_none() {
+                self.net_enabled = false;
+                self.mode = Mode::Hotseat;
+                self.net_status = i18n::tr("Сеть недоступна").to_string();
+            }
+        }
         self.net_poll();
         if self.net_wait > 0.0 {
             self.net_wait -= dt;

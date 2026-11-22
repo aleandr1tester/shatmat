@@ -1034,3 +1034,6 @@ msgstr "Restauration de la connexion…"
 
 msgid "Не удалось продолжить партию"
 msgstr "Impossible de reprendre la partie"
+
+msgid "Проверка обновлений не удалась"
+msgstr "La vérification des mises à jour a échoué"

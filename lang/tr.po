@@ -1034,3 +1034,6 @@ msgstr "Bağlantı yeniden kuruluyor…"
 
 msgid "Не удалось продолжить партию"
 msgstr "Oyuna devam edilemedi"
+
+msgid "Проверка обновлений не удалась"
+msgstr "Güncelleme denetimi başarısız"

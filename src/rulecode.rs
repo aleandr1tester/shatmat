@@ -9,7 +9,7 @@
 use crate::game::{Game, Phase};
 
 /// Версия формата кода: меняется, если состав правил изменится.
-const CODE_VERSION: u8 = 1;
+const CODE_VERSION: u8 = 2;
 
 /// Base32 без похожих символов (Crockford-алфавит).
 const ALPHABET: &[u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -35,6 +35,10 @@ pub struct Rules {
     pub mandatory_capture: bool,
     /// Дамки: true — превращаются все фигуры, false — только пешки.
     pub crown_non_pawns: bool,
+    /// Максимальная цепочка: брать надо самую длинную серию взятий.
+    pub max_chain: bool,
+    /// Длина фазы в полных ходах (2–4) для режима «по ходам».
+    pub phase_moves: u8,
 }
 
 impl Rules {
@@ -50,6 +54,8 @@ impl Rules {
             promotion_choice: game.promotion_choice,
             mandatory_capture: game.mandatory_capture,
             crown_non_pawns: game.crown_non_pawns,
+            max_chain: game.max_chain,
+            phase_moves: game.phase_moves,
         }
     }
 
@@ -65,12 +71,17 @@ impl Rules {
         game.promotion_choice = self.promotion_choice;
         game.mandatory_capture = self.mandatory_capture;
         game.crown_non_pawns = self.crown_non_pawns;
+        game.max_chain = self.max_chain;
+        game.set_phase_moves(self.phase_moves);
     }
 
     /// Краткое описание правил для сообщения «применено».
     pub fn summary(&self) -> String {
         let mode = if self.twilight_by_moves {
-            crate::i18n::trf("по ходам, {secs} с", &[("secs", &fmt(self.move_time_limit))])
+            crate::i18n::trf(
+                "по ходам, фаза {n} полных хода",
+                &[("n", &self.phase_moves.to_string())],
+            )
         } else if self.auto_phase {
             crate::i18n::trf(
                 "по времени, случайно 10–{max} с",
@@ -90,22 +101,25 @@ fn fmt(secs: f32) -> String {
     format!("{:.0}", secs)
 }
 
-/// Упаковывает правила в 31 бит payload.
+/// Упаковывает правила в payload (26 бит). Длины — с шагом 5 с:
+/// для рукопожатия этого достаточно, а биты нужны новым правилам.
 fn pack(r: &Rules) -> u32 {
-    let chess = (r.chess_len.round().clamp(5.0, 60.0) - 5.0) as u32;
-    let checkers = (r.checkers_len.round().clamp(5.0, 60.0) - 5.0) as u32;
-    let auto_max = (r.auto_max.round().clamp(10.0, 60.0) - 10.0) as u32;
-    let mtl = (r.move_time_limit.round().clamp(10.0, 180.0) - 10.0) as u32;
+    let chess = ((r.chess_len.round().clamp(5.0, 60.0) - 5.0) / 5.0) as u32;
+    let checkers = ((r.checkers_len.round().clamp(5.0, 60.0) - 5.0) / 5.0) as u32;
+    let auto_max = ((r.auto_max.round().clamp(10.0, 60.0) - 10.0) / 5.0) as u32;
+    let mtl = ((r.move_time_limit.round().clamp(10.0, 180.0) - 10.0) / 5.0) as u32;
     let mut v: u32 = 0;
-    v |= r.twilight_by_moves as u32;
-    v |= (r.auto_phase as u32) << 1;
-    v |= (r.promotion_choice as u32) << 2;
-    v |= (r.mandatory_capture as u32) << 3;
-    v |= (r.crown_non_pawns as u32) << 4;
-    v |= chess << 5;
-    v |= checkers << 11;
-    v |= auto_max << 17;
-    v |= mtl << 23;
+    v |= r.twilight_by_moves as u32; // 0
+    v |= (r.auto_phase as u32) << 1; // 1
+    v |= (r.promotion_choice as u32) << 2; // 2
+    v |= (r.mandatory_capture as u32) << 3; // 3
+    v |= (r.crown_non_pawns as u32) << 4; // 4
+    v |= (r.max_chain as u32) << 5; // 5
+    v |= ((r.phase_moves.clamp(2, 4) - 2) as u32) << 6; // 6..7
+    v |= chess << 8; // 8..11
+    v |= checkers << 12; // 12..15
+    v |= auto_max << 16; // 16..19
+    v |= mtl << 20; // 20..25
     v
 }
 
@@ -117,10 +131,12 @@ fn unpack(v: u32) -> Rules {
         promotion_choice: (v >> 2) & 1 != 0,
         mandatory_capture: (v >> 3) & 1 != 0,
         crown_non_pawns: (v >> 4) & 1 != 0,
-        chess_len: (((v >> 5) & 0x3F) as f32) + 5.0,
-        checkers_len: (((v >> 11) & 0x3F) as f32) + 5.0,
-        auto_max: (((v >> 17) & 0x3F) as f32) + 10.0,
-        move_time_limit: (((v >> 23) & 0xFF) as f32) + 10.0,
+        max_chain: (v >> 5) & 1 != 0,
+        phase_moves: (((v >> 6) & 0x3) as u8).min(2) + 2,
+        chess_len: ((((v >> 8) & 0xF) as f32) * 5.0) + 5.0,
+        checkers_len: ((((v >> 12) & 0xF) as f32) * 5.0) + 5.0,
+        auto_max: ((((v >> 16) & 0xF) as f32) * 5.0) + 10.0,
+        move_time_limit: ((((v >> 20) & 0x3F) as f32) * 5.0) + 10.0,
     }
 }
 
@@ -242,34 +258,31 @@ pub fn decode_id(input: &str) -> Option<[u8; 5]> {
 // Компактный код настроек для кода приглашения: 4 символа, 20 бит
 // ---------------------------------------------------------------------------
 
-/// Упаковывает правила в 18 бит (контейнер 20 бит = 4 символа base32).
+/// Упаковывает правила в 20 бит (4 символа base32).
 ///
-/// Плотнее, чем `pack`: длины фаз — с шагом 5 с, время хода — с шагом 10 с.
-/// «Максимум случайности» едет только в режиме «по времени», а в режиме
-/// «по ходам» на его место — время хода. Неиспользуемые поля при разборе
-/// получают значения по умолчанию. Точные правила всё равно приходят в
-/// рукопожатии — компактный код нужен лишь для предпросмотра в приглашении.
+/// В режиме «по ходам» нужны длина фазы в полных ходах и время хода,
+/// в режиме «по времени» — длины фаз и максимум случайности.
+/// Биты общие, но читаются по-разному в зависимости от режима.
 fn pack20(r: &Rules) -> u32 {
-    let chess = (((r.chess_len.round().clamp(5.0, 60.0) - 5.0) / 5.0).round().clamp(0.0, 11.0)) as u32;
-    let checkers =
-        (((r.checkers_len.round().clamp(5.0, 60.0) - 5.0) / 5.0).round().clamp(0.0, 11.0)) as u32;
-    let mtl =
-        (((r.move_time_limit.round().clamp(10.0, 180.0) - 10.0) / 10.0).round().clamp(0.0, 17.0))
-            as u32;
-    let auto = (((r.auto_max.round().clamp(10.0, 60.0) - 10.0) / 10.0).round().clamp(0.0, 5.0))
-        as u32;
     let mut v: u32 = 0;
-    v |= r.twilight_by_moves as u32;
-    v |= (r.auto_phase as u32) << 1;
-    v |= (r.promotion_choice as u32) << 2;
-    v |= (r.mandatory_capture as u32) << 3;
-    v |= (r.crown_non_pawns as u32) << 4;
-    v |= chess << 5; // 4 бита: 5..9
-    v |= checkers << 9; // 4 бита: 9..13
+    v |= r.twilight_by_moves as u32; // 0
+    v |= (r.auto_phase as u32) << 1; // 1
+    v |= (r.promotion_choice as u32) << 2; // 2
+    v |= (r.mandatory_capture as u32) << 3; // 3
+    v |= (r.crown_non_pawns as u32) << 4; // 4
+    v |= (r.max_chain as u32) << 5; // 5
     if r.twilight_by_moves {
-        v |= mtl << 13; // 5 бит: 13..18
+        v |= ((r.phase_moves.clamp(2, 4) - 2) as u32) << 6; // 6..7
+        let mtl =
+            ((r.move_time_limit.round().clamp(10.0, 180.0) - 10.0) / 10.0) as u32; // 0..17
+        v |= mtl << 8; // 8..12
     } else {
-        v |= auto << 13; // 3 бита: 13..16
+        let chess = ((r.chess_len.round().clamp(5.0, 60.0) - 5.0) / 5.0) as u32;
+        let checkers = ((r.checkers_len.round().clamp(5.0, 60.0) - 5.0) / 5.0) as u32;
+        let auto = ((r.auto_max.round().clamp(10.0, 60.0) - 10.0) / 10.0) as u32;
+        v |= chess << 6; // 6..9
+        v |= checkers << 10; // 10..13
+        v |= auto << 14; // 14..16
     }
     v
 }
@@ -283,15 +296,29 @@ fn unpack20(v: u32) -> Rules {
         promotion_choice: (v >> 2) & 1 != 0,
         mandatory_capture: (v >> 3) & 1 != 0,
         crown_non_pawns: (v >> 4) & 1 != 0,
-        chess_len: ((((v >> 5) & 0xF) as f32) * 5.0) + 5.0,
-        checkers_len: ((((v >> 9) & 0xF) as f32) * 5.0) + 5.0,
+        max_chain: (v >> 5) & 1 != 0,
+        phase_moves: if by_moves {
+            (((v >> 6) & 0x3) as u8).min(2) + 2
+        } else {
+            3
+        },
+        chess_len: if by_moves {
+            20.0
+        } else {
+            ((((v >> 6) & 0xF) as f32) * 5.0) + 5.0
+        },
+        checkers_len: if by_moves {
+            20.0
+        } else {
+            ((((v >> 10) & 0xF) as f32) * 5.0) + 5.0
+        },
         auto_max: if by_moves {
             60.0
         } else {
-            ((((v >> 13) & 0x7) as f32) * 10.0) + 10.0
+            ((((v >> 14) & 0x7) as f32) * 10.0) + 10.0
         },
         move_time_limit: if by_moves {
-            ((((v >> 13) & 0x1F) as f32) * 10.0) + 10.0
+            ((((v >> 8) & 0x1F) as f32) * 10.0) + 10.0
         } else {
             60.0
         },
@@ -377,13 +404,15 @@ mod tests {
             promotion_choice: false,
             mandatory_capture: true,
             crown_non_pawns: true,
+                max_chain: true,
+                phase_moves: 3,
         };
         let code = encode_compact(&r);
         assert_eq!(code.chars().count(), 4, "компактный код — 4 символа");
         let back = decode_compact(&code).expect("компактный код декодируется");
         assert_eq!(back.move_time_limit, 60.0);
-        assert_eq!(back.chess_len, 25.0);
-        assert_eq!(back.checkers_len, 10.0);
+        assert_eq!(back.phase_moves, 3);
+        assert!(back.max_chain);
         assert!(back.mandatory_capture && back.crown_non_pawns);
         // «По времени, случайно»: восстанавливается максимум случайности.
         let r2 = Rules {
@@ -396,6 +425,8 @@ mod tests {
             promotion_choice: true,
             mandatory_capture: false,
             crown_non_pawns: false,
+                max_chain: true,
+                phase_moves: 3,
         };
         let back2 = decode_compact(&encode_compact(&r2)).unwrap();
         assert_eq!(back2.auto_max, 30.0);
@@ -404,6 +435,29 @@ mod tests {
         assert!(back2.promotion_choice);
         // Неиспользуемое в этом режиме поле — значение по умолчанию.
         assert_eq!(back2.move_time_limit, 60.0);
+    }
+
+    #[test]
+    fn codes_carry_new_rules() {
+        let r = Rules {
+            twilight_by_moves: true,
+            auto_phase: false,
+            chess_len: 20.0,
+            checkers_len: 20.0,
+            auto_max: 60.0,
+            move_time_limit: 60.0,
+            promotion_choice: false,
+            mandatory_capture: true,
+            crown_non_pawns: true,
+            max_chain: false,
+            phase_moves: 4,
+        };
+        let short = decode_compact(&encode_compact(&r)).expect("компактный код");
+        assert_eq!(short.phase_moves, 4);
+        assert!(!short.max_chain, "«цепочка: любая» едет в компактном коде");
+        let full = decode(&encode(&r)).expect("код рукопожатия");
+        assert_eq!(full.phase_moves, 4);
+        assert!(!full.max_chain);
     }
 
     #[test]
@@ -419,6 +473,8 @@ mod tests {
                 promotion_choice: true,
                 mandatory_capture: false,
                 crown_non_pawns: false,
+                max_chain: true,
+                phase_moves: 3,
             },
             Rules {
                 twilight_by_moves: true,
@@ -430,17 +486,21 @@ mod tests {
                 promotion_choice: false,
                 mandatory_capture: true,
                 crown_non_pawns: true,
+                max_chain: true,
+                phase_moves: 3,
             },
             Rules {
                 twilight_by_moves: false,
                 auto_phase: true,
-                chess_len: 37.0,
-                checkers_len: 23.0,
+                chess_len: 35.0,
+                checkers_len: 25.0,
                 auto_max: 45.0,
                 move_time_limit: 95.0,
                 promotion_choice: true,
                 mandatory_capture: false,
                 crown_non_pawns: true,
+                max_chain: true,
+                phase_moves: 3,
             },
         ];
         for r in variants {

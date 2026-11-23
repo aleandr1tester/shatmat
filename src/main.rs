@@ -1337,6 +1337,10 @@ impl App {
             return;
         }
         if !self.started {
+            // «Партия ещё не начата»: клик по полю — тот же старт, что «Играть».
+            if layout.board.contains(pos) {
+                self.start_game();
+            }
             return;
         }
         if self.game.paused {
@@ -1706,26 +1710,53 @@ impl App {
                         && !g.is_over()
                         && g.pending_promotion.is_none()
                         && !g.moves_for(sq).is_empty()
-                        && phase == Phase::Checkers
                     {
-                        // В шашках подсвечиваем фигуру, которая может ходить,
-                        // мягким ореолом. В шахматах тень под фигурами не нужна.
                         let pulse = 0.5 + 0.5 * (self.time * 3.6 + seed * 0.35).sin();
-                        let glow = if piece.side == Side::White {
-                            Color32::from_rgb(255, 248, 236)
-                        } else {
-                            Color32::from_rgb(104, 108, 118)
-                        };
-                        art::draw_piece_glow(
-                            painter,
-                            center,
-                            size,
-                            piece.kind,
-                            piece.side,
-                            true,
-                            glow,
-                            0.18 + 0.28 * pulse,
-                        );
+                        if phase == Phase::Checkers {
+                            let glow = if piece.side == Side::White {
+                                Color32::from_rgb(255, 248, 236)
+                            } else {
+                                Color32::from_rgb(104, 108, 118)
+                            };
+                            art::draw_piece_glow(
+                                painter,
+                                center,
+                                size,
+                                piece.kind,
+                                piece.side,
+                                true,
+                                glow,
+                                0.18 + 0.28 * pulse,
+                            );
+                        } else if let Some(art) = self.piece_tex.get(piece.side, piece.kind) {
+                            // «Дым» вокруг фигуры того, кто ходит: маска крупнее
+                            // силуэта, привязанная к низу фигуры. Без привязки
+                            // к низу ореол вылезает под фигурой светлым пятном.
+                            let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
+                            let base = center.y + size * 0.5;
+                            let (col, a1, a2) = if piece.side == Side::White {
+                                (
+                                    Color32::from_rgb(255, 249, 238),
+                                    0.14 + 0.22 * pulse,
+                                    0.07 + 0.12 * pulse,
+                                )
+                            } else {
+                                (
+                                    Color32::from_rgb(74, 78, 90),
+                                    0.16 + 0.22 * pulse,
+                                    0.08 + 0.12 * pulse,
+                                )
+                            };
+                            // Тень в пределах клетки: чуть больше силуэта, не больше.
+                            for (scale, al) in [(1.05_f32, a2), (1.015_f32, a1)] {
+                                let h = size * scale;
+                                let r = Rect::from_min_max(
+                                    Pos2::new(center.x - h * 0.5, base - h),
+                                    Pos2::new(center.x + h * 0.5, base),
+                                );
+                                painter.image(art.mask.id(), r, uv, alpha(col, al));
+                            }
+                        }
                     }
                     if g.trans > 0.0 {
                         let dn = (center - layout.board.center()).length() / (board_diag * 0.5);
@@ -1795,6 +1826,15 @@ impl App {
                         );
                     }
 
+                    // Король в шашках: красное пульсирующее кольцо поверх шашки —
+                    // его можно взять, и это сразу поражение.
+                    if phase == Phase::Checkers
+                        && piece.kind == Kind::King
+                        && !g.is_over()
+                        && g.trans == 0.0
+                    {
+                        art::draw_king_ring(painter, center, size, 1.0, self.time);
+                    }
                     if let Some((csq, t)) = g.crowned_flash {
                         if csq == sq {
                             let rr = layout.cell * (0.5 + (1.0 - t) * 0.7);
@@ -1913,34 +1953,43 @@ impl App {
                             let from = *from;
                             let kind = *kind;
                             let fc = layout.square_rect(from).center();
+                            // Отступаем от центра к краю силуэта: линия выходит
+                            // из-под фигуры, а не протыкает её насквозь.
+                            let start_dir = (kc - fc).normalized();
+                            let fs = fc + start_dir * layout.cell * 0.30;
+                            // Конец — у края короля: пунктир не должен просвечивать
+                            // сквозь его силуэт.
+                            let ke = kc - start_dir * layout.cell * 0.30;
                             let path: Vec<Pos2> = if kind == Kind::Knight {
                                 let corner = if (from.0 as i32 - king.0 as i32).abs() == 1 {
                                     (king.0, from.1)
                                 } else {
                                     (from.0, king.1)
                                 };
-                                vec![fc, layout.square_rect(corner).center(), kc]
+                                vec![fs, layout.square_rect(corner).center(), ke]
                             } else {
-                                vec![fc, kc]
+                                vec![fs, ke]
                             };
                             for pair in path.windows(2) {
-                                painter.line_segment(
-                                    [pair[0], pair[1]],
-                                    Stroke::new(7.0_f32, Color32::from_black_alpha(80)),
-                                );
-                                painter.line_segment(
-                                    [pair[0], pair[1]],
-                                    Stroke::new(3.0_f32, alpha(pal.danger, 0.30 + 0.25 * pulse)),
-                                );
-                                painter.line_segment(
-                                    [pair[0], pair[1]],
-                                    Stroke::new(1.2_f32, alpha(Color32::WHITE, 0.55)),
-                                );
+                                // Пунктир: тёмная подложка для контраста и цветной штрих.
+                                let seg = [pair[0], pair[1]];
+                                painter.extend(egui::Shape::dashed_line(
+                                    &seg,
+                                    Stroke::new(6.0_f32, Color32::from_black_alpha(70)),
+                                    9.0,
+                                    6.0,
+                                ));
+                                painter.extend(egui::Shape::dashed_line(
+                                    &seg,
+                                    Stroke::new(2.6_f32, alpha(pal.danger, 0.40 + 0.25 * pulse)),
+                                    9.0,
+                                    6.0,
+                                ));
                             }
                             painter.circle_stroke(
                                 fc,
-                                layout.cell * 0.38,
-                                Stroke::new(2.0_f32, alpha(pal.danger, 0.75)),
+                                layout.cell * 0.36,
+                                Stroke::new(1.6_f32, alpha(pal.danger, 0.70)),
                             );
                             let dir = (kc - fc).normalized();
                             let perp = Vec2::new(-dir.y, dir.x);
@@ -1991,18 +2040,25 @@ impl App {
                         for (from, sq) in escape_lines {
                             let fc = layout.square_rect(from).center();
                             let sc = layout.square_rect(sq).center();
-                            painter.line_segment(
-                                [fc, sc],
-                                Stroke::new(6.0_f32, Color32::from_black_alpha(70)),
-                            );
-                            painter.line_segment(
-                                [fc, sc],
-                                Stroke::new(2.4_f32, alpha(yellow, 0.55 + 0.25 * pulse)),
-                            );
+                            let dir = (sc - fc).normalized();
+                            let fs = fc + dir * layout.cell * 0.28;
+                            let seg = [fs, sc];
+                            painter.extend(egui::Shape::dashed_line(
+                                &seg,
+                                Stroke::new(5.0_f32, Color32::from_black_alpha(60)),
+                                7.0,
+                                5.0,
+                            ));
+                            painter.extend(egui::Shape::dashed_line(
+                                &seg,
+                                Stroke::new(2.0_f32, alpha(yellow, 0.55 + 0.25 * pulse)),
+                                7.0,
+                                5.0,
+                            ));
                             painter.circle_stroke(
                                 sc,
-                                layout.cell * 0.20,
-                                Stroke::new(1.6_f32, alpha(yellow, 0.70)),
+                                layout.cell * 0.18,
+                                Stroke::new(1.4_f32, alpha(yellow, 0.65)),
                             );
                         }
                         }
@@ -2266,7 +2322,7 @@ impl App {
         painter.text(
             label.center() + Vec2::new(0.0, 20.0),
             Align2::CENTER_CENTER,
-            i18n::tr("Справа — «Играть», настройки и правила"),
+            i18n::tr("Нажмите на поле или «Играть» справа"),
             FontId::proportional(11.5),
             Color32::from_rgb(210, 206, 226),
         );
@@ -2363,6 +2419,19 @@ impl App {
             if g.twilight_by_moves { 36.0 } else { 44.0 },
             countdown_color,
         );
+        // Фиксированная длина фазы: рядом с часами виден срок до смены природы.
+        if g.twilight_by_moves && !g.is_over() && g.trans == 0.0 {
+            let left = g.full_moves_to_switch();
+            let label = i18n::trf("смена через {n} х.", &[("n", &left.to_string())]);
+            text(
+                painter,
+                Pos2::new(x + w, y + 8.0),
+                Align2::RIGHT_TOP,
+                &label,
+                11.5,
+                alpha(cur.accent, 0.95),
+            );
+        }
         let sub = if g.trans > 0.0 {
             // Во время сумерек подпись не нужна: переход виден по анимации.
             String::new()
@@ -2691,10 +2760,11 @@ impl App {
             alpha(cur.text_dim, 0.9),
         );
         if g.twilight_by_moves {
+            let left = g.full_moves_to_switch();
             text_fit(
                 painter,
                 Pos2::new(x, chips_y),
-                "По ходам: случайно",
+                &i18n::trf("смена через {n} х.", &[("n", &left.to_string())]),
                 w,
                 12.5,
                 cur.accent,
@@ -2702,7 +2772,10 @@ impl App {
             text_fit(
                 painter,
                 Pos2::new(x, chips_y + 19.0),
-                "После хода может остаться или смениться",
+                &i18n::trf(
+                    "фаза: {n} полных хода, смена после хода каждого",
+                    &[("n", &g.phase_moves.to_string())],
+                ),
                 w,
                 11.0,
                 alpha(cur.text_dim, 0.85),
@@ -3222,7 +3295,7 @@ impl App {
             text_fit(
                 painter,
                 Pos2::new(right_x, ry),
-                "После хода фаза может остаться или смениться случайно.",
+                "Фаза меняется после полных ходов — по ходу на каждого.",
                 right_w,
                 11.0,
                 alpha(pal.text, 0.95),
@@ -3231,12 +3304,33 @@ impl App {
             text_fit(
                 painter,
                 Pos2::new(right_x, ry),
-                "Внутри одного хода всегда одна игра.",
+                "Оба знают, сколько ходов осталось до смены природы.",
                 right_w,
                 11.0,
                 alpha(pal.text_dim, 0.95),
             );
             ry += 22.0;
+            text(
+                painter,
+                Pos2::new(right_x, ry),
+                Align2::LEFT_TOP,
+                "ДЛИНА ФАЗЫ · ПОЛНЫХ ХОДОВ",
+                9.0,
+                alpha(pal.text_dim, 0.75),
+            );
+            ry += 15.0;
+            let fw = (right_w - 16.0) / 3.0;
+            for (k, n) in [2u8, 3, 4].iter().enumerate() {
+                let chip_rect = Rect::from_min_size(
+                    Pos2::new(right_x + (fw + 8.0) * k as f32, ry),
+                    Vec2::new(fw, 28.0),
+                );
+                let label = format!("{n}");
+                if chip(ui, chip_rect, &label, self.game.phase_moves == *n, &pal) {
+                    self.game.set_phase_moves(*n);
+                }
+            }
+            ry += 36.0;
             text(
                 painter,
                 Pos2::new(right_x, ry),
@@ -3403,6 +3497,10 @@ impl App {
             Pos2::new(right_x + (cw + 8.0) * 2.0, ry),
             Vec2::new(cw, 28.0),
         );
+        let chain_chip = Rect::from_min_size(
+            Pos2::new(right_x, ry + 34.0),
+            Vec2::new((right_w - 8.0) * 0.5, 28.0),
+        );
         if chip(
             ui,
             capture_chip,
@@ -3442,7 +3540,20 @@ impl App {
         ) {
             self.game.crown_non_pawns = !crown;
         }
-        ry += 34.0;
+        if chip(
+            ui,
+            chain_chip,
+            if self.game.max_chain {
+                "Цепочка: максимум"
+            } else {
+                "Цепочка: любая"
+            },
+            self.game.max_chain,
+            &pal,
+        ) {
+            self.game.max_chain = !self.game.max_chain;
+        }
+        ry += 70.0;
         text_fit(
             painter,
             Pos2::new(right_x, ry),
@@ -3455,15 +3566,29 @@ impl App {
             11.0,
             alpha(pal.text_dim, 0.95),
         );
+        ry += 15.0;
         text_fit(
             painter,
-            Pos2::new(right_x, ry + 15.0),
+            Pos2::new(right_x, ry),
+            if self.game.max_chain {
+                "Брать можно только самую длинную серию взятий."
+            } else {
+                "Достаточно любого взятия, длина серии не важна."
+            },
+            right_w,
+            11.0,
+            alpha(pal.text_dim, 0.95),
+        );
+        ry += 15.0;
+        text_fit(
+            painter,
+            Pos2::new(right_x, ry),
             "Иконки — кроме пешек; дамки — все или только пешки.",
             right_w,
             11.0,
             alpha(pal.text_dim, 0.95),
         );
-        ry += 35.0;
+        ry += 30.0;
 
         text(
             painter,
@@ -3614,8 +3739,11 @@ impl App {
         };
         let summary = if self.game.twilight_by_moves {
             i18n::trf(
-                "Сейчас: смена фаз по ходам, время хода {secs} с",
-                &[("secs", &format!("{:.0}", self.game.move_time_limit))],
+                "Сейчас: фаза {n} полных хода, время хода {secs} с",
+                &[
+                    ("n", &self.game.phase_moves.to_string()),
+                    ("secs", &format!("{:.0}", self.game.move_time_limit)),
+                ],
             )
         } else if self.game.auto_phase {
             i18n::trf(
@@ -4414,6 +4542,7 @@ impl App {
             "По умолчанию дамкой может стать любая фигура; «Дамки: пешки» — только пешки.",
             "Шашка на последнем ряду становится дамкой и продолжает серию как дамка.",
             "Короля можно съесть и победить.",
+            "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию.",
             "Если застряли оба — сумерки сразу выводят в шахматы.",
         ];
         let shared = [
@@ -4421,9 +4550,11 @@ impl App {
             "Переход ждёт, пока игрок завершит серию взятий.",
             "Победа: мат, съеденный король или истребление фигур.",
             "Время шахмат и шашек задаётся отдельно в настройках.",
-            "Смена фаз: по времени или после ходов; по ходам — случайно.",
-            "В режиме по ходам внутри хода всегда одна игра, после хода фаза может смениться.",
+            "Смена фаз: по времени или по полным ходам — по ходу на каждого.",
+            "Длина фазы — 2, 3 или 4 полных хода; счётчик виден в панели, обе стороны знают срок.",
             "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику.",
+            "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы.",
+            "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий.",
             "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры.",
             "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт.",
             "После партии «Просмотр» показывает ходы по шагам с анимацией.",
@@ -4766,7 +4897,7 @@ impl App {
             Pos2::new(x, card.bottom() - 54.0),
             Vec2::new(half, 38.0),
         );
-        let rules = Rect::from_min_size(
+        let settings = Rect::from_min_size(
             Pos2::new(x + half + gap, card.bottom() - 54.0),
             Vec2::new(half, 38.0),
         );
@@ -4780,8 +4911,11 @@ impl App {
         if button(ui, review, "Просмотр", false, &pal, 13.0) {
             self.start_review();
         }
-        if button(ui, rules, "Правила", false, &pal, 13.0) {
-            self.rules = true;
+        // После партии нужнее настройки: сменить сложность и начать заново.
+        // Правила по-прежнему открываются клавишей H и в панели во время игры.
+        if button_gear(ui, settings, "Настройки", false, &pal, 12.5) {
+            self.settings = true;
+            self.rules = false;
         }
         let _ = ctx;
     }

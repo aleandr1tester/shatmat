@@ -336,8 +336,8 @@ msgstr "Göster: evet"
 msgid "Показывать: нет"
 msgstr "Göster: hayır"
 
-msgid "Сейчас: смена фаз по ходам, время хода {secs} с"
-msgstr "Şu an: faz değişimi hamleye göre, hamle süresi {secs} s"
+msgid "Сейчас: фаза {n} полных хода, время хода {secs} с"
+msgstr "Şu an: faz {n} tam hamle, hamle süresi {secs} sn"
 
 msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
 msgstr "Şu an: otomatik değişim, 10–{max} s (geçerli faz {phase} s)"
@@ -447,14 +447,14 @@ msgstr "Zafer: mat, alınan şah ya da taşların yok edilmesi."
 msgid "Время шахмат и шашек задаётся отдельно в настройках."
 msgstr "Satranç ve dama süreleri ayarlarda ayrı ayrı belirlenir."
 
-msgid "Смена фаз: по времени или после ходов; по ходам — случайно."
-msgstr "Faz değişimi: süreye göre ya da hamlelerden sonra; hamleye göre — rastgele."
+msgid "Смена фаз: по времени или по полным ходам — по ходу на каждого."
+msgstr "Faz değişimi: süreye veya tam hamlelere göre — herkese bir hamle."
 
-msgid "В режиме по ходам внутри хода всегда одна игра, после хода фаза может смениться."
-msgstr "Hamleye göre kipinde hamle içinde her zaman tek oyun geçerlidir, hamleden sonra faz değişebilir."
+msgid "Длина фазы — 2, 3 или 4 полных хода; счётчик виден в панели, обе стороны знают срок."
+msgstr "Faz 2, 3 veya 4 tam hamle sürer; sayaç panelde ve her iki taraf da bilir."
 
-msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
-msgstr "Hamleye göre kipinde her hamlenin 10–180 s süresi vardır; süre dolunca sıra rakibe geçer."
+msgid "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы."
+msgstr "Damada şah kral gibi hareket eder ama alınabilir — onu koruyun."
 
 msgid "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры."
 msgstr "Son 5 saniyede bir taşı tuttuğunuz sürece sayaç bekler; böylece hamle oyun değişmeden tamamlanır."
@@ -1037,3 +1037,42 @@ msgstr "Oyuna devam edilemedi"
 
 msgid "Проверка обновлений не удалась"
 msgstr "Güncelleme denetimi başarısız"
+
+msgid "ДЛИНА ФАЗЫ · ПОЛНЫХ ХОДОВ"
+msgstr "FAZ SÜRESİ · TAM HAMLE"
+
+msgid "Фаза меняется после полных ходов — по ходу на каждого."
+msgstr "Faz tam hamlelerden sonra değişir — herkese bir hamle."
+
+msgid "Оба знают, сколько ходов осталось до смены природы."
+msgstr "Her iki taraf da değişime kaç hamle kaldığını bilir."
+
+msgid "Цепочка: максимум"
+msgstr "Zincir: en uzun"
+
+msgid "Цепочка: любая"
+msgstr "Zincir: serbest"
+
+msgid "Брать можно только самую длинную серию взятий."
+msgstr "Yalnızca en uzun vuruş dizisi alınabilir."
+
+msgid "Достаточно любого взятия, длина серии не важна."
+msgstr "Herhangi bir vuruş yeterli; dizi uzunluğu önemsiz."
+
+msgid "смена через {n} х."
+msgstr "değişim {n} hamlede"
+
+msgid "фаза: {n} полных хода, смена после хода каждого"
+msgstr "faz: {n} tam hamle, her hamleden sonra değişir"
+
+msgid "по ходам, фаза {n} полных хода"
+msgstr "hamleye göre, faz {n} tam hamle"
+
+msgid "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий."
+msgstr "“Zincir: en uzun” — yalnızca en uzun vuruş dizisine izin verilir."
+
+msgid "Нажмите на поле или «Играть» справа"
+msgstr "Tahtaya veya sağdaki “Oyna”ya tıklayın"
+
+msgid "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию."
+msgstr "Zorunlu vuruş şah hariç tüm pullar için geçerlidir: şah yalnızca isterse vurur."

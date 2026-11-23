@@ -336,8 +336,8 @@ msgstr "Show: yes"
 msgid "Показывать: нет"
 msgstr "Show: no"
 
-msgid "Сейчас: смена фаз по ходам, время хода {secs} с"
-msgstr "Now: phase shifts by moves, move time {secs} s"
+msgid "Сейчас: фаза {n} полных хода, время хода {secs} с"
+msgstr "Now: phase {n} full moves, move time {secs} s"
 
 msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
 msgstr "Now: auto-shift, 10–{max} s (current phase {phase} s)"
@@ -447,14 +447,14 @@ msgstr "Victory: checkmate, a captured king, or annihilation of the pieces."
 msgid "Время шахмат и шашек задаётся отдельно в настройках."
 msgstr "Chess and checkers time is set separately in settings."
 
-msgid "Смена фаз: по времени или после ходов; по ходам — случайно."
-msgstr "Phase shift: by time or after moves; by moves — random."
+msgid "Смена фаз: по времени или по полным ходам — по ходу на каждого."
+msgstr "Phase change: by time or by full moves — one move each."
 
-msgid "В режиме по ходам внутри хода всегда одна игра, после хода фаза может смениться."
-msgstr "In by-moves mode there is always one game within a move, and after the move the phase may change."
+msgid "Длина фазы — 2, 3 или 4 полных хода; счётчик виден в панели, обе стороны знают срок."
+msgstr "Phase length is 2, 3 or 4 full moves; the counter is in the panel and both sides know it."
 
-msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
-msgstr "In by-moves mode every move has a time limit of 10–180 s; when it runs out, the turn passes to the opponent."
+msgid "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы."
+msgstr "In checkers the king moves like a damka but can be captured — protect it until chess returns."
 
 msgid "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры."
 msgstr "In the last 5 seconds the timer waits while you hold a piece, so the move finishes before the game changes."
@@ -1037,3 +1037,42 @@ msgstr "Could not resume the game"
 
 msgid "Проверка обновлений не удалась"
 msgstr "Update check failed"
+
+msgid "ДЛИНА ФАЗЫ · ПОЛНЫХ ХОДОВ"
+msgstr "PHASE LENGTH · FULL MOVES"
+
+msgid "Фаза меняется после полных ходов — по ходу на каждого."
+msgstr "The phase changes after full moves — one move each."
+
+msgid "Оба знают, сколько ходов осталось до смены природы."
+msgstr "Both sides know how many moves remain before the change."
+
+msgid "Цепочка: максимум"
+msgstr "Chain: longest"
+
+msgid "Цепочка: любая"
+msgstr "Chain: any"
+
+msgid "Брать можно только самую длинную серию взятий."
+msgstr "You may only capture with the longest series."
+
+msgid "Достаточно любого взятия, длина серии не важна."
+msgstr "Any capture is enough; series length does not matter."
+
+msgid "смена через {n} х."
+msgstr "switch in {n} moves"
+
+msgid "фаза: {n} полных хода, смена после хода каждого"
+msgstr "phase: {n} full moves, switch after each side moves"
+
+msgid "по ходам, фаза {n} полных хода"
+msgstr "by moves, phase {n} full moves"
+
+msgid "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий."
+msgstr "“Chain: longest” — only the longest capture series is allowed."
+
+msgid "Нажмите на поле или «Играть» справа"
+msgstr "Click the board or press “Play” on the right"
+
+msgid "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию."
+msgstr "Mandatory capture applies to all checkers except the king: it captures only by choice."

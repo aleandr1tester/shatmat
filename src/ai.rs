@@ -1,10 +1,10 @@
 //! Компьютерный соперник: перебор вариантов с оценкой позиции.
 //!
-//! Сложность задаёт глубину поиска: легко — случайный ход, средне — 2 полухода,
-//! сложно — 3 полухода с отсечением. Оценка учитывает и шахматную, и шашечную
+//! Сложность задаёт глубину поиска: легко — случайный ход, средне — 3 полухода,
+//! сложно — 5 полуходов с отсечением. Перебор переходит через смену фаз. Оценка учитывает и шахматную, и шашечную
 //! силу фигур, потому что через несколько секунд природа фигур меняется.
 
-use crate::game::{Board, Game, Kind, Move, Phase, Side, Status};
+use crate::game::{Board, Game, Kind, Move, Phase, Piece, Side, Square, Status};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Difficulty {
@@ -34,8 +34,8 @@ impl Difficulty {
     fn depth(self) -> u8 {
         match self {
             Difficulty::Easy => 1,
-            Difficulty::Medium => 2,
-            Difficulty::Hard => 3,
+            Difficulty::Medium => 3,
+            Difficulty::Hard => 4,
         }
     }
 }
@@ -61,6 +61,7 @@ pub fn best_move(g: &Game, difficulty: Difficulty, seed: &mut u64) -> Option<Mov
         .iter()
         .copied()
         .filter(|mv| !move_leaves_king_attacked(g, *mv))
+        .filter(|mv| !exposes_king_after_flip(g, *mv))
         .collect();
     let moves = if safe.is_empty() { all_moves } else { safe };
     if difficulty == Difficulty::Easy && moves.len() > 1 {
@@ -74,7 +75,10 @@ pub fn best_move(g: &Game, difficulty: Difficulty, seed: &mut u64) -> Option<Mov
     let mut alpha = -INF;
     for mv in order(g, moves) {
         let mut child = g.clone();
+        child.trim_for_search();
         apply_auto(&mut child, mv);
+        child.settle_twilight();
+        child.trim_for_search();
         let score = -negamax(&child, depth.saturating_sub(1), -INF, -alpha, 1);
         if score > best_score + 0.001 {
             best_score = score;
@@ -110,7 +114,11 @@ fn negamax(g: &Game, depth: u8, mut alpha: f32, beta: f32, ply: u8) -> f32 {
     let mut best = -INF;
     for mv in order(g, moves) {
         let mut child = g.clone();
+        child.trim_for_search();
         apply_auto(&mut child, mv);
+        // Смена фаз доигрывается внутри перебора: предсказуемый переворот
+        // должен просчитываться, а не заставать врасплох.
+        child.settle_twilight();
         let score = -negamax(&child, depth - 1, -beta, -alpha, ply + 1);
         if score > best {
             best = score;
@@ -171,18 +179,147 @@ fn eval_white(g: &Game) -> f32 {
         Phase::Checkers => checkers * 1.6 + chess * 0.35,
     };
     if g.phase == Phase::Checkers {
-        if let Some(k) = g.king_sq(Side::White) {
-            if checker_attacked(&g.board, k, Side::Black) {
-                score -= 30.0;
+        // Король под боем — почти проигрыш, поэтому каждую фигуру, которая
+        // может его взять, считаем отдельно; перекрытые поля за королём —
+        // это реальная защита от прыжка.
+        for side in [Side::White, Side::Black] {
+            if let Some(k) = g.king_sq(side) {
+                let threats = king_capturers(&g.board, k, side.other());
+                let cover = blocked_landings(&g.board, k, side);
+                let pen = 26.0 * threats as f32 - 7.0 * cover as f32;
+                score += if side == Side::White { -pen } else { pen };
+                // Свобода короля: без пары полей отхода он легко запирается.
+                if threats == 0 {
+                    let freedom = king_steps(&g.board, k);
+                    let bonus = 1.2 * freedom as f32;
+                    score += if side == Side::White { bonus } else { -bonus };
+                }
             }
         }
-        if let Some(k) = g.king_sq(Side::Black) {
-            if checker_attacked(&g.board, k, Side::White) {
-                score += 30.0;
+    }
+    // Шахматная фаза: король неуязвим, но смена фаз вот-вот сделает его
+    // обычной шашкой. Чем ближе переворот, тем дороже стоять королём
+    // в центре чужой половины.
+    let risk = if g.phase == Phase::Chess {
+        king_risk_weight(g)
+    } else {
+        0.0
+    };
+    if risk > 0.0 {
+        for side in [Side::White, Side::Black] {
+            if let Some(k) = g.king_sq(side) {
+                let mut pen = 0.0;
+                if checker_attacked(&g.board, k, side.other()) {
+                    pen += 12.0;
+                }
+                let back = if side == Side::White { 0.0 } else { 7.0 };
+                pen += 1.5 * (k.1 as f32 - back).abs();
+                score += if side == Side::White { -pen } else { pen } * risk;
             }
         }
     }
     score
+}
+
+/// Насколько близка смена фаз для шахматной фазы: 0 — далеко, 1 — вот-вот.
+fn king_risk_weight(g: &Game) -> f32 {
+    if !g.twilight_by_moves {
+        return 0.0;
+    }
+    match g.full_moves_to_switch() {
+        0 | 1 => 1.0,
+        2 => 0.5,
+        _ => 0.25,
+    }
+}
+
+/// Окажется ли король под боем сразу после смены фаз, если сделать этот ход.
+pub(crate) fn exposes_king_after_flip(g: &Game, mv: Move) -> bool {
+    if g.phase != Phase::Chess || g.twilight_by_moves && g.full_moves_to_switch() > 1 {
+        return false;
+    }
+    let mut child = g.clone();
+    apply_auto(&mut child, mv);
+    match child.king_sq(g.turn) {
+        Some(k) => checker_attacked(&child.board, k, g.turn.other()),
+        None => false,
+    }
+}
+
+/// Сколько вражеских фигур могут съесть короля следующим ходом.
+fn king_capturers(b: &Board, target: Square, by: Side) -> usize {
+    let mut n = 0;
+    for r in 0..8 {
+        for f in 0..8 {
+            let Some(p) = b[r][f] else { continue };
+            if p.side != by {
+                continue;
+            }
+            if can_capture(b, (f as i32, r as i32), p, target) {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+/// Может ли фигура `p` с клетки `from` съесть фигуру на `target`.
+fn can_capture(b: &Board, from: (i32, i32), p: Piece, target: Square) -> bool {
+    let (tf, tr) = (target.0 as i32, target.1 as i32);
+    let (df, dr) = (tf - from.0, tr - from.1);
+    if df == 0 || df.abs() != dr.abs() {
+        return false;
+    }
+    let (sx, sy) = (df.signum(), dr.signum());
+    // ближняя к цели клетка за ней — поле приземления
+    let land = (tf + sx, tr + sy);
+    if !inb(land.0, land.1) || b[land.1 as usize][land.0 as usize].is_some() {
+        return false;
+    }
+    if p.is_damka() || p.kind == Kind::King {
+        // дамка бьёт с любого расстояния по свободной диагонали
+        let mut x = from.0 + sx;
+        let mut y = from.1 + sy;
+        while (x, y) != (tf, tr) {
+            if !inb(x, y) || b[y as usize][x as usize].is_some() {
+                return false;
+            }
+            x += sx;
+            y += sy;
+        }
+        return (x, y) == (tf, tr);
+    }
+    df.abs() == 2
+}
+
+/// Сколько полей приземления за королём уже заняты своими фигурами.
+fn blocked_landings(b: &Board, k: Square, side: Side) -> usize {
+    let mut n = 0;
+    for (df, dr) in DIAG {
+        let f = k.0 as i32 + df;
+        let r = k.1 as i32 + dr;
+        if inb(f, r) {
+            if let Some(p) = b[r as usize][f as usize] {
+                if p.side == side {
+                    n += 1;
+                }
+            }
+        }
+    }
+    n
+}
+
+/// Сколько диагональных полей вокруг короля свободно — его подвижность.
+fn king_steps(b: &Board, k: Square) -> usize {
+    let mut n = 0;
+    for (df, dr) in DIAG {
+        let f = k.0 as i32 + df;
+        let r = k.1 as i32 + dr;
+        if inb(f, r) && b[r as usize][f as usize].is_none() {
+            n += 1;
+        }
+    }
+    n
 }
 
 fn chess_value(kind: Kind) -> f32 {
@@ -378,3 +515,18 @@ mod tests {
         }
     }
 }
+
+    #[test]
+    fn ai_thinking_time_is_acceptable() {
+        for (diff, name) in [(Difficulty::Medium, "medium"), (Difficulty::Hard, "hard")] {
+            let mut g = Game::new(20.0);
+            g.set_phase_moves(3);
+            let mut seed = 0x9E37_79B9u64;
+            let start = std::time::Instant::now();
+            let _ = best_move(&g, diff, &mut seed);
+            let ms = start.elapsed().as_millis();
+            println!("{name}: {ms} ms");
+            let limit = if cfg!(debug_assertions) { 9000 } else { 2500 };
+            assert!(ms < limit, "{name} слишком долго: {ms} ms");
+        }
+    }

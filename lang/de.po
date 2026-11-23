@@ -336,8 +336,8 @@ msgstr "Anzeigen: ja"
 msgid "Показывать: нет"
 msgstr "Anzeigen: nein"
 
-msgid "Сейчас: смена фаз по ходам, время хода {secs} с"
-msgstr "Aktuell: Phasenwechsel nach Zügen, Zugzeit {secs} s"
+msgid "Сейчас: фаза {n} полных хода, время хода {secs} с"
+msgstr "Jetzt: Phase {n} volle Züge, Zugzeit {secs} s"
 
 msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
 msgstr "Aktuell: Autowechsel, 10–{max} s (aktuelle Phase {phase} s)"
@@ -447,14 +447,14 @@ msgstr "Sieg: Matt, geschlagener König oder Auslöschung der Figuren."
 msgid "Время шахмат и шашек задаётся отдельно в настройках."
 msgstr "Die Zeit für Schach und Damespiel wird getrennt in den Einstellungen festgelegt."
 
-msgid "Смена фаз: по времени или после ходов; по ходам — случайно."
-msgstr "Phasenwechsel: nach Zeit oder nach Zügen; nach Zügen zufällig."
+msgid "Смена фаз: по времени или по полным ходам — по ходу на каждого."
+msgstr "Phasenwechsel: nach Zeit oder vollen Zügen — je ein Zug."
 
-msgid "В режиме по ходам внутри хода всегда одна игра, после хода фаза может смениться."
-msgstr "Im Modus nach Zügen gilt innerhalb eines Zuges immer ein Spiel; nach dem Zug kann die Phase wechseln."
+msgid "Длина фазы — 2, 3 или 4 полных хода; счётчик виден в панели, обе стороны знают срок."
+msgstr "Phasenlänge: 2, 3 oder 4 volle Züge; der Zähler steht im Panel, beide wissen Bescheid."
 
-msgid "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику."
-msgstr "Im Modus nach Zügen hat jeder Zug 10–180 s; nach Ablauf geht der Zug an den Gegner über."
+msgid "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы."
+msgstr "Im Damespiel zieht der König wie eine Dame, kann aber geschlagen werden — schützen Sie ihn."
 
 msgid "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры."
 msgstr "In den letzten 5 Sekunden wartet der Timer, solange du eine Figur hältst, damit der Zug vor dem Spielwechsel endet."
@@ -1036,3 +1036,42 @@ msgstr "Partie konnte nicht fortgesetzt werden"
 
 msgid "Проверка обновлений не удалась"
 msgstr "Update-Prüfung fehlgeschlagen"
+
+msgid "ДЛИНА ФАЗЫ · ПОЛНЫХ ХОДОВ"
+msgstr "PHASENLÄNGE · VOLLE ZÜGE"
+
+msgid "Фаза меняется после полных ходов — по ходу на каждого."
+msgstr "Die Phase wechselt nach vollen Zügen — je ein Zug."
+
+msgid "Оба знают, сколько ходов осталось до смены природы."
+msgstr "Beide wissen, wie viele Züge bis zum Wechsel bleiben."
+
+msgid "Цепочка: максимум"
+msgstr "Kette: Maximum"
+
+msgid "Цепочка: любая"
+msgstr "Kette: beliebig"
+
+msgid "Брать можно только самую длинную серию взятий."
+msgstr "Es darf nur die längste Schlagfolge genommen werden."
+
+msgid "Достаточно любого взятия, длина серии не важна."
+msgstr "Jedes Schlagen genügt; die Länge ist beliebig."
+
+msgid "смена через {n} х."
+msgstr "Wechsel in {n} Zügen"
+
+msgid "фаза: {n} полных хода, смена после хода каждого"
+msgstr "Phase: {n} volle Züge, Wechsel nach jedem Zug"
+
+msgid "по ходам, фаза {n} полных хода"
+msgstr "nach Zügen, Phase {n} volle Züge"
+
+msgid "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий."
+msgstr "„Kette: Maximum“ — nur die längste Schlagfolge ist erlaubt."
+
+msgid "Нажмите на поле или «Играть» справа"
+msgstr "Klicken Sie auf das Brett oder „Spielen“ rechts"
+
+msgid "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию."
+msgstr "Schlagzwang gilt für alle Steine außer dem König: er schlägt nur freiwillig."

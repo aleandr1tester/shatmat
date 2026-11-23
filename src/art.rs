@@ -786,6 +786,26 @@ fn checker_mark_color(side: Side) -> Color32 {
 }
 
 /// Только корона дамки: её можно дорисовать поверх своей картинки шашки.
+/// Красное пульсирующее кольцо вокруг шашки-короля: в шашках его можно
+/// взять, и это сразу поражение — предупреждаем так же, как у дамки.
+pub fn draw_king_ring(painter: &Painter, center: Pos2, size: f32, a: f32, t: f32) {
+    let mark = Color32::from_rgb(214, 54, 54);
+    let pulse = 0.5 + 0.5 * (t * 3.4).sin();
+    painter.circle_stroke(
+        center,
+        size * (0.330 + 0.010 * pulse),
+        Stroke::new(
+            (size * 0.018).max(1.3),
+            alpha(mark, a * (0.45 + 0.40 * pulse)),
+        ),
+    );
+    painter.circle_stroke(
+        center,
+        size * (0.298 + 0.008 * pulse),
+        Stroke::new((size * 0.008).max(0.8), alpha(mark, a * (0.15 + 0.20 * pulse))),
+    );
+}
+
 pub fn draw_damka_crown(painter: &Painter, center: Pos2, size: f32, side: Side, a: f32) {
     let mark = checker_mark_color(side);
     painter.circle_stroke(

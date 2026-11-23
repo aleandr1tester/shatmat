@@ -265,6 +265,12 @@ pub struct Game {
     pub mandatory_capture: bool,
     /// true — не-пешки тоже становятся дамками; false — только пешки.
     pub crown_non_pawns: bool,
+    /// Максимальная цепочка: брать надо самую длинную серию взятий.
+    pub max_chain: bool,
+    /// Длина фазы в полных ходах (2–4) для режима «по ходам».
+    pub phase_moves: u8,
+    /// Сколько полуходов сыграно в текущей фазе.
+    pub plies_in_phase: u16,
     /// true — фаза меняется после хода случайным образом, а не по времени.
     pub twilight_by_moves: bool,
     /// Ход завершён: на следующем тике можно бросить «остаться/смениться».
@@ -342,6 +348,9 @@ impl Game {
             promotion_choice: false,
             mandatory_capture: true,
             crown_non_pawns: true,
+            max_chain: true,
+            phase_moves: 3,
+            plies_in_phase: 0,
             twilight_by_moves: true,
             move_twilight_pending: false,
             move_twilight_wait: 0.0,
@@ -422,7 +431,10 @@ impl Game {
         }
         let mut out = Vec::new();
         for mv in self.all_moves() {
-            if mv.captured.is_some() && !out.contains(&mv.from) {
+            if mv.captured.is_some()
+                && !out.contains(&mv.from)
+                && !matches!(board_at(&self.board, mv.from).map(|p| p.kind), Some(Kind::King))
+            {
                 out.push(mv.from);
             }
         }
@@ -546,11 +558,54 @@ impl Game {
         self.twilight_by_moves = on;
         self.move_twilight_pending = false;
         self.move_twilight_wait = 0.0;
+        self.plies_in_phase = 0;
         if on {
             self.move_left = self.move_time_limit;
         } else {
             self.refresh_phase_timer();
         }
+    }
+
+    /// Длина фазы в полных ходах: 2–4. Смена идёт строго после хода каждой
+    /// стороны, поэтому чётность полуходов не даёт перевеса.
+    /// Завершить ожидающие сумерки сразу, без анимации: нужно перебору,
+    /// чтобы видеть позицию уже в новой природе.
+    /// Сбросить тяжёлые для клонирования поля: журнал и снимки в переборе
+    /// не нужны, а копируются они на каждом узле.
+    pub fn trim_for_search(&mut self) {
+        self.log.clear();
+        self.snapshots.clear();
+        self.pending.clear();
+    }
+
+    pub fn settle_twilight(&mut self) {
+        if self.move_twilight_pending {
+            self.move_twilight_pending = false;
+            self.move_twilight_wait = 0.0;
+            if !self.is_over() {
+                self.trans = 1.0;
+            }
+        }
+        if self.trans > 0.0 {
+            self.trans = 0.0;
+            self.flip_phase();
+        }
+    }
+
+    pub fn set_phase_moves(&mut self, n: u8) {
+        self.phase_moves = n.clamp(2, 4);
+        self.plies_in_phase = 0;
+        self.move_twilight_pending = false;
+    }
+
+    /// Сколько полных ходов осталось до смены фаз (для интерфейса).
+    pub fn full_moves_to_switch(&self) -> u8 {
+        if !self.twilight_by_moves {
+            return 0;
+        }
+        let total = (self.phase_moves.max(1) as u16) * 2;
+        let left = total.saturating_sub(self.plies_in_phase);
+        ((left + 1) / 2) as u8
     }
 
     /// Время на один ход: 10–180 с. Текущий отсчёт подрезается под новый лимит.
@@ -563,12 +618,17 @@ impl Game {
         if self.twilight_by_moves {
             self.move_left = self.move_time_limit;
         }
-        if self.twilight_by_moves
-            && !self.is_over()
-            && self.trans == 0.0
-            && self.chain.is_none()
-            && self.pending_promotion.is_none()
+        if !self.twilight_by_moves
+            || self.is_over()
+            || self.trans > 0.0
+            || self.chain.is_some()
+            || self.pending_promotion.is_some()
         {
+            return;
+        }
+        self.plies_in_phase += 1;
+        if self.plies_in_phase >= (self.phase_moves.max(1) as u16) * 2 {
+            self.plies_in_phase = 0;
             self.move_twilight_pending = true;
             self.move_twilight_wait = MOVE_TWILIGHT_PAUSE;
         }
@@ -641,37 +701,67 @@ impl Game {
         }
         match self.phase {
             Phase::Chess => self.chess_from(sq),
-            Phase::Checkers => {
-                if !self.mandatory_capture {
-                    let mut moves = self.checker_quiet_from(sq);
-                    moves.extend(self.checker_captures_from(sq));
-                    return moves;
-                }
-                let caps = self.checker_all_captures();
-                if !caps.is_empty() {
-                    caps.into_iter().filter(|m| m.from == sq).collect()
-                } else {
-                    self.checker_quiet_from(sq)
-                }
-            }
+            Phase::Checkers => self
+                .checkers_all()
+                .into_iter()
+                .filter(|m| m.from == sq)
+                .collect(),
         }
     }
 
     pub fn all_moves(&self) -> Vec<Move> {
         match self.phase {
             Phase::Chess => self.chess_all(),
-            Phase::Checkers => {
+            Phase::Checkers => self.checkers_all(),
+        }
+    }
+
+    /// Все допустимые ходы в шашечной фазе: одно место правил, чтобы клик
+    /// и перебор ходов не расходились.
+    fn checkers_all(&self) -> Vec<Move> {
+        {
+            {
                 if let Some(c) = self.chain {
-                    return self.checker_captures_from(c);
+                    let caps = self.checker_captures_from(c);
+                    return if self.max_chain {
+                        self.only_longest(caps, c)
+                    } else {
+                        caps
+                    };
                 }
                 if !self.mandatory_capture {
                     let mut moves = self.checker_all_quiet();
                     moves.extend(self.checker_all_captures());
                     return moves;
                 }
-                let caps = self.checker_all_captures();
+                // Обязательный бой — для всех шашек, кроме короля:
+                // он бьёт только по желанию.
+                let caps: Vec<Move> = self
+                    .checker_all_captures()
+                    .into_iter()
+                    .filter(|m| {
+                        !matches!(board_at(&self.board, m.from).map(|p| p.kind), Some(Kind::King))
+                    })
+                    .collect();
                 if caps.is_empty() {
-                    self.checker_all_quiet()
+                    let mut moves = self.checker_all_quiet();
+                    // Взятия короля необязательны, но доступны.
+                    for mv in self.checker_all_captures() {
+                        if !moves
+                            .iter()
+                            .any(|m| m.from == mv.from && m.to == mv.to)
+                        {
+                            moves.push(mv);
+                        }
+                    }
+                    moves
+                } else if self.max_chain && self.longest_run_from_any() > 1 {
+                    // «Максимальная цепочка»: брать разрешено только те ходы,
+                    // которые дают самую длинную серию взятий.
+                    let need = self.longest_run_from_any();
+                    caps.into_iter()
+                        .filter(|m| 1 + run_after(&self.board, *m) == need)
+                        .collect()
                 } else {
                     caps
                 }
@@ -928,12 +1018,12 @@ impl Game {
                 // Пауза после хода: игрок видит результат до смены игры.
                 self.move_twilight_wait -= dt;
                 if self.move_twilight_wait <= 0.0 {
+                    // Фаза меняется по счёту ходов: обе стороны знают,
+                    // сколько полных ходов осталось до смены природы.
                     self.move_twilight_pending = false;
-                    if self.next_rand() < 0.5 {
-                        self.trans = 0.0001;
-                        self.selected = None;
-                        self.legal.clear();
-                    }
+                    self.trans = 0.0001;
+                    self.selected = None;
+                    self.legal.clear();
                 }
             }
             // Часы хода: по истечении ход переходит противнику.
@@ -1059,6 +1149,7 @@ impl Game {
         self.last_capture = None;
         self.move_anim = 1.0;
         self.passes = 0;
+        self.plies_in_phase = 0;
         // «Дамки: все»: при переходе в шашки дамками становятся все фигуры
         // на последнем ряду каждой стороны, а не только дошедшие ходом.
         let mut mass_crowned = false;
@@ -1247,6 +1338,9 @@ impl Game {
             None => b.push(0xFF),
             Some(s) => b.push(pack_sq(s)),
         }
+        b.push(self.max_chain as u8);
+        b.push(self.phase_moves);
+        b.extend_from_slice(&self.plies_in_phase.to_le_bytes());
         b
     }
 
@@ -1264,6 +1358,9 @@ impl Game {
         self.crown_non_pawns = st.crown_non_pawns;
         self.promotion_choice = st.promotion_choice;
         self.promotion_free = st.promotion_free;
+        self.max_chain = st.max_chain;
+        self.phase_moves = st.phase_moves;
+        self.plies_in_phase = st.plies_in_phase;
         self.passes = st.passes;
         self.royal_captured = st.royal_captured;
         self.phase_left = st.phase_left;
@@ -1502,7 +1599,8 @@ impl Game {
         };
         let (f, r) = (sq.0 as i32, sq.1 as i32);
         let mut out = Vec::new();
-        if p.is_damka() {
+        // Король в шашках — сильная фигура: бьёт как дамка.
+        if p.is_damka() || p.kind == Kind::King {
             for (dx, dy) in DIAG {
                 let (mut x, mut y) = (f + dx, r + dy);
                 while self.inb(x, y) && self.empty_i(x, y) {
@@ -1543,6 +1641,35 @@ impl Game {
         out
     }
 
+    /// Самая длинная серия взятий, доступная стороне, которая ходит.
+    fn longest_run_from_any(&self) -> usize {
+        let mut best = 0;
+        for r in 0..8 {
+            for f in 0..8 {
+                if let Some(p) = self.board[r][f] {
+                    if p.side == self.turn && p.kind != Kind::King {
+                        let run = max_capture_run(&self.board, (f, r), 0);
+                        if run > best {
+                            best = run;
+                        }
+                    }
+                }
+            }
+        }
+        best
+    }
+
+    /// Оставить только продолжения, ведущие к самой длинной серии из `from`.
+    fn only_longest(&self, caps: Vec<Move>, from: Square) -> Vec<Move> {
+        let need = max_capture_run(&self.board, from, 0);
+        if need <= 1 {
+            return caps;
+        }
+        caps.into_iter()
+            .filter(|m| 1 + run_after(&self.board, *m) == need)
+            .collect()
+    }
+
     fn checker_all_quiet(&self) -> Vec<Move> {
         let mut out = Vec::new();
         for r in 0..8 {
@@ -1564,7 +1691,8 @@ impl Game {
         };
         let (f, r) = (sq.0 as i32, sq.1 as i32);
         let mut out = Vec::new();
-        if p.is_damka() {
+        // Король в шашках ходит как дамка — у него есть мобильность и защита.
+        if p.is_damka() || p.kind == Kind::King {
             for (dx, dy) in DIAG {
                 let (mut x, mut y) = (f + dx, r + dy);
                 while self.inb(x, y) && self.empty_i(x, y) {
@@ -1781,6 +1909,103 @@ fn attacked(b: &Board, sq: Square, by: Side) -> bool {
     false
 }
 
+/// Клетка на доске (любая очередь, без проверок).
+fn board_at(b: &Board, sq: Square) -> Option<Piece> {
+    at_b(b, sq.0 as i32, sq.1 as i32)
+}
+
+fn empty_b(b: &Board, f: i32, r: i32) -> bool {
+    (0..8).contains(&f) && (0..8).contains(&r) && b[r as usize][f as usize].is_none()
+}
+
+fn inb_b(f: i32, r: i32) -> bool {
+    (0..8).contains(&f) && (0..8).contains(&r)
+}
+
+/// Взятия фигуры с клетки по доске: всё, что может взять эта фигура.
+fn captures_on(b: &Board, sq: Square) -> Vec<Move> {
+    let Some(p) = board_at(b, sq) else {
+        return Vec::new();
+    };
+    let (f, r) = (sq.0 as i32, sq.1 as i32);
+    let mut out = Vec::new();
+    if p.is_damka() || p.kind == Kind::King {
+        for (dx, dy) in DIAG {
+            let (mut x, mut y) = (f + dx, r + dy);
+            while inb_b(x, y) && empty_b(b, x, y) {
+                x += dx;
+                y += dy;
+            }
+            if !inb_b(x, y) {
+                continue;
+            }
+            let Some(v) = at_b(b, x, y) else { continue };
+            if v.side == p.side {
+                continue;
+            }
+            let (mut lx, mut ly) = (x + dx, y + dy);
+            while inb_b(lx, ly) && empty_b(b, lx, ly) {
+                push_move(&mut out, sq, (lx, ly), Some((x, y)));
+                lx += dx;
+                ly += dy;
+            }
+        }
+    } else {
+        for (dx, dy) in DIAG {
+            let (vx, vy) = (f + dx, r + dy);
+            let (lx, ly) = (f + 2 * dx, r + 2 * dy);
+            if !inb_b(lx, ly) {
+                continue;
+            }
+            if let Some(v) = at_b(b, vx, vy) {
+                if v.side != p.side && empty_b(b, lx, ly) {
+                    push_move(&mut out, sq, (lx, ly), Some((vx, vy)));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Доска после взятия этим ходом (с коронацией на последнем ряду).
+fn board_after_capture(b: &Board, mv: Move) -> Board {
+    let mut out = *b;
+    let Some(mut p) = out[mv.from.1][mv.from.0].take() else {
+        return out;
+    };
+    if let Some(cap) = mv.captured {
+        out[cap.1][cap.0] = None;
+    }
+    let last = if p.side == Side::White { 7 } else { 0 };
+    if mv.to.1 as usize == last {
+        p.crowned = true;
+    }
+    out[mv.to.1][mv.to.0] = Some(p);
+    out
+}
+
+/// Сколько ещё взятий даёт ход (без учёта самого этого взятия).
+fn run_after(b: &Board, mv: Move) -> usize {
+    let after = board_after_capture(b, mv);
+    max_capture_run(&after, mv.to, 0)
+}
+
+/// Максимальная длина серии взятий из клетки: число взятых фигур.
+fn max_capture_run(b: &Board, sq: Square, depth: u8) -> usize {
+    if depth > 12 {
+        return 0;
+    }
+    let caps = captures_on(b, sq);
+    let mut best = 0;
+    for mv in caps {
+        let run = 1 + run_after(b, mv);
+        if run > best {
+            best = run;
+        }
+    }
+    best
+}
+
 fn at_b(b: &Board, f: i32, r: i32) -> Option<Piece> {
     if (0..8).contains(&f) && (0..8).contains(&r) {
         b[r as usize][f as usize]
@@ -1838,6 +2063,9 @@ struct GameStateData {
     chain: Option<Square>,
     last_move: Option<(Square, Square)>,
     pending_promotion: Option<Square>,
+    max_chain: bool,
+    phase_moves: u8,
+    plies_in_phase: u16,
 }
 
 fn rd_u8(d: &[u8], i: &mut usize) -> Option<u8> {
@@ -1961,6 +2189,9 @@ fn parse_game_state(d: &[u8]) -> Option<GameStateData> {
         _ => return None,
     };
     let pending_promotion = opt_sq(d, &mut i)?;
+    let max_chain = *d.get(i)? != 0;
+    let phase_moves = (*d.get(i + 1)?).clamp(2, 4);
+    let plies_in_phase = u16::from_le_bytes([*d.get(i + 2)?, *d.get(i + 3)?]);
     Some(GameStateData {
         phase,
         turn,
@@ -1991,6 +2222,9 @@ fn parse_game_state(d: &[u8]) -> Option<GameStateData> {
         chain,
         last_move,
         pending_promotion,
+        max_chain,
+        phase_moves,
+        plies_in_phase,
     })
 }
 
@@ -2000,6 +2234,101 @@ mod tests {
 
     fn test_game() -> Game {
         Game::new(25.0)
+    }
+
+    #[test]
+    fn phase_switches_after_full_moves() {
+        let mut g = test_game();
+        g.set_twilight_by_moves(true);
+        g.set_phase_moves(2);
+        let phase = g.phase;
+        // Два полных хода = четыре полухода: только тогда фаза меняется.
+        for _ in 0..3 {
+            let mv = g.all_moves()[0];
+            g.apply(mv);
+        }
+        assert!(!g.move_twilight_pending, "на трёх полуходах смены нет");
+        let mv = g.all_moves()[0];
+        g.apply(mv);
+        assert_eq!(g.plies_in_phase, 0, "счётчик сбрасывается");
+        assert!(g.move_twilight_pending, "после двух полных ходов — смена");
+        assert_eq!(g.phase, phase, "фаза меняется после перехода сумерек");
+    }
+
+    #[test]
+    fn full_moves_to_switch_counts_down() {
+        let mut g = test_game();
+        g.set_twilight_by_moves(true);
+        g.set_phase_moves(3);
+        assert_eq!(g.full_moves_to_switch(), 3);
+        let mv = g.all_moves()[0];
+        g.apply(mv);
+        assert_eq!(g.full_moves_to_switch(), 3, "после своего хода ещё три");
+        let mv = g.all_moves()[0];
+        g.apply(mv);
+        assert_eq!(g.full_moves_to_switch(), 2, "после полного хода — два");
+    }
+
+    #[test]
+    fn king_moves_like_damka_in_checkers() {
+        let mut g = test_game();
+        g.phase = Phase::Checkers;
+        g.board = [[None; 8]; 8];
+        g.board[0][0] = Some(Piece::new(Side::White, Kind::King));
+        g.turn = Side::White;
+        let moves = g.moves_for((0, 0));
+        assert!(
+            moves.iter().any(|m| m.to == (3, 3)),
+            "король в шашках ходит как дамка по диагонали"
+        );
+    }
+
+    #[test]
+    fn king_is_not_forced_to_capture() {
+        let mut g = test_game();
+        g.phase = Phase::Checkers;
+        g.board = [[None; 8]; 8];
+        g.board[2][2] = Some(Piece::new(Side::White, Kind::King));
+        g.board[3][1] = Some(Piece::new(Side::Black, Kind::Pawn));
+        g.turn = Side::White;
+        g.mandatory_capture = true;
+        let moves = g.moves_for((2, 2));
+        assert!(
+            moves.iter().any(|m| m.captured.is_none()),
+            "король не обязан бить: обычный ход доступен"
+        );
+        assert!(
+            moves.iter().any(|m| m.captured.is_some()),
+            "король может бить по желанию"
+        );
+        // Обычная шашка в той же позиции обязана бить.
+        g.board[2][2] = Some(Piece::new(Side::White, Kind::Pawn));
+        let pawn_moves = g.moves_for((2, 2));
+        assert!(!pawn_moves.is_empty());
+        assert!(
+            pawn_moves.iter().all(|m| m.captured.is_some()),
+            "шашка обязана брать"
+        );
+    }
+
+    #[test]
+    fn max_chain_requires_longest_series() {
+        let mut g = test_game();
+        g.phase = Phase::Checkers;
+        g.board = [[None; 8]; 8];
+        g.board[2][2] = Some(Piece::new(Side::White, Kind::Pawn));
+        g.board[3][1] = Some(Piece::new(Side::Black, Kind::Pawn));
+        g.board[3][3] = Some(Piece::new(Side::Black, Kind::Pawn));
+        g.board[5][1] = Some(Piece::new(Side::Black, Kind::Pawn));
+        g.turn = Side::White;
+        g.mandatory_capture = true;
+        g.max_chain = false;
+        let any = g.all_moves();
+        g.max_chain = true;
+        let longest = g.all_moves();
+        assert!(any.len() >= 2, "без ограничения доступны оба взятия");
+        assert_eq!(longest.len(), 1, "с максимумом остаётся только длинная серия");
+        assert_eq!(longest[0].from, (2, 2));
     }
 
     #[test]
@@ -2641,12 +2970,19 @@ mod tests {
         g.phase_total = 10.0;
         g.tick(0.5);
         assert_eq!(g.phase_left, 10.0, "по ходам таймер не идёт");
+        // Смена фаз идёт по полным ходам: после одного полухода её ещё нет.
         let mv = g.all_moves()[0];
         g.apply(mv);
+        assert_eq!(g.plies_in_phase, 1);
         assert!(
-            g.move_twilight_pending,
-            "после хода взводится случайная смена фазы"
+            !g.move_twilight_pending,
+            "после одного полухода смена не взводится"
         );
+        while !g.move_twilight_pending {
+            let mv = g.all_moves()[0];
+            g.apply(mv);
+        }
+        assert_eq!(g.plies_in_phase, 0, "после полных ходов счётчик сброшен");
         g.phase_left = 10.0;
         g.tick(0.1);
         assert_eq!(g.phase_left, 10.0, "таймер по-прежнему не идёт");

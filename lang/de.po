@@ -1075,3 +1075,33 @@ msgstr "Klicken Sie auf das Brett oder „Spielen“ rechts"
 
 msgid "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию."
 msgstr "Schlagzwang gilt für alle Steine außer dem König: er schlägt nur freiwillig."
+
+msgid "НАБОР ФИГУР"
+msgstr "FIGURENSATZ"
+
+msgid "Встроенный"
+msgstr "Integriert"
+
+msgid "Пульсация: да"
+msgstr "Puls: an"
+
+msgid "Пульсация: нет"
+msgstr "Puls: aus"
+
+msgid "Свой набор — папка в pieces/: white_king.svg, black_king.svg и остальные фигуры"
+msgstr "Eigener Satz — Ordner in pieces/: white_king.svg, black_king.svg und weitere"
+
+msgid "Звук и журнал"
+msgstr "Ton und Journal"
+
+msgid "Оформление"
+msgstr "Darstellung"
+
+msgid "Правила партии"
+msgstr "Spielregeln"
+
+msgid "Вид"
+msgstr "Ansicht"
+
+msgid "Сеть"
+msgstr "Netzwerk"

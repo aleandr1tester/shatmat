@@ -1076,3 +1076,33 @@ msgstr "Tahtaya veya sağdaki “Oyna”ya tıklayın"
 
 msgid "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию."
 msgstr "Zorunlu vuruş şah hariç tüm pullar için geçerlidir: şah yalnızca isterse vurur."
+
+msgid "НАБОР ФИГУР"
+msgstr "TAŞ SETİ"
+
+msgid "Встроенный"
+msgstr "Yerleşik"
+
+msgid "Пульсация: да"
+msgstr "Nabız: açık"
+
+msgid "Пульсация: нет"
+msgstr "Nabız: kapalı"
+
+msgid "Свой набор — папка в pieces/: white_king.svg, black_king.svg и остальные фигуры"
+msgstr "Kendi setiniz — pieces/ içinde klasör: white_king.svg, black_king.svg vb."
+
+msgid "Звук и журнал"
+msgstr "Ses ve günlük"
+
+msgid "Оформление"
+msgstr "Görünüm"
+
+msgid "Правила партии"
+msgstr "Oyun kuralları"
+
+msgid "Вид"
+msgstr "Görünüm"
+
+msgid "Сеть"
+msgstr "Ağ"

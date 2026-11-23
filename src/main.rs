@@ -262,15 +262,19 @@ fn rasterize_svg(data: &[u8], target: u32) -> Option<(Vec<u8>, usize, usize)> {
 }
 
 /// Загружает картинку фигуры: сначала пробует `.svg` (вектор), затем `.png`.
-fn load_piece_textures(ctx: &egui::Context) -> PieceTextures {
+fn load_piece_textures(
+    ctx: &egui::Context,
+    dir: &std::path::Path,
+    tag: &str,
+    target: u32,
+) -> PieceTextures {
     let mut out = PieceTextures::empty();
-    let dir = pieces_dir();
     let load = |name: &str| -> Option<PieceArt> {
         let svg_path = dir.join(format!("{name}.svg"));
         let png_path = dir.join(format!("{name}.png"));
         let (rgba, w, h) = if svg_path.is_file() {
             let bytes = std::fs::read(&svg_path).ok()?;
-            rasterize_svg(&bytes, 512)?
+            rasterize_svg(&bytes, target)?
         } else {
             let bytes = std::fs::read(&png_path).ok()?;
             let img = image::load_from_memory(&bytes).ok()?.to_rgba8();
@@ -279,7 +283,7 @@ fn load_piece_textures(ctx: &egui::Context) -> PieceTextures {
         };
         let color = egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba);
         let color_tex = ctx.load_texture(
-            format!("piece_{name}"),
+            format!("piece_{tag}_{name}"),
             color,
             egui::TextureOptions::LINEAR,
         );
@@ -291,7 +295,7 @@ fn load_piece_textures(ctx: &egui::Context) -> PieceTextures {
         }
         let mask = egui::ColorImage::from_rgba_unmultiplied([w, h], &mask_rgba);
         let mask_tex = ctx.load_texture(
-            format!("piece_{name}_mask"),
+            format!("piece_{tag}_{name}_mask"),
             mask,
             egui::TextureOptions::LINEAR,
         );
@@ -325,6 +329,62 @@ fn load_piece_textures(ctx: &egui::Context) -> PieceTextures {
         out.royal[i] = load(&format!("{prefix}_royal"));
     }
     out
+}
+
+/// Наборы фигур: подпапки в pieces/, где есть хотя бы король.
+/// Возвращает (папка, подпись). Подпись берётся из name.txt, иначе — имя папки.
+fn available_presets() -> Vec<(String, String)> {
+    let dir = pieces_dir();
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut out: Vec<(String, String)> = Vec::new();
+    for e in entries.flatten() {
+        let path = e.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let has = path.join("white_king.svg").is_file()
+            || path.join("white_king.png").is_file();
+        if !has {
+            continue;
+        }
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            let label = std::fs::read_to_string(path.join("name.txt"))
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| name.to_string());
+            out.push((name.to_string(), label));
+        }
+    }
+    out.sort();
+    out
+}
+
+/// Выбранный набор запоминается в pieces/current.txt (пусто — встроенный).
+fn saved_preset() -> Option<String> {
+    let path = pieces_dir().join("current.txt");
+    let text = std::fs::read_to_string(path).ok()?;
+    let name = text.trim().to_string();
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
+}
+
+fn save_preset(name: Option<&str>) {
+    let path = pieces_dir().join("current.txt");
+    let _ = std::fs::write(path, name.unwrap_or(""));
+}
+
+/// Папка выбранного набора (None — сами files в pieces/ + векторный запас).
+fn preset_dir(preset: Option<&str>) -> std::path::PathBuf {
+    match preset {
+        Some(name) if !name.is_empty() => pieces_dir().join(name),
+        _ => pieces_dir(),
+    }
 }
 
 struct Layout {
@@ -403,6 +463,14 @@ pub struct App {
     settings: bool,
     settings_rect: Rect,
     piece_tex: PieceTextures,
+    /// Иконки фигур для шашек — всегда из стандартного набора,
+    /// чтобы смена пресета не меняла шахматные обозначения на шашках.
+    icon_tex: PieceTextures,
+    /// Пульсация фигур ходящей стороны (по умолчанию включена).
+    pulse_on: bool,
+    /// Выбранный набор фигур (папка в pieces/) и список доступных.
+    piece_preset: Option<String>,
+    piece_presets: Vec<(String, String)>,
     mode: Mode,
     difficulty: Difficulty,
     ai_wait: f32,
@@ -507,7 +575,16 @@ impl App {
             demo.as_deref(),
             Some("settings") | Some("settings_times") | Some("settings_auto") | Some("settings_moves")
         );
-        let piece_tex = load_piece_textures(&cc.egui_ctx);
+        let piece_presets = available_presets();
+        let piece_preset = saved_preset().filter(|n| piece_presets.iter().any(|(d, _)| d == n));
+        let piece_tex = load_piece_textures(
+            &cc.egui_ctx,
+            &preset_dir(piece_preset.as_deref()),
+            piece_preset.as_deref().unwrap_or("builtin"),
+            512,
+        );
+        // Иконки на шашках берём из корня pieces/ (стандартный набор), 128 px достаточно.
+        let icon_tex = load_piece_textures(&cc.egui_ctx, &pieces_dir(), "stdicons", 128);
         let font_faces = fonts::load();
         let font_index = 0;
         fonts::apply(&cc.egui_ctx, &font_faces, font_index);
@@ -524,6 +601,10 @@ impl App {
             settings: settings_open,
             settings_rect: Rect::NOTHING,
             piece_tex,
+            icon_tex,
+            pulse_on: true,
+            piece_preset,
+            piece_presets,
             // По умолчанию играем против компьютера; демо-сценарии
             // остаются за двумя людьми, чтобы не мешать показам.
             mode: if demo.is_some() {
@@ -1705,7 +1786,8 @@ impl App {
                             0.55,
                         );
                     }
-                    if piece.side == g.turn
+                    if self.pulse_on
+                        && piece.side == g.turn
                         && g.trans == 0.0
                         && !g.is_over()
                         && g.pending_promotion.is_none()
@@ -2222,7 +2304,7 @@ impl App {
                 if !show_icon {
                     return;
                 }
-                if let Some(ico) = self.piece_tex.get(side, kind) {
+                if let Some(ico) = self.icon_tex.get(side, kind) {
                     let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
                     let tint = if side == Side::White {
                         alpha(Color32::from_rgb(46, 34, 22), a * 0.92)
@@ -2923,7 +3005,10 @@ impl App {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(165));
         // Чуть шире, чем раньше: длинные переводы (es/de/fr/tr) в правой
         // колонке должны помещаться целиком, без обрезки.
-        let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, 660.0));
+        // Высота — по окну: с группами настроек контент стал выше,
+        // фиксированные 660 px обрезали нижние блоки.
+        let card_h = (layout.full.height() - 56.0).clamp(560.0, 930.0);
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, card_h));
         self.settings_rect = card;
         let pal = Palette::for_phase(self.game.phase);
         rr(
@@ -2980,7 +3065,7 @@ impl App {
         // левая колонка: звук и музыка
         // Колонки прокручиваются, если содержимое не влезает: сдвиг,
         // обрезка и полупрозрачный скроллбар справа — как в окне сети.
-        let bottom_limit = card.bottom() - 132.0;
+        let bottom_limit = card.bottom() - 116.0;
         let view_h = (bottom_limit - top).max(120.0);
         let max_off = (self.settings_content_h - view_h).max(0.0);
         let wheel = ui.input(|i| i.raw_scroll_delta.y);
@@ -3004,15 +3089,8 @@ impl App {
             ui.set_clip_rect(clip_area);
             let painter = &ui.painter().clone();
             let mut ly = top - off;
-        text(
-            painter,
-            Pos2::new(x, ly),
-            Align2::LEFT_TOP,
-            "ЗВУКИ",
-            9.5,
-            alpha(pal.text_dim, 0.8),
-        );
-        ly += 16.0;
+        group_title(painter, x, ly, "Звук и журнал", pal.accent);
+        ly += 17.0;
         let sound_on = sound::enabled();
         let sound_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 36.0));
         if button(
@@ -3124,6 +3202,11 @@ impl App {
         );
         ly += 20.0;
 
+        ly += 6.0;
+        divider(painter, x, ly, left_w, pal.text_dim);
+        ly += 16.0;
+        group_title(painter, x, ly, "Оформление", pal.accent);
+        ly += 16.0;
         text(
             painter,
             Pos2::new(x, ly),
@@ -3168,15 +3251,77 @@ impl App {
         ly += 20.0;
 
         // код правил: текущий код + ввод чужого кода
+        // набор фигур: встроенный + папки-пресеты из pieces/
         text(
             painter,
             Pos2::new(x, ly),
             Align2::LEFT_TOP,
-            "КОД ПРАВИЛ",
+            "НАБОР ФИГУР",
             9.0,
             alpha(pal.text_dim, 0.75),
         );
+        // Переключатель пульсации живёт в заголовке секции: одной строкой.
+        let pulse_chip = Rect::from_min_size(
+            Pos2::new(x + left_w - 116.0, ly - 6.0),
+            Vec2::new(116.0, 22.0),
+        );
+        if chip(
+            ui,
+            pulse_chip,
+            if self.pulse_on {
+                "Пульсация: да"
+            } else {
+                "Пульсация: нет"
+            },
+            self.pulse_on,
+            &pal,
+        ) {
+            self.pulse_on = !self.pulse_on;
+        }
         ly += 15.0;
+        {
+            // (папка, подпись): у встроенного папки нет.
+            let names: Vec<(Option<String>, String)> = std::iter::once((
+                None,
+                i18n::tr("Встроенный").to_string(),
+            ))
+            .chain(
+                self.piece_presets
+                    .iter()
+                    .map(|(dir, label)| (Some(dir.clone()), label.clone())),
+            )
+            .collect();
+            let chip_w = (left_w - 8.0) * 0.5;
+            for (i, name) in names.iter().enumerate() {
+                let row = (i / 2) as f32;
+                let col = (i % 2) as f32;
+                let r = Rect::from_min_size(
+                    Pos2::new(x + (chip_w + 8.0) * col, ly + 32.0 * row),
+                    Vec2::new(chip_w, 28.0),
+                );
+                let (folder, label) = name;
+                let on = self.piece_preset.as_deref() == folder.as_deref();
+                if chip(ui, r, label, on, &pal) && !on {
+                    save_preset(folder.as_deref());
+                    self.piece_preset = folder.clone();
+                    self.piece_tex = load_piece_textures(
+                        ui.ctx(),
+                        &preset_dir(folder.as_deref()),
+                        folder.as_deref().unwrap_or("builtin"),
+                        512,
+                    );
+                }
+            }
+            let rows = ((names.len() + 1) / 2) as f32;
+            ly += 32.0 * rows + 6.0;
+        }
+        ly += 6.0;
+
+        ly += 6.0;
+        divider(painter, x, ly, left_w, pal.text_dim);
+        ly += 16.0;
+        group_title(painter, x, ly, "Правила", pal.accent);
+        ly += 18.0;
         // Код правил — один блок из 4 символов: тот же, что третий блок
         // в сетевом коде приглашения (ID+ID+правила).
         let code = rulecode::encode_compact(&rulecode::Rules::from_game(&self.game));
@@ -3245,6 +3390,8 @@ impl App {
 
         // правая колонка: превращение, время фаз, плавность
         let mut ry = top - off;
+        group_title(painter, right_x, ry, "Правила партии", pal.accent);
+        ry += 17.0;
         text(
             painter,
             Pos2::new(right_x, ry),
@@ -3590,6 +3737,11 @@ impl App {
         );
         ry += 30.0;
 
+        ry += 6.0;
+        divider(painter, right_x, ry, right_w, pal.text_dim);
+        ry += 16.0;
+        group_title(painter, right_x, ry, "Вид", pal.accent);
+        ry += 16.0;
         text(
             painter,
             Pos2::new(right_x, ry),
@@ -3679,16 +3831,9 @@ impl App {
         // сеть: режим «по сети» скрыт, пока не включён здесь. Блок живёт
         // в правой колонке: места больше, подсказка читается целиком.
         divider(painter, right_x, ry, right_w, pal.text_dim);
-        ry += 20.0;
-        text(
-            painter,
-            Pos2::new(right_x, ry),
-            Align2::LEFT_TOP,
-            "СЕТЕВАЯ ИГРА",
-            9.0,
-            alpha(pal.text_dim, 0.75),
-        );
-        ry += 17.0;
+        ry += 16.0;
+        group_title(painter, right_x, ry, "Сеть", pal.accent);
+        ry += 18.0;
         let net_btn = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(right_w, 40.0));
         let net_label = if self.net_enabled {
             "Сетевая игра: включена"
@@ -6070,6 +6215,18 @@ fn radial(painter: &egui::Painter, center: Pos2, radius: f32, color: Color32, st
         let a = strength * (1.0 - t) * 0.45;
         painter.circle_filled(center, r, alpha(color, a));
     }
+}
+
+/// Мелкий заголовок группы настроек: разрядка и приглушённый акцент.
+fn group_title(painter: &egui::Painter, x: f32, y: f32, text: &str, c: Color32) {
+    let s = crate::i18n::tr_owned(text.to_string()).to_uppercase();
+    painter.text(
+        Pos2::new(x, y),
+        Align2::LEFT_TOP,
+        s,
+        FontId::proportional(8.5),
+        alpha(c, 0.62),
+    );
 }
 
 fn divider(painter: &egui::Painter, x: f32, y: f32, w: f32, c: Color32) {

@@ -1076,3 +1076,33 @@ msgstr "Click the board or press “Play” on the right"
 
 msgid "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию."
 msgstr "Mandatory capture applies to all checkers except the king: it captures only by choice."
+
+msgid "НАБОР ФИГУР"
+msgstr "PIECE SET"
+
+msgid "Встроенный"
+msgstr "Built-in"
+
+msgid "Пульсация: да"
+msgstr "Pulse: on"
+
+msgid "Пульсация: нет"
+msgstr "Pulse: off"
+
+msgid "Свой набор — папка в pieces/: white_king.svg, black_king.svg и остальные фигуры"
+msgstr "Own set — a folder in pieces/: white_king.svg, black_king.svg and the rest"
+
+msgid "Звук и журнал"
+msgstr "Sound and journal"
+
+msgid "Оформление"
+msgstr "Appearance"
+
+msgid "Правила партии"
+msgstr "Game rules"
+
+msgid "Вид"
+msgstr "View"
+
+msgid "Сеть"
+msgstr "Network"

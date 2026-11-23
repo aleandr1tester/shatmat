@@ -1,34 +1,43 @@
-Piece images for ModeShift: Bipolar.
+Piece images for ShatMat.
 
-You can replace ALL pieces: chess pieces, checkers, queens (damka) and the
-royal pawn. PNG and SVG (vector) are supported. If both .svg and .png with the
-same name exist, the game uses .svg — it stays crisp at any size.
+WHAT IS HERE
+  white_pawn.svg ... black_king.svg  — built-in set (shown as "Built-in")
+  frog/                              — the "Frogs" preset
+  current.txt                        — selected set (written by the game)
+  README.txt / README.en.txt         — this file
 
-Chess pieces (6 per colour):
-  white_pawn.png    white_knight.png    white_bishop.png
-  white_rook.png    white_queen.png     white_king.png
-  black_pawn.png    black_knight.png    black_bishop.png
-  black_rook.png    black_queen.png     black_king.png
-The same names can be used with .svg: white_pawn.svg, etc.
+SETS (PRESETS)
+A set is a folder inside pieces/. The game finds every subfolder containing
+white_king.svg or white_king.png and lists it in Settings -> "PIECE SET".
+The folder name is the set name; for a nicer label put name.txt inside
+the folder with a single line, e.g.:
+  name.txt:  Frogs
 
-Checkers:
-  white_checker.png / black_checker.png   — simple checker
-  white_damka.png   / black_damka.png     — queen (optional)
-  white_royal.png   / black_royal.png     — royal pawn (optional)
-Or the same names as .svg.
+The choice is stored in pieces/current.txt (empty = built-in set).
 
-If there is no queen image, the game draws a crown on top of the simple
-checker; if there is no royal pawn image, it draws a dot. So you can replace
-only the checkers and keep the drawn crowns.
+FILE NAMES INSIDE A SET (exactly these)
+Chess, 12 files:
+  white_pawn   white_knight   white_bishop   white_rook   white_queen   white_king
+  black_pawn   black_knight   black_bishop   black_rook   black_queen   black_king
+Checkers, 6 optional:
+  white_checker / black_checker   — plain checker
+  white_damka   / black_damka     — damka (king checker)
+  white_royal   / black_royal     — pawn-king
+Extension: .svg (preferred, vector) or .png.
 
-PNG requirements: RGBA, transparent background, no square, text or watermarks.
-Size — a 512×512 square (256×256 is fine), the piece centred, height about
-85–90% of the canvas, the bottom of the piece on one line. No shadow is
-needed: the game draws its own. White — light with a dark outline, black —
-dark with a light outline.
+Missing files fall back to the built-in art. If a set has no checkers of its
+own, checkers show the standard chess silhouettes: the nature icon does not
+depend on the selected set.
 
-SVG requirements: a normal SVG with a viewBox, no external links. The vector
-scales automatically.
+IMAGE REQUIREMENTS
+  PNG: RGBA, transparent background, no square/board, no text or watermarks,
+       square 512x512 (256 minimum), piece centered, same baseline for all.
+  SVG: a plain SVG with viewBox, no external links, no embedded rasters.
+  Height: regular pieces ~84% of the canvas, pawn ~70% (it must be smaller),
+  bottom of the piece at about 94% of the canvas height.
+  Light art for white pieces, dark art for black ones: files are not recolored.
+  No shadow needed: the game draws its own pulse.
 
-Put the files in the pieces folder next to shatmat.exe.
-After adding or replacing files, restart the game.
+The pulse of the side to move can be turned off in Settings: "Pulse: off".
+Files go into the pieces folder next to shatmat.exe. A new set appears in
+Settings right away; the selected set is applied on the next launch.

@@ -1076,3 +1076,33 @@ msgstr "Cliquez sur le plateau ou sur « Jouer » à droite"
 
 msgid "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию."
 msgstr "La prise obligatoire vaut pour toutes les pièces sauf le roi : il ne prend que par choix."
+
+msgid "НАБОР ФИГУР"
+msgstr "JEU DE PIÈCES"
+
+msgid "Встроенный"
+msgstr "Intégré"
+
+msgid "Пульсация: да"
+msgstr "Pulsation : oui"
+
+msgid "Пульсация: нет"
+msgstr "Pulsation : non"
+
+msgid "Свой набор — папка в pieces/: white_king.svg, black_king.svg и остальные фигуры"
+msgstr "Jeu perso — dossier dans pieces/ : white_king.svg, black_king.svg, etc."
+
+msgid "Звук и журнал"
+msgstr "Son et journal"
+
+msgid "Оформление"
+msgstr "Apparence"
+
+msgid "Правила партии"
+msgstr "Règles de la partie"
+
+msgid "Вид"
+msgstr "Vue"
+
+msgid "Сеть"
+msgstr "Réseau"

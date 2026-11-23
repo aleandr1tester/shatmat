@@ -1075,3 +1075,33 @@ msgstr "Pulse el tablero o «Jugar» a la derecha"
 
 msgid "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию."
 msgstr "La captura obligatoria rige para todas las damas menos el rey: él captura solo si quiere."
+
+msgid "НАБОР ФИГУР"
+msgstr "JUEGO DE PIEZAS"
+
+msgid "Встроенный"
+msgstr "Integrado"
+
+msgid "Пульсация: да"
+msgstr "Pulso: sí"
+
+msgid "Пульсация: нет"
+msgstr "Pulso: no"
+
+msgid "Свой набор — папка в pieces/: white_king.svg, black_king.svg и остальные фигуры"
+msgstr "Juego propio: carpeta en pieces/: white_king.svg, black_king.svg y el resto"
+
+msgid "Звук и журнал"
+msgstr "Sonido y registro"
+
+msgid "Оформление"
+msgstr "Apariencia"
+
+msgid "Правила партии"
+msgstr "Reglas de la partida"
+
+msgid "Вид"
+msgstr "Vista"
+
+msgid "Сеть"
+msgstr "Red"

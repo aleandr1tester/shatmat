@@ -4745,11 +4745,14 @@ impl App {
         let cur = blend(pal, next, smooth(self.game.trans));
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(175));
 
-        // Единый ритм окна: заголовок секции 16, поле 30, зазор 14.
+        // Единый ритм окна: поле 22 по кругу, заголовок 26, зазор 12,
+        // внизу справа текстовая кнопка «Закрыть» (как «Понятно» в правилах).
         // Высота карточки подгоняется под содержимое, лишних пустот нет;
         // если содержимое не влезает — справа полупрозрачный скроллбар.
         let pad = 22.0;
-        let title_h = 40.0;
+        let title_h = 26.0;
+        let gap = 12.0;
+        let btn_h = 38.0;
         let card_w = 560.0;
         let session = self.net_active();
         let Some(net) = self.net.as_ref() else {
@@ -4770,6 +4773,13 @@ impl App {
                 13.0,
                 cur.text_dim,
             );
+            let close = Rect::from_min_size(
+                Pos2::new(card.right() - pad - 150.0, card.bottom() - pad - btn_h),
+                Vec2::new(150.0, btn_h),
+            );
+            if button(ui, close, "Закрыть", false, &cur, 13.5) {
+                self.net_window = false;
+            }
             return;
         };
         let id = net.my_id();
@@ -4777,7 +4787,7 @@ impl App {
         let peers = net.peers();
         let peers_n = peers.len().min(5);
         let content_h = if session {
-            26.0 + 28.0 + 20.0 + 160.0 + 42.0 + 42.0 + 4.0
+            26.0 + 28.0 + 20.0 + 160.0 + 42.0 + 42.0
         } else {
             let mut h = 16.0 + 44.0 + 16.0 + 74.0 + 16.0;
             if peers_n == 0 {
@@ -4785,13 +4795,13 @@ impl App {
             } else {
                 h += peers_n as f32 * 36.0 + 8.0;
             }
-            h += 16.0 + 42.0 + if self.net_status.is_empty() { 0.0 } else { 20.0 } + 4.0;
+            h += 16.0 + 42.0 + if self.net_status.is_empty() { 0.0 } else { 20.0 };
             h
         };
-        let view_max = (layout.full.height() - 150.0).max(220.0);
+        let view_max = (layout.full.height() - 200.0).max(200.0);
         let view_h = content_h.min(view_max);
         let max_off = (content_h - view_h).max(0.0);
-        let card_h = title_h + 8.0 + view_h + 14.0;
+        let card_h = pad + title_h + gap + view_h + gap + btn_h + pad;
         let half = card_h * 0.5;
         let mut cy = layout.board.center().y;
         let lo = layout.full.top() + 20.0 + half;
@@ -4812,23 +4822,24 @@ impl App {
         );
         text(
             painter,
-            Pos2::new(card.left() + pad, card.top() + 10.0),
+            Pos2::new(card.left() + pad, card.top() + pad - 2.0),
             Align2::LEFT_TOP,
             "СЕТЕВАЯ ИГРА",
             15.0,
             cur.accent,
         );
+        // Закрытие — текстовой кнопкой внизу справа, как «Понятно» в правилах.
         let close = Rect::from_min_size(
-            Pos2::new(card.right() - pad - 30.0, card.top() + 5.0),
-            Vec2::new(30.0, 30.0),
+            Pos2::new(card.right() - pad - 150.0, card.bottom() - pad - btn_h),
+            Vec2::new(150.0, btn_h),
         );
-        if button(ui, close, "×", false, &cur, 15.0) {
+        if button(ui, close, "Закрыть", false, &cur, 13.5) {
             self.net_window = false;
         }
 
         let inner = Rect::from_min_max(
-            Pos2::new(card.left() + pad, card.top() + title_h),
-            Pos2::new(card.right() - pad, card.bottom() - 14.0),
+            Pos2::new(card.left() + pad, card.top() + pad + title_h + gap),
+            Pos2::new(card.right() - pad, card.bottom() - pad - btn_h - gap),
         );
         let sb_w = if max_off > 0.5 { 12.0 } else { 0.0 };
         let view = Rect::from_min_max(

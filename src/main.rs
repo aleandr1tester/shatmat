@@ -3426,14 +3426,19 @@ impl App {
                 ly += line_h;
             }
         } else if max_lines > 0 {
-            text_fit(
-                painter,
-                Pos2::new(x, log_top),
-                "пока тихо — сделайте первый ход",
-                w,
-                12.5,
-                alpha(cur.text_dim, 0.78),
-            );
+            // Подсказки не рисуем, если под них нет места: раскрытая сводка
+            // правил съедает высоту журнала, и строки наезжали друг на друга.
+            let hint_h = 17.0;
+            if log_top + hint_h <= log_bottom {
+                text_fit(
+                    painter,
+                    Pos2::new(x, log_top),
+                    "пока тихо — сделайте первый ход",
+                    w,
+                    12.5,
+                    alpha(cur.text_dim, 0.78),
+                );
+            }
             let tip = i18n::tr_owned(
                 "Совет: в шашечной фазе король превращается в дамку — съешьте его и победите."
                     .to_string(),
@@ -3444,8 +3449,10 @@ impl App {
                 alpha(cur.text_dim, 0.72),
                 w,
             );
-            let advice_y = (log_top + 30.0).min(log_bottom - galley.size().y - 4.0);
-            painter.galley(Pos2::new(x, advice_y), galley, Color32::WHITE);
+            let tip_y = log_top + hint_h + 6.0;
+            if tip_y + galley.size().y <= log_bottom {
+                painter.galley(Pos2::new(x, tip_y), galley, Color32::WHITE);
+            }
         }
 
         // Предварительные настройки игры: компактная карточка с единым

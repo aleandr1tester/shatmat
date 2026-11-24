@@ -69,7 +69,13 @@ pub fn best_move(g: &Game, difficulty: Difficulty, seed: &mut u64) -> Option<Mov
         return Some(moves[i]);
     }
 
-    let depth = difficulty.depth();
+    // В шашечной фазе ветвление меньше — смотрим на полуход глубже, иначе
+    // серии взятий остаются вне горизонта поиска.
+    let depth = if g.phase == Phase::Checkers {
+        difficulty.depth() + 1
+    } else {
+        difficulty.depth()
+    };
     let mut best = moves[0];
     let mut best_score = -INF;
     let mut alpha = -INF;
@@ -79,7 +85,13 @@ pub fn best_move(g: &Game, difficulty: Difficulty, seed: &mut u64) -> Option<Mov
         apply_auto(&mut child, mv);
         child.settle_twilight();
         child.trim_for_search();
-        let score = -negamax(&child, depth.saturating_sub(1), -INF, -alpha, 1);
+        // Серия взятий: ход остался у того же игрока. Знак не переворачиваем,
+        // иначе цепочка соперника выглядит как наш выигрыш.
+        let score = if child.turn == g.turn {
+            negamax(&child, depth, -INF, INF, 1)
+        } else {
+            -negamax(&child, depth.saturating_sub(1), -INF, -alpha, 1)
+        };
         if score > best_score + 0.001 {
             best_score = score;
             best = mv;
@@ -121,7 +133,13 @@ fn negamax(g: &Game, depth: u8, mut alpha: f32, beta: f32, ply: u8) -> f32 {
         // Смена фаз доигрывается внутри перебора: предсказуемый переворот
         // должен просчитываться, а не заставать врасплох.
         child.settle_twilight();
-        let score = -negamax(&child, depth - 1, -beta, -alpha, ply + 1);
+        // Серия взятий идёт без смены стороны: глубина не тратится,
+        // знак не меняется.
+        let score = if child.turn == g.turn {
+            negamax(&child, depth, alpha, beta, ply + 1)
+        } else {
+            -negamax(&child, depth - 1, -beta, -alpha, ply + 1)
+        };
         if score > best {
             best = score;
         }
@@ -495,6 +513,89 @@ mod tests {
         g.turn = Side::Black;
         let mv = best_move(&g, Difficulty::Medium, &mut seed()).expect("есть ходы");
         assert_eq!(mv.captured, Some((4, 2)), "ИИ должен съесть короля");
+    }
+
+    fn sqn(name: &str) -> Square {
+        let b = name.as_bytes();
+        ((b[0] - b'a') as usize, (b[1] - b'1') as usize)
+    }
+
+    /// Проигрывает партию по записанным ходам (для регрессий по логам).
+    fn replay(moves: &[(Side, Phase, &str, &str)]) -> Game {
+        let mut g = Game::new(20.0);
+        for (side, phase, from, to) in moves {
+            g.phase = *phase;
+            g.turn = *side;
+            let (f, t) = (sqn(from), sqn(to));
+            let mv = g
+                .all_moves()
+                .into_iter()
+                .find(|m| m.from == f && m.to == t)
+                .unwrap_or_else(|| panic!("нет хода {from}->{to}"));
+            apply_auto(&mut g, mv);
+        }
+        g
+    }
+
+    /// Регрессия по партии 11:54: чёрные сыграли f6-g5, и белая шашка
+    /// цепочкой h4xf6, f6xe7 (король), f6xd8 забрала короля. Поиск не
+    /// учитывал серию (ход в цепочке не переходит к сопернику), поэтому
+    /// ИИ считал такой размен выгодным для себя.
+    #[test]
+    fn checkers_ai_does_not_let_king_be_chained() {
+        use Phase::{Checkers as C, Chess as H};
+        let mut g = replay(&[
+            (Side::White, H, "h2", "h4"),
+            (Side::Black, H, "e7", "e5"),
+            (Side::White, H, "d2", "d3"),
+            (Side::Black, H, "d8", "f6"),
+            (Side::White, H, "b2", "b3"),
+            (Side::Black, H, "e8", "e7"),
+            (Side::White, H, "a2", "a4"),
+        ]);
+        g.phase = C;
+        g.turn = Side::Black;
+        let mv = best_move(&g, Difficulty::Medium, &mut seed()).expect("ходы есть");
+        assert_ne!(
+            (mv.from, mv.to),
+            (sqn("f6"), sqn("g5")),
+            "нельзя подставлять короля под цепочку"
+        );
+    }
+
+    /// Регрессия по партии 11:54: d6-e5 → d4xf6 → f6xe7 (король) → f6xd8.
+    #[test]
+    fn checkers_ai_does_not_give_king_to_chain_second_position() {
+        use Phase::{Checkers as C, Chess as H};
+        let mut g = replay(&[
+            (Side::White, H, "h2", "h4"),
+            (Side::Black, H, "e7", "e5"),
+            (Side::White, H, "b2", "b4"),
+            (Side::Black, H, "e8", "e7"),
+            (Side::White, H, "f2", "f3"),
+            (Side::Black, H, "e5", "e4"),
+            (Side::White, H, "b1", "c3"),
+            (Side::Black, C, "c7", "d6"),
+            (Side::White, C, "f3", "d5"),
+            (Side::Black, C, "b7", "c6"),
+            (Side::White, C, "d5", "b7"),
+            (Side::Black, C, "a8", "c6"),
+            (Side::White, C, "e2", "f3"),
+            (Side::Black, H, "e7", "e8"),
+            (Side::White, H, "g1", "h3"),
+            (Side::Black, H, "d8", "h4"),
+            (Side::White, H, "e1", "e2"),
+            (Side::Black, H, "e8", "e7"),
+            (Side::White, H, "d2", "d4"),
+        ]);
+        g.phase = C;
+        g.turn = Side::Black;
+        let mv = best_move(&g, Difficulty::Medium, &mut seed()).expect("ходы есть");
+        assert_ne!(
+            (mv.from, mv.to),
+            (sqn("d6"), sqn("e5")),
+            "нельзя подставлять короля под цепочку"
+        );
     }
 
     #[test]

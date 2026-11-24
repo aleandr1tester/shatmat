@@ -1139,3 +1139,6 @@ msgstr "Un roi menacé prend comme toute autre pièce, sans exception."
 
 msgid "Король уходит от боя: {value}"
 msgstr "Le roi peut fuir la prise : {value}"
+
+msgid "Демонстрация: компьютер играет сам с собой"
+msgstr "Démo : l’ordinateur joue contre lui-même"

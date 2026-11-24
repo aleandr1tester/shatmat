@@ -1139,3 +1139,6 @@ msgstr "Tehdit altındaki şah herkes gibi vurur — istisnasız."
 
 msgid "Король уходит от боя: {value}"
 msgstr "Şah vuruştan kaçabilir: {value}"
+
+msgid "Демонстрация: компьютер играет сам с собой"
+msgstr "Gösterim: bilgisayar kendine karşı oynuyor"

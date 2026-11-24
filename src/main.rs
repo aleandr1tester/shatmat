@@ -228,6 +228,46 @@ fn kind_file(kind: Kind) -> &'static str {
     }
 }
 
+/// Демонстрационная партия: компьютер играет сам с собой на стартовом экране.
+fn lobby_demo_game() -> Game {
+    let mut g = Game::new(20.0);
+    g.set_twilight_by_moves(true);
+    g.set_phase_moves(3);
+    g.mandatory_capture = true;
+    g.crown_non_pawns = true;
+    g.max_chain = true;
+    g.king_escape = true;
+    g.promotion_choice = false;
+    g
+}
+
+/// Случайное зерно: каждая демонстрация складывается по-своему.
+fn lobby_demo_seed() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0x9E37_79B9_7F4A_7C15)
+}
+
+/// Позиция «в разгаре» для снимка стартового экрана: несколько ходов подряд.
+fn lobby_demo_preset(plies: usize) -> Game {
+    let mut g = lobby_demo_game();
+    let mut seed = 0x1234_5678_9ABC_DEF0u64;
+    for _ in 0..plies {
+        let moves = g.all_moves();
+        if moves.is_empty() || g.is_over() {
+            break;
+        }
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let i = ((seed >> 33) as usize) % moves.len();
+        g.apply(moves[i]);
+        g.settle_twilight();
+    }
+    g
+}
+
 fn pieces_dir() -> PathBuf {
     if let Some(dir) = std::env::current_exe()
         .ok()
@@ -698,6 +738,12 @@ pub struct App {
     ai_preview_phase: Option<Phase>,
     /// true — сумерки уже были: компьютер ждёт не меньше 3 с перед ходом.
     ai_after_twilight: bool,
+    /// Демонстрационная партия ИИ против ИИ на стартовом экране.
+    demo: Game,
+    demo_seed: u64,
+    demo_wait: f32,
+    demo_rx: Option<std::sync::mpsc::Receiver<Option<Move>>>,
+    demo_end_pause: f32,
     shot: Option<Shot>,
     frames: u32,
     twilight_sounded: bool,
@@ -860,6 +906,15 @@ impl App {
             ai_preview: None,
             ai_preview_phase: None,
             ai_after_twilight: false,
+            demo: if demo.as_deref() == Some("lobby") {
+                lobby_demo_preset(16)
+            } else {
+                lobby_demo_game()
+            },
+            demo_seed: lobby_demo_seed(),
+            demo_wait: 0.7,
+            demo_rx: None,
+            demo_end_pause: 0.0,
             shot: shot.map(|path| Shot {
                 path,
                 requested: false,
@@ -892,7 +947,7 @@ impl App {
             guide_demo: None,
             guide_checkers: false,
             guide_damka: false,
-            started: demo.is_some(),
+            started: demo.is_some() && demo.as_deref() != Some("lobby"),
             // --- Сеть ---
             // Снимок окна сети требует живого сокета: в демо поднимаем сразу.
     net: if demo.as_deref() == Some("net") {
@@ -1161,6 +1216,64 @@ impl App {
             sound::capture();
         } else if self.game.last_move != mark.last_move {
             sound::piece_move();
+        }
+    }
+
+    /// Демонстрация на стартовом экране: ИИ играет сам с собой, без звука.
+    /// Мусор не считаем, пока окно не активно или открыт диалог.
+    fn update_demo(&mut self, dt: f32, ctx: &egui::Context) {
+        if self.started || self.review || self.guide {
+            return;
+        }
+        if self.settings || self.rules || self.net_window || self.journal {
+            return;
+        }
+        if !ctx.input(|i| i.focused) && self.shot.is_none() {
+            return;
+        }
+        self.demo.tick(dt);
+        if self.demo.is_over() {
+            self.demo_end_pause += dt;
+            if self.demo_end_pause > 2.2 {
+                self.demo = lobby_demo_game();
+                self.demo_seed = lobby_demo_seed();
+                self.demo_wait = 0.5;
+                self.demo_rx = None;
+                self.demo_end_pause = 0.0;
+            }
+            return;
+        }
+        if let Some(rx) = self.demo_rx.take() {
+            match rx.try_recv() {
+                Ok(mv) => {
+                    if let Some(mv) = mv {
+                        self.demo.apply(mv);
+                    }
+                    self.demo_wait = 1.1;
+                    self.demo_end_pause = 0.0;
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    self.demo_rx = Some(rx);
+                }
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    self.demo_wait = 0.4;
+                }
+            }
+        }
+        self.demo_wait -= dt;
+        if self.demo_wait <= 0.0 && !self.demo.is_locked() && self.demo_rx.is_none() {
+            let mut g = self.demo.clone();
+            g.trim_for_search();
+            let mut seed = self.demo_seed;
+            self.demo_seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            let (tx, rx) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let mv = ai::best_move(&g, Difficulty::Medium, &mut seed);
+                let _ = tx.send(mv);
+            });
+            self.demo_rx = Some(rx);
         }
     }
 
@@ -1744,10 +1857,15 @@ impl App {
     // ------------------------- фон -------------------------
 
     fn paint_background(&self, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
-        let phase = self.game.phase;
+        // Фон подстраивается под то, что на доске: до старта — под демонстрацию.
+        let (phase, trans) = if self.started {
+            (self.game.phase, self.game.trans)
+        } else {
+            (self.demo.phase, self.demo.trans)
+        };
         let pal = Palette::for_phase(phase);
         let next = Palette::for_phase(phase.other());
-        let m = smooth(self.game.trans);
+        let m = smooth(trans);
         let mixed = blend(pal, next, m * 0.7);
 
         gradient(painter, layout.full, mixed.bg_top, mixed.bg_bottom);
@@ -1856,7 +1974,8 @@ impl App {
     }
 
     fn paint_board(&mut self, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
-        let g = &self.game;
+        // До старта на доске идёт демонстрационная партия ИИ против ИИ.
+        let g = if self.started { &self.game } else { &self.demo };
         let phase = g.phase;
         let pal = Palette::for_phase(phase);
         let next = Palette::for_phase(phase.other());
@@ -2613,12 +2732,12 @@ impl App {
         frost.rect_filled(
             b,
             10.0,
-            Color32::from_rgba_unmultiplied(8, 10, 18, 208),
+            Color32::from_rgba_unmultiplied(8, 10, 18, 116),
         );
         frost.rect_filled(
             b,
             10.0,
-            Color32::from_rgba_unmultiplied(16, 18, 30, 34),
+            Color32::from_rgba_unmultiplied(16, 18, 30, 18),
         );
         radial(
             &frost,
@@ -2645,13 +2764,13 @@ impl App {
         painter.rect_filled(
             label.translate(Vec2::new(0.0, 10.0)),
             20.0,
-            Color32::from_black_alpha(120),
+            Color32::from_black_alpha(80),
         );
         rr(
             painter,
             label,
             20.0,
-            Color32::from_rgba_unmultiplied(6, 7, 12, 234),
+            Color32::from_rgba_unmultiplied(6, 7, 12, 186),
             Stroke::new(1.0_f32, Color32::from_white_alpha(58)),
         );
         painter.text(
@@ -2662,11 +2781,18 @@ impl App {
             Color32::from_rgb(246, 243, 252),
         );
         painter.text(
-            label.center() + Vec2::new(0.0, 20.0),
+            label.center() + Vec2::new(0.0, 18.0),
             Align2::CENTER_CENTER,
             i18n::tr("Нажмите на поле или «Играть» справа"),
             FontId::proportional(11.5),
             Color32::from_rgb(210, 206, 226),
+        );
+        painter.text(
+            label.center() + Vec2::new(0.0, 40.0),
+            Align2::CENTER_CENTER,
+            i18n::tr("Демонстрация: компьютер играет сам с собой"),
+            FontId::proportional(10.5),
+            Color32::from_rgb(158, 156, 178),
         );
     }
 
@@ -6112,6 +6238,7 @@ impl eframe::App for App {
         } else {
             self.replay = 0.0;
         }
+        self.update_demo(dt, ctx);
         self.update_ai(dt);
         if self.game.is_over() && !self.log_written {
             self.finalize_log("");

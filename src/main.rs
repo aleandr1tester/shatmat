@@ -3312,17 +3312,22 @@ impl App {
             Vec2::new(half, 36.0),
         );
         let chips_y = row_y - 30.0 - 30.0;
+        // Карточка смены фаз: поля совпадают с общими отступами панели,
+        // высота с запасом снизу — последняя строка не липнет к краю.
+        let setup_pad = 12.0;
+        let setup_w = w - setup_pad * 2.0;
+        let setup_top = chips_y - 38.0;
         let chips = [
             (10.0, "10 с"),
             (15.0, "15 с"),
             (20.0, "20 с"),
             (40.0, "40 с"),
         ];
-        let chip_w = (w - 24.0) / 4.0;
+        let chip_w = (setup_w - 24.0) / 4.0;
         let mut chip_rects = Vec::new();
         for (i, _) in chips.iter().enumerate() {
             chip_rects.push(Rect::from_min_size(
-                Pos2::new(x + i as f32 * (chip_w + 8.0), chips_y),
+                Pos2::new(x + setup_pad + i as f32 * (chip_w + 8.0), setup_top + 30.0),
                 Vec2::new(chip_w, 36.0),
             ));
         }
@@ -3375,8 +3380,8 @@ impl App {
         // Предварительные настройки игры: компактная карточка с единым
         // стилем, чтобы блок читался так же, как остальные строки панели.
         let setup_bg = Rect::from_min_size(
-            Pos2::new(x - 10.0, chips_y - 24.0),
-            Vec2::new(w + 20.0, 74.0),
+            Pos2::new(x, setup_top),
+            Vec2::new(w, 88.0),
         );
         rr(
             painter,
@@ -3387,7 +3392,7 @@ impl App {
         );
         text(
             painter,
-            Pos2::new(x, chips_y - 18.0),
+            Pos2::new(x + setup_pad, setup_top + 12.0),
             Align2::LEFT_TOP,
             if g.twilight_by_moves {
                 "СМЕНА ФАЗ"
@@ -3403,46 +3408,46 @@ impl App {
             let left = g.full_moves_to_switch();
             text_fit(
                 painter,
-                Pos2::new(x, chips_y),
+                Pos2::new(x + setup_pad, setup_top + 30.0),
                 &i18n::trf("смена через {n} х.", &[("n", &left.to_string())]),
-                w,
+                setup_w,
                 12.5,
                 cur.accent,
             );
             text_fit(
                 painter,
-                Pos2::new(x, chips_y + 19.0),
+                Pos2::new(x + setup_pad, setup_top + 48.0),
                 &i18n::trf(
                     "фаза: {n} полных хода, смена после хода каждого",
                     &[("n", &g.phase_moves.to_string())],
                 ),
-                w,
+                setup_w,
                 11.0,
                 alpha(cur.text_dim, 0.85),
             );
         } else if g.auto_phase {
             text_fit(
                 painter,
-                Pos2::new(x, chips_y),
+                Pos2::new(x + setup_pad, setup_top + 30.0),
                 &i18n::trf("Случайно: 10–{max} с", &[("max", &format!("{:.0}", g.auto_max))]),
-                w,
+                setup_w,
                 12.5,
                 cur.accent,
             );
             text_fit(
                 painter,
-                Pos2::new(x, chips_y + 19.0),
+                Pos2::new(x + setup_pad, setup_top + 48.0),
                 "Следующий интервал будет другим",
-                w,
+                setup_w,
                 11.0,
                 alpha(cur.text_dim, 0.85),
             );
         }
         text_fit(
             painter,
-            Pos2::new(x, chips_y + 35.0),
+            Pos2::new(x + setup_pad, setup_top + 68.0),
             "клик — ход · Space — пауза · R — новая партия · H — правила",
-            w,
+            setup_w,
             10.5,
             alpha(cur.text_dim, 0.85),
         );

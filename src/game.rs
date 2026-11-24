@@ -435,6 +435,32 @@ impl Game {
         }
     }
 
+    /// Может ли сторона, чей сейчас ход, съесть чужого короля (в шашках).
+    pub fn king_capture_available(&self) -> bool {
+        if self.phase != Phase::Checkers {
+            return false;
+        }
+        let Some(enemy) = self.king_sq(self.turn.other()) else {
+            return false;
+        };
+        self.all_moves()
+            .iter()
+            .any(|m| m.captured == Some(enemy))
+    }
+
+    /// Есть ли в текущем режиме решающая ситуация, которую нельзя обрывать
+    /// сменой фазы: в шашках — король под боем (взятие отменилось бы),
+    /// в шахматах — шах, который надо отыграть.
+    fn twilight_should_wait(&self) -> bool {
+        if self.is_over() {
+            return false;
+        }
+        match self.phase {
+            Phase::Checkers => self.king_capture_available(),
+            Phase::Chess => self.in_check(self.turn),
+        }
+    }
+
     /// Мёртвый эндшпиль: у одной стороны только король, у другой —
     /// король и ровно одна сильная фигура (ферзь, ладья, слон, конь,
     /// дамка — но не простая пешка/шашка): такую позицию не доиграть.
@@ -1167,12 +1193,22 @@ impl Game {
                 // Пауза после хода: игрок видит результат до смены игры.
                 self.move_twilight_wait -= dt;
                 if self.move_twilight_wait <= 0.0 {
-                    // Фаза меняется по счёту ходов: обе стороны знают,
-                    // сколько полных ходов осталось до смены природы.
-                    self.move_twilight_pending = false;
-                    self.trans = 0.0001;
-                    self.selected = None;
-                    self.legal.clear();
+                    if self.twilight_should_wait() {
+                        // Решающий момент: король под боем или шах. Смена
+                        // фазы сейчас отменила бы сам смысл хода — ждём,
+                        // пока ситуация не разрешится следующим ходом.
+                        self.move_twilight_pending = false;
+                        self.move_twilight_wait = 0.0;
+                        let threshold = (self.phase_moves.max(1) as u16) * 2;
+                        self.plies_in_phase = threshold.saturating_sub(1);
+                    } else {
+                        // Фаза меняется по счёту ходов: обе стороны знают,
+                        // сколько полных ходов осталось до смены природы.
+                        self.move_twilight_pending = false;
+                        self.trans = 0.0001;
+                        self.selected = None;
+                        self.legal.clear();
+                    }
                 }
             }
             // Часы хода: по истечении ход переходит противнику.
@@ -1209,7 +1245,7 @@ impl Game {
             if self.phase_left <= 0.0 {
                 self.phase_left = 0.0;
                 // переход ждёт, пока игрок завершит цепочку взятий
-                if self.chain.is_none() {
+                if self.chain.is_none() && !self.twilight_should_wait() {
                     self.trans = 0.0001;
                     self.selected = None;
                     self.legal.clear();
@@ -2455,6 +2491,62 @@ mod tests {
 
     fn test_game() -> Game {
         Game::new(25.0)
+    }
+
+    /// Сумерки не сменяют фазу, пока в шашках можно съесть короля.
+    #[test]
+    fn twilight_waits_while_king_can_be_captured() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[0][0] = Some(Piece::new(Side::White, Kind::King)); // a1
+        g.board[3][3] = Some(Piece::new(Side::Black, Kind::King)); // d4
+        g.board[2][2] = Some(Piece::new(Side::White, Kind::Pawn)); // c3 — бьёт короля
+        g.turn = Side::White;
+        g.twilight_by_moves = true;
+        g.set_phase_moves(3);
+        g.move_twilight_pending = true;
+        g.move_twilight_wait = 0.0;
+        g.move_anim = 1.0;
+        g.tick(0.01);
+        assert_eq!(g.trans, 0.0, "сумерки ждут: короля можно съесть");
+        assert_eq!(g.phase, Phase::Checkers, "фаза не сменилась");
+    }
+
+    /// Сумерки не сменяют фазу, пока в шахматах не отыгран шах.
+    #[test]
+    fn twilight_waits_while_in_check() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Chess;
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
+        g.board[7][4] = Some(Piece::new(Side::Black, Kind::Rook)); // e8 — шах
+        g.turn = Side::White;
+        g.twilight_by_moves = true;
+        g.move_twilight_pending = true;
+        g.move_twilight_wait = 0.0;
+        g.move_anim = 1.0;
+        g.tick(0.01);
+        assert_eq!(g.trans, 0.0, "шах надо отыграть");
+        assert_eq!(g.phase, Phase::Chess, "фаза не сменилась");
+    }
+
+    /// В спокойной позиции сумерки начинаются как обычно.
+    #[test]
+    fn twilight_flips_when_position_is_quiet() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Chess;
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[7][4] = Some(Piece::new(Side::Black, Kind::King)); // e8
+        g.turn = Side::White;
+        g.twilight_by_moves = true;
+        g.move_twilight_pending = true;
+        g.move_twilight_wait = 0.0;
+        g.move_anim = 1.0;
+        g.tick(0.01);
+        assert!(g.trans > 0.0, "спокойная позиция — сумерки пошли");
     }
 
     /// Мёртвый эндшпиль: одинокий король против короля и одной сильной

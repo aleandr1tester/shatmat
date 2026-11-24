@@ -1,6 +1,6 @@
-[package]
+﻿[package]
 name = "shatmat"
-version = "0.21.1"
+version = "0.21.2"
 edition = "2021"
 description = "ShatMat — фигуры меняют природу"
 

@@ -3360,10 +3360,10 @@ impl App {
         // высота с запасом снизу — последняя строка не липнет к краю.
         let setup_pad = 12.0;
         let setup_w = w - setup_pad * 2.0;
-        // Высота по содержимому: в «по ходам» хватает двух строк, в остальных
-        // режимах нужен ряд чипов/вторая строка. Низ карточки держим в 10 px
-        // над кнопками, чтобы она не «висела».
-        let setup_h = if g.twilight_by_moves { 66.0 } else { 88.0 };
+        // Высота по содержимому: в «по ходам» — фаза и сводка правил, в
+        // остальных режимах нужен ряд чипов/вторая строка. Низ карточки держим
+        // в 10 px над кнопками, чтобы она не «висела».
+        let setup_h = 88.0;
         let setup_top = row_y - 10.0 - setup_h;
         let chips = [
             (10.0, "10 с"),
@@ -3443,7 +3443,7 @@ impl App {
             Pos2::new(x + setup_pad, setup_top + 12.0),
             Align2::LEFT_TOP,
             if g.twilight_by_moves {
-                "СМЕНА ФАЗ"
+                "ПРАВИЛА ПАРТИИ"
             } else if g.auto_phase {
                 "АВТОСМЕНА СУМЕРЕК"
             } else {
@@ -3453,19 +3453,61 @@ impl App {
             alpha(cur.text_dim, 0.9),
         );
         if g.twilight_by_moves {
-            // Сколько ходов осталось — уже показано у часов сверху,
-            // здесь только настройка ритма, без дубля.
-            text_fit(
+            // Длину фазы пишем в строке заголовка справа: так сводка правил
+            // занимает две ровные строки без давки.
+            text_fit_right(
                 painter,
-                Pos2::new(x + setup_pad, setup_top + 40.0),
+                Pos2::new(x + setup_pad + setup_w, setup_top + 12.0),
                 &i18n::trf(
                     "длина фазы: {n} полных хода",
                     &[("n", &g.phase_moves.to_string())],
                 ),
-                setup_w,
-                11.0,
-                alpha(cur.text_dim, 0.85),
+                setup_w * 0.55,
+                9.5,
+                alpha(cur.text_dim, 0.75),
             );
+            // Сводка закодированных правил — то же, что в настройках,
+            // но под рукой во время партии.
+            let cap = if g.mandatory_capture {
+                "Взятие: да"
+            } else {
+                "Взятие: нет"
+            };
+            let chain = if g.max_chain {
+                "Цепочка: максимум"
+            } else {
+                "Цепочка: любая"
+            };
+            let crown = if g.crown_non_pawns {
+                "Дамки: все"
+            } else {
+                "Дамки: пешки"
+            };
+            let king = if g.king_escape {
+                "Король уходит: да"
+            } else {
+                "Король уходит: нет"
+            };
+            let col2 = x + setup_pad + setup_w * 0.50;
+            let col_w = setup_w * 0.47;
+            for (dy, left, right) in [(48.0, cap, chain), (68.0, crown, king)] {
+                text_fit(
+                    painter,
+                    Pos2::new(x + setup_pad, setup_top + dy),
+                    left,
+                    col_w,
+                    10.5,
+                    alpha(cur.text_dim, 0.9),
+                );
+                text_fit(
+                    painter,
+                    Pos2::new(col2, setup_top + dy),
+                    right,
+                    col_w,
+                    10.5,
+                    alpha(cur.text_dim, 0.9),
+                );
+            }
         } else if g.auto_phase {
             text_fit(
                 painter,
@@ -6562,6 +6604,24 @@ fn text_fit(painter: &egui::Painter, pos: Pos2, s: &str, max_w: f32, size: f32, 
         galley = painter.layout_no_wrap(s, FontId::proportional(scaled), color);
     }
     painter.galley(pos, galley, color);
+}
+
+fn text_fit_right(
+    painter: &egui::Painter,
+    pos: Pos2,
+    s: &str,
+    max_w: f32,
+    size: f32,
+    color: Color32,
+) {
+    let s = i18n::tr_owned(s.to_string());
+    let mut galley = painter.layout_no_wrap(s.clone(), FontId::proportional(size), color);
+    if galley.size().x > max_w && max_w > 1.0 {
+        let scaled = (size * max_w / galley.size().x).max(8.0);
+        galley = painter.layout_no_wrap(s, FontId::proportional(scaled), color);
+    }
+    let w = galley.size().x;
+    painter.galley(pos - Vec2::new(w, 0.0), galley, color);
 }
 
 fn piece_ru(kind: Kind) -> &'static str {

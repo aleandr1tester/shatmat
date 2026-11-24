@@ -1196,3 +1196,6 @@ msgstr "R — neues Spiel"
 msgid "H — правила"
 msgstr "H — Regeln"
 
+msgid "ПРАВИЛА ПАРТИИ"
+msgstr "SPIELREGELN"
+

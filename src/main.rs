@@ -995,7 +995,7 @@ impl App {
             net_wait: 0.0,
             net_status: String::new(),
             net_pending_hash: None,
-            net_enabled: demo.as_deref() == Some("net"),
+            net_enabled: matches!(demo.as_deref(), Some("net") | Some("lobby_net")),
         };
         // Демонстрация: запоминаем стартовое зерно — по нему партия
         // воспроизводится один в один.
@@ -3112,15 +3112,47 @@ impl App {
         );
         let label_w = 66.0;
         let chip_h = 36.0;
+        let gap = 8.0;
         let chips_x = x + label_w;
         let chips_w = w - label_w;
         // «по сети» появляется только после включения в настройках
         let net_count = if self.net_enabled { 3 } else { 2 };
-        let chip_w = (chips_w - (net_count - 1) as f32 * 8.0) / net_count as f32;
-        let hot = Rect::from_min_size(Pos2::new(chips_x, y), Vec2::new(chip_w, chip_h));
+        let mut mode_labels: Vec<&str> = vec!["вдвоём", "с компьютером"];
+        if self.net_enabled {
+            mode_labels.push("по сети");
+        }
+        // Ширина кнопок считается по тексту: «с компьютером» длиннее соседей
+        // и в немецком («gegen den Computer») не влезает в равную треть.
+        // Свободное место делим поровну, чтобы кнопки не «прыгали» между
+        // языками, а тесное — ужимаем пропорционально.
+        let mut widths: Vec<f32> = mode_labels
+            .iter()
+            .map(|label| {
+                let galley = painter.layout_no_wrap(
+                    i18n::tr_owned(label.to_string()),
+                    FontId::proportional(12.0),
+                    cur.text,
+                );
+                galley.size().x + 16.0
+            })
+            .collect();
+        let total = (chips_w - gap * (net_count - 1) as f32).max(1.0);
+        let sum: f32 = widths.iter().sum();
+        if sum < total {
+            let extra = (total - sum) / net_count as f32;
+            for w in widths.iter_mut() {
+                *w += extra;
+            }
+        } else {
+            let k = total / sum;
+            for w in widths.iter_mut() {
+                *w *= k;
+            }
+        }
+        let hot = Rect::from_min_size(Pos2::new(chips_x, y), Vec2::new(widths[0], chip_h));
         let comp = Rect::from_min_size(
-            Pos2::new(chips_x + chip_w + 8.0, y),
-            Vec2::new(chip_w, chip_h),
+            Pos2::new(chips_x + widths[0] + gap, y),
+            Vec2::new(widths[1], chip_h),
         );
         if chip(ui, hot, "вдвоём", self.mode == Mode::Hotseat, &cur) {
             self.mode = Mode::Hotseat;
@@ -3131,8 +3163,8 @@ impl App {
         }
         if self.net_enabled {
             let net_chip = Rect::from_min_size(
-                Pos2::new(chips_x + (chip_w + 8.0) * 2.0, y),
-                Vec2::new(chip_w, chip_h),
+                Pos2::new(chips_x + widths[0] + widths[1] + gap * 2.0, y),
+                Vec2::new(widths[2], chip_h),
             );
             if chip(ui, net_chip, "по сети", self.mode == Mode::Network, &cur) {
                 // Сеть поднимается в update(): сокеты не открываются до этого

@@ -2,7 +2,7 @@ Piece images for ShatMat.
 
 WHAT IS HERE
   white_pawn.svg ... black_king.svg  — built-in set (shown as "Built-in")
-  frog/                              — the "Frogs" preset
+  frog/                              — the "Frogs 78" preset
   current.txt                        — selected set (written by the game)
   README.txt / README.en.txt         — this file
 
@@ -11,7 +11,7 @@ A set is a folder inside pieces/. The game finds every subfolder containing
 white_king.svg or white_king.png and lists it in Settings -> "PIECE SET".
 The folder name is the set name; for a nicer label put name.txt inside
 the folder with a single line, e.g.:
-  name.txt:  Frogs
+  name.txt:  Frogs 78
 
 The choice is stored in pieces/current.txt (empty = built-in set).
 

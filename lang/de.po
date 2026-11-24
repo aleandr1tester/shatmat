@@ -1205,3 +1205,9 @@ msgstr "Alle Figuren werden Damen, nicht nur Bauern."
 msgid "Дамками становятся только пешки."
 msgstr "Nur Bauern werden Damen."
 
+msgid "скрыть"
+msgstr "ausblenden"
+
+msgid "показать"
+msgstr "einblenden"
+

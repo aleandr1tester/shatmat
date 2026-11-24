@@ -1206,3 +1206,9 @@ msgstr "All pieces become checker kings, not just pawns."
 msgid "Дамками становятся только пешки."
 msgstr "Only pawns become checker kings."
 
+msgid "скрыть"
+msgstr "hide"
+
+msgid "показать"
+msgstr "show"
+

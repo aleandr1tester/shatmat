@@ -1206,3 +1206,9 @@ msgstr "Yalnızca piyonlar değil, tüm taşlar dama olur."
 msgid "Дамками становятся только пешки."
 msgstr "Yalnızca piyonlar dama olur."
 
+msgid "скрыть"
+msgstr "gizle"
+
+msgid "показать"
+msgstr "göster"
+

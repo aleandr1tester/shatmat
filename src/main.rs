@@ -778,6 +778,8 @@ pub struct App {
     show_checker_icons: bool,
     mate_lines: bool,
     mate_escape: bool,
+    /// Карточка «Правила партии» в панели: сводка раскрыта.
+    rules_open: bool,
     font_faces: Vec<fonts::FontFace>,
     font_index: usize,
     game_start: Option<String>,
@@ -958,6 +960,7 @@ impl App {
             show_checker_icons: true,
             mate_lines: true,
             mate_escape: true,
+            rules_open: true,
             font_faces,
             font_index,
             game_start,
@@ -1192,6 +1195,9 @@ impl App {
         self.win_sound_played = false;
         self.started = true;
         self.game.paused = false;
+        // В лобби памятка раскрыта, а в партии по умолчанию свёрнута:
+        // журнал ходов важнее, правила можно раскрыть ссылкой.
+        self.rules_open = false;
         if self.logging_allowed && self.log_enabled && self.game_start.is_none() {
             self.game_start = Some(logging::now_string());
             self.log_written = false;
@@ -1229,6 +1235,7 @@ impl App {
         self.game.move_anim_secs = smooth;
         self.game.promotion_choice = promotion_choice;
         self.ai_wait = 0.6;
+        self.rules_open = !self.started;
         self.ai_preview = None;
         self.ai_preview_phase = None;
         self.ai_after_twilight = false;
@@ -3358,11 +3365,21 @@ impl App {
         // Карточка смены фаз: поля совпадают с общими отступами панели.
         let setup_pad = 12.0;
         let setup_w = w - setup_pad * 2.0;
-        // Высота по содержимому: в «по ходам» — подробная памятка правил,
-        // в остальных режимах — ряд чипов/вторая строка. Низ карточки держим
-        // в 10 px над кнопками, а журнал подрезаем по её верхнему краю.
-        let setup_h = if g.twilight_by_moves { 106.0 } else { 88.0 };
+        // Высота по содержимому: в «по ходам» — памятка правил (сворачивается
+        // ссылкой), в остальных режимах — ряд чипов/вторая строка. Низ карточки
+        // держим в 10 px над кнопками, журнал подрезаем по её верхнему краю.
+        let rules_open = self.rules_open;
+        let setup_h = if g.twilight_by_moves {
+            if rules_open {
+                148.0
+            } else {
+                44.0
+            }
+        } else {
+            88.0
+        };
         let setup_top = row_y - 10.0 - setup_h;
+        let mut toggle_rules = false;
         let chips = [
             (10.0, "10 с"),
             (15.0, "15 с"),
@@ -3451,8 +3468,49 @@ impl App {
             alpha(cur.text_dim, 0.9),
         );
         if g.twilight_by_moves {
-            // Длину фазы пишем в строке заголовка справа: так сводка правил
-            // занимает две ровные строки без давки.
+            // Ссылка «скрыть/показать» рядом с заголовком карточки.
+            let link_label = if rules_open { "скрыть" } else { "показать" };
+            let link_txt = i18n::tr_owned(link_label.to_string());
+            let header_w = painter
+                .layout_no_wrap(
+                    i18n::tr_owned("ПРАВИЛА ПАРТИИ".to_string()),
+                    FontId::proportional(9.5),
+                    Color32::WHITE,
+                )
+                .size()
+                .x;
+            let link_w = painter
+                .layout_no_wrap(
+                    link_txt.clone(),
+                    FontId::proportional(9.5),
+                    Color32::WHITE,
+                )
+                .size()
+                .x;
+            let link_rect = Rect::from_min_size(
+                Pos2::new(x + setup_pad + header_w + 10.0, setup_top + 11.0),
+                Vec2::new(link_w + 2.0, 12.0),
+            );
+            let link_resp =
+                ui.interact(link_rect, ui.id().with("rules_toggle"), Sense::click());
+            if link_resp.hovered() {
+                ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+            }
+            if link_resp.clicked() {
+                toggle_rules = true;
+            }
+            painter.text(
+                Pos2::new(link_rect.left(), setup_top + 12.0),
+                Align2::LEFT_TOP,
+                &link_txt,
+                FontId::proportional(9.5),
+                if link_resp.hovered() {
+                    cur.accent
+                } else {
+                    alpha(cur.accent, 0.8)
+                },
+            );
+            // Длину фазы пишем в строке заголовка справа.
             text_fit_right(
                 painter,
                 Pos2::new(x + setup_pad + setup_w, setup_top + 12.0),
@@ -3460,42 +3518,62 @@ impl App {
                     "длина фазы: {n} полных хода",
                     &[("n", &g.phase_moves.to_string())],
                 ),
-                setup_w * 0.55,
+                setup_w * 0.45,
                 9.5,
                 alpha(cur.text_dim, 0.75),
             );
-            // Подробная памятка: то же, что блок пояснений в настройках.
-            let rules = [
-                if g.mandatory_capture {
-                    "Бить обязательно; серию нужно продолжать."
-                } else {
-                    "Можно без взятия; серию можно закончить."
-                },
-                if g.max_chain {
-                    "Брать можно только самую длинную серию взятий."
-                } else {
-                    "Достаточно любого взятия, длина серии не важна."
-                },
-                if g.crown_non_pawns {
-                    "Дамками становятся все фигуры, а не только пешки."
-                } else {
-                    "Дамками становятся только пешки."
-                },
-                if g.king_escape {
-                    "Король под боем может уйти вместо обязательного взятия."
-                } else {
-                    "Под боем король бьёт наравне со всеми — без исключений."
-                },
-            ];
-            for (i, line) in rules.iter().enumerate() {
+            if rules_open {
+                // Что означает фаза и как она меняется в этой партии.
                 text_fit(
                     painter,
-                    Pos2::new(x + setup_pad, setup_top + 36.0 + i as f32 * 16.0),
-                    line,
+                    Pos2::new(x + setup_pad, setup_top + 38.0),
+                    "Фаза меняется после полных ходов — по ходу на каждого.",
                     setup_w,
                     10.5,
                     alpha(cur.text_dim, 0.9),
                 );
+                text_fit(
+                    painter,
+                    Pos2::new(x + setup_pad, setup_top + 54.0),
+                    "Оба знают, сколько ходов осталось до смены природы.",
+                    setup_w,
+                    10.5,
+                    alpha(cur.text_dim, 0.9),
+                );
+                divider(painter, x + setup_pad, setup_top + 70.0, setup_w, cur.text_dim);
+                // Подробная памятка: то же, что блок пояснений в настройках.
+                let rules = [
+                    if g.mandatory_capture {
+                        "Бить обязательно; серию нужно продолжать."
+                    } else {
+                        "Можно без взятия; серию можно закончить."
+                    },
+                    if g.max_chain {
+                        "Брать можно только самую длинную серию взятий."
+                    } else {
+                        "Достаточно любого взятия, длина серии не важна."
+                    },
+                    if g.crown_non_pawns {
+                        "Дамками становятся все фигуры, а не только пешки."
+                    } else {
+                        "Дамками становятся только пешки."
+                    },
+                    if g.king_escape {
+                        "Король под боем может уйти вместо обязательного взятия."
+                    } else {
+                        "Под боем король бьёт наравне со всеми — без исключений."
+                    },
+                ];
+                for (i, line) in rules.iter().enumerate() {
+                    text_fit(
+                        painter,
+                        Pos2::new(x + setup_pad, setup_top + 80.0 + i as f32 * 16.0),
+                        line,
+                        setup_w,
+                        10.5,
+                        alpha(cur.text_dim, 0.9),
+                    );
+                }
             }
         } else if g.auto_phase {
             text_fit(
@@ -3514,6 +3592,9 @@ impl App {
                 11.0,
                 alpha(cur.text_dim, 0.85),
             );
+        }
+        if toggle_rules {
+            self.rules_open = !self.rules_open;
         }
         // --- взаимодействие ---
         if self.game.is_over() {

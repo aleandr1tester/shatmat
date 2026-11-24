@@ -1205,3 +1205,9 @@ msgstr "Todas las piezas se convierten en damas, no solo los peones."
 msgid "Дамками становятся только пешки."
 msgstr "Solo los peones se convierten en damas."
 
+msgid "скрыть"
+msgstr "ocultar"
+
+msgid "показать"
+msgstr "mostrar"
+

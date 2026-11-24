@@ -1206,3 +1206,9 @@ msgstr "Toutes les pièces deviennent des dames, pas seulement les pions."
 msgid "Дамками становятся только пешки."
 msgstr "Seuls les pions deviennent des dames."
 
+msgid "скрыть"
+msgstr "masquer"
+
+msgid "показать"
+msgstr "afficher"
+

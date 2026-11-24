@@ -95,6 +95,23 @@ fn main() -> eframe::Result<()> {
         }
     }
 
+    // Иконка окна: та же картинка, что вшита в exe (assets/icon-256.png).
+    let icon = {
+        let bytes: &[u8] = include_bytes!("../assets/icon-256.png");
+        image::load_from_memory(bytes).ok().map(|img| {
+            let rgba = img.to_rgba8();
+            let (w, h) = rgba.dimensions();
+            egui::IconData {
+                rgba: rgba.into_raw(),
+                width: w,
+                height: h,
+            }
+        })
+    };
+    if let Some(icon) = icon {
+        viewport = viewport.with_icon(icon);
+    }
+
     let native = eframe::NativeOptions {
         viewport,
         run_and_return: true,

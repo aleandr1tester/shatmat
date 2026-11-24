@@ -2761,38 +2761,69 @@ impl App {
             egui::StrokeKind::Inside,
         );
         let label = Rect::from_center_size(b.center(), Vec2::new(520.0, 108.0));
+        // Полупрозрачная тонированная плашка: доска с демонстрацией видна сквозь неё.
+        let pal = Palette::for_phase(if self.started {
+            self.game.phase
+        } else {
+            self.demo.phase
+        });
         painter.rect_filled(
             label.translate(Vec2::new(0.0, 10.0)),
             20.0,
-            Color32::from_black_alpha(80),
+            Color32::from_black_alpha(48),
         );
         rr(
             painter,
             label,
             20.0,
-            Color32::from_rgba_unmultiplied(6, 7, 12, 186),
-            Stroke::new(1.0_f32, Color32::from_white_alpha(58)),
+            alpha(mix(Color32::from_rgb(10, 12, 20), pal.accent, 0.18), 0.55),
+            Stroke::new(1.0_f32, alpha(pal.accent, 0.34)),
         );
+        // Тени под текстом: плашка полупрозрачная, буквы должны читаться
+        // и на светлых клетках доски.
+        let title_pos = label.center() + Vec2::new(0.0, -14.0);
+        let hint_pos = label.center() + Vec2::new(0.0, 18.0);
+        let caption_pos = label.center() + Vec2::new(0.0, 40.0);
+        let shadow = Color32::from_black_alpha(150);
+        let title_font = FontId::proportional(21.0);
+        let hint_font = FontId::proportional(11.5);
+        let caption_font = FontId::proportional(10.5);
+        let title_text = i18n::tr("ПАРТИЯ ЕЩЁ НЕ НАЧАТА");
+        let hint_text = i18n::tr("Нажмите на поле или «Играть» справа");
+        let caption_text = i18n::tr("Демонстрация: компьютер играет сам с собой");
+        for (pos, text, font) in [
+            (title_pos, title_text, title_font.clone()),
+            (hint_pos, hint_text, hint_font.clone()),
+            (caption_pos, caption_text, caption_font.clone()),
+        ] {
+            painter.text(
+                pos + Vec2::new(0.0, 1.4),
+                Align2::CENTER_CENTER,
+                text,
+                font,
+                shadow,
+            );
+        }
         painter.text(
-            label.center() + Vec2::new(0.0, -14.0),
+            title_pos,
             Align2::CENTER_CENTER,
-            i18n::tr("ПАРТИЯ ЕЩЁ НЕ НАЧАТА"),
-            FontId::proportional(21.0),
+            title_text,
+            title_font,
             Color32::from_rgb(246, 243, 252),
         );
         painter.text(
-            label.center() + Vec2::new(0.0, 18.0),
+            hint_pos,
             Align2::CENTER_CENTER,
-            i18n::tr("Нажмите на поле или «Играть» справа"),
-            FontId::proportional(11.5),
-            Color32::from_rgb(210, 206, 226),
+            hint_text,
+            hint_font,
+            Color32::from_rgb(226, 222, 240),
         );
         painter.text(
-            label.center() + Vec2::new(0.0, 40.0),
+            caption_pos,
             Align2::CENTER_CENTER,
-            i18n::tr("Демонстрация: компьютер играет сам с собой"),
-            FontId::proportional(10.5),
-            Color32::from_rgb(158, 156, 178),
+            caption_text,
+            caption_font,
+            Color32::from_rgb(196, 192, 212),
         );
     }
 

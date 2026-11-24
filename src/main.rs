@@ -3462,12 +3462,24 @@ impl App {
             Vec2::new(w, setup_h),
         );
         // Непрозрачная подложка: иначе строки журнала просвечивают сквозь
-        // карточку и наезжают на текст правил.
+        // карточку и наезжают на текст правил. Цвет берём из той же палитры,
+        // что и фон окна: в лобби это демонстрация, в партии — текущая фаза,
+        // иначе карточка выбивается из окружения на смене природы.
+        let (scr_phase, scr_trans) = if self.started {
+            (g.phase, g.trans)
+        } else {
+            (self.demo.phase, self.demo.trans)
+        };
+        let scr_pal = blend(
+            Palette::for_phase(scr_phase),
+            Palette::for_phase(scr_phase.other()),
+            smooth(scr_trans) * 0.7,
+        );
         let ground = {
             let t = ((setup_bg.center().y - layout.full.top())
                 / layout.full.height().max(1.0))
                 .clamp(0.0, 1.0);
-            mix(cur.bg_top, cur.bg_bottom, t)
+            mix(scr_pal.bg_top, scr_pal.bg_bottom, t)
         };
         rr(
             painter,

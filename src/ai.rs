@@ -481,6 +481,22 @@ mod tests {
         assert_eq!(mv.captured, Some((4, 4)), "нужно съесть короля");
     }
 
+    /// Король бьёт чужого короля — ИИ обязан это увидеть.
+    /// Раньше победа считалась поражением: после взятия короля ход
+    /// не переключался, и negamax менял знак.
+    #[test]
+    fn ai_takes_the_king_when_not_forced() {
+        let mut g = Game::new(25.0);
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[4][2] = Some(Piece::new(Side::Black, Kind::King)); // c5
+        g.board[2][4] = Some(Piece::new(Side::White, Kind::King)); // e3
+        g.board[6][6] = Some(Piece::new(Side::Black, Kind::Pawn)); // g7
+        g.turn = Side::Black;
+        let mv = best_move(&g, Difficulty::Medium, &mut seed()).expect("есть ходы");
+        assert_eq!(mv.captured, Some((4, 2)), "ИИ должен съесть короля");
+    }
+
     #[test]
     fn ai_does_not_put_checkers_king_under_fire() {
         let mut g = Game::new(25.0);

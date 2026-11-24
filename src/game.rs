@@ -789,37 +789,48 @@ impl Game {
                     moves.extend(self.checker_all_captures());
                     return moves;
                 }
-                // Обязательный бой — для всех шашек, кроме короля:
-                // он бьёт только по желанию.
-                let caps: Vec<Move> = self
-                    .checker_all_captures()
-                    .into_iter()
-                    .filter(|m| {
-                        !matches!(board_at(&self.board, m.from).map(|p| p.kind), Some(Kind::King))
-                    })
-                    .collect();
-                if caps.is_empty() {
+                // Обязательный бой — для всех шашек, кроме короля: он бьёт
+                // только по желанию. Но если король бьёт, это тоже взятие,
+                // поэтому его ходы не «прикалываются», пока бьёт шашка.
+                let all = self.checker_all_captures();
+                let is_king = |m: &Move| {
+                    matches!(board_at(&self.board, m.from).map(|p| p.kind), Some(Kind::King))
+                };
+                let mut forced: Vec<Move> = all.iter().copied().filter(|m| !is_king(m)).collect();
+                let kings: Vec<Move> = all.into_iter().filter(is_king).collect();
+                if forced.is_empty() {
                     let mut moves = self.checker_all_quiet();
                     // Взятия короля необязательны, но доступны.
-                    for mv in self.checker_all_captures() {
-                        if !moves
-                            .iter()
-                            .any(|m| m.from == mv.from && m.to == mv.to)
-                        {
+                    for mv in kings {
+                        if !moves.iter().any(|m| m.from == mv.from && m.to == mv.to) {
                             moves.push(mv);
                         }
                     }
-                    moves
-                } else if self.max_chain && self.longest_run_from_any() > 1 {
-                    // «Максимальная цепочка»: брать разрешено только те ходы,
-                    // которые дают самую длинную серию взятий.
-                    let need = self.longest_run_from_any();
-                    caps.into_iter()
-                        .filter(|m| 1 + run_after(&self.board, *m) == need)
-                        .collect()
-                } else {
-                    caps
+                    return moves;
                 }
+                // «Максимальная цепочка»: длинную серию обходить нельзя.
+                let need = if self.max_chain {
+                    self.longest_run_from_any().max(1)
+                } else {
+                    1
+                };
+                if self.max_chain && need > 1 {
+                    forced.retain(|m| 1 + run_after(&self.board, *m) == need);
+                    for mv in kings {
+                        // Взять короля можно всегда: это победа, а не серия.
+                        let takes_royal = mv
+                            .captured
+                            .and_then(|c| board_at(&self.board, c))
+                            .map(|p| p.kind == Kind::King)
+                            .unwrap_or(false);
+                        if takes_royal || 1 + run_after(&self.board, mv) >= need {
+                            forced.push(mv);
+                        }
+                    }
+                } else {
+                    forced.extend(kings);
+                }
+                forced
             }
         }
     }
@@ -922,6 +933,10 @@ impl Game {
                 // всё равно победа по королю
             }
             self.push_snapshot();
+            self.passes = 0;
+            // Ход всё равно переходит сопернику: на этом держится оценка
+            // «победа/поражение» у ИИ (после победы ход у проигравшего).
+            self.turn = self.turn.other();
             self.refresh_status();
             return;
         }
@@ -2339,6 +2354,33 @@ mod tests {
             g.status
         );
         assert!(g.is_over(), "ничья завершает партию");
+    }
+
+    /// Шашка обязана бить — но король всё равно может срубить чужого
+    /// короля. Раньше в такой позиции король считался «приколотым»
+    /// и его взятия не попадали в список ходов.
+    #[test]
+    fn king_can_capture_royal_while_checker_must_capture() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[4][2] = Some(Piece::new(Side::Black, Kind::King)); // c5
+        g.board[2][4] = Some(Piece::new(Side::White, Kind::King)); // e3
+        g.board[6][6] = Some(Piece::new(Side::Black, Kind::Pawn)); // g7
+        g.board[5][5] = Some(Piece::new(Side::White, Kind::Pawn)); // f6
+        g.turn = Side::Black;
+        g.mandatory_capture = true;
+        let moves = g.all_moves();
+        assert!(
+            moves.iter().any(|m| m.captured == Some((4, 2))),
+            "король бьёт чужого короля: {:?}",
+            moves
+        );
+        assert!(
+            moves.iter().any(|m| m.captured == Some((5, 5))),
+            "шашка обязана бить: {:?}",
+            moves
+        );
     }
 
     #[test]

@@ -117,8 +117,8 @@ msgstr "PRISE"
 msgid "БОЙ"
 msgstr "COMBAT"
 
-msgid "материал равный"
-msgstr "matériel égal"
+msgid "счёт равный"
+msgstr "score égal"
 
 msgid "белые впереди на {n}"
 msgstr "les blancs mènent de {n}"

@@ -117,8 +117,8 @@ msgstr "CAPTURA"
 msgid "БОЙ"
 msgstr "COMBATE"
 
-msgid "материал равный"
-msgstr "material igualado"
+msgid "счёт равный"
+msgstr "marcador igualado"
 
 msgid "белые впереди на {n}"
 msgstr "blancas adelante por {n}"

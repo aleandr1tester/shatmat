@@ -117,8 +117,8 @@ msgstr "CAPTURE"
 msgid "БОЙ"
 msgstr "COMBAT"
 
-msgid "материал равный"
-msgstr "material even"
+msgid "счёт равный"
+msgstr "score level"
 
 msgid "белые впереди на {n}"
 msgstr "white ahead by {n}"

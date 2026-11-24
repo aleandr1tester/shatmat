@@ -3447,7 +3447,7 @@ impl App {
         // материал
         let diff = g.material_diff();
         let material = match diff {
-            0 => i18n::tr("материал равный").to_string(),
+            0 => i18n::tr("счёт равный").to_string(),
             d if d > 0 => i18n::trf("белые впереди на {n}", &[("n", &d.to_string())]),
             d => i18n::trf("чёрные впереди на {n}", &[("n", &(-d).to_string())]),
         };

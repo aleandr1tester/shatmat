@@ -117,8 +117,8 @@ msgstr "ALMA"
 msgid "БОЙ"
 msgstr "VURUŞ"
 
-msgid "материал равный"
-msgstr "materyal eşit"
+msgid "счёт равный"
+msgstr "skor eşit"
 
 msgid "белые впереди на {n}"
 msgstr "beyazlar {n} önde"

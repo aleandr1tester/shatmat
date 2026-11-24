@@ -117,8 +117,8 @@ msgstr "SCHLAG"
 msgid "БОЙ"
 msgstr "KAMPF"
 
-msgid "материал равный"
-msgstr "Material ausgeglichen"
+msgid "счёт равный"
+msgstr "Gleichstand"
 
 msgid "белые впереди на {n}"
 msgstr "Weiß führt mit {n}"

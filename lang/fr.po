@@ -1115,3 +1115,12 @@ msgstr "Musique : {name}"
 
 msgid "Встроенная"
 msgstr "Intégrée"
+
+msgid "НИЧЬЯ"
+msgstr "NULLE"
+
+msgid "ничья — {reason}"
+msgstr "nulle — {reason}"
+
+msgid "король против короля"
+msgstr "roi contre roi"

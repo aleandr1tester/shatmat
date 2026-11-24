@@ -261,6 +261,49 @@ fn rasterize_svg(data: &[u8], target: u32) -> Option<(Vec<u8>, usize, usize)> {
     Some((rgba, pw as usize, ph as usize))
 }
 
+/// Читает картинку фигуры в RGBA: сначала SVG (вектор), затем PNG.
+fn read_piece_rgba(
+    dir: &std::path::Path,
+    name: &str,
+    target: u32,
+) -> Option<(Vec<u8>, usize, usize)> {
+    let svg_path = dir.join(format!("{name}.svg"));
+    if svg_path.is_file() {
+        if let Ok(bytes) = std::fs::read(&svg_path) {
+            if let Some(out) = rasterize_svg(&bytes, target) {
+                return Some(out);
+            }
+        }
+    }
+    let png_path = dir.join(format!("{name}.png"));
+    let bytes = std::fs::read(&png_path).ok()?;
+    let img = image::load_from_memory(&bytes).ok()?.to_rgba8();
+    let (w, h) = (img.width() as usize, img.height() as usize);
+    Some((img.into_raw(), w, h))
+}
+
+/// Затемняет светлую картинку фигуры для чёрной стороны.
+///
+/// Набору достаточно нарисовать только белый комплект: чёрные фигуры
+/// получаются из них затемнением. Средние тона темнеют сильнее, тёмный
+/// контур и яркие блики — умереннее, поэтому силуэт и внутренний рисунок
+/// остаются читаемыми.
+fn darken_rgba(rgba: &mut [u8]) {
+    for px in rgba.chunks_exact_mut(4) {
+        let lum = (px[0] as u32 * 30 + px[1] as u32 * 59 + px[2] as u32 * 11) / 100;
+        let k = if lum > 200 {
+            0.50
+        } else if lum > 90 {
+            0.34
+        } else {
+            0.55
+        };
+        px[0] = (px[0] as f32 * k) as u8;
+        px[1] = (px[1] as f32 * k) as u8;
+        px[2] = (px[2] as f32 * k) as u8;
+    }
+}
+
 /// Загружает картинку фигуры: сначала пробует `.svg` (вектор), затем `.png`.
 fn load_piece_textures(
     ctx: &egui::Context,
@@ -269,18 +312,8 @@ fn load_piece_textures(
     target: u32,
 ) -> PieceTextures {
     let mut out = PieceTextures::empty();
-    let load = |name: &str| -> Option<PieceArt> {
-        let svg_path = dir.join(format!("{name}.svg"));
-        let png_path = dir.join(format!("{name}.png"));
-        let (rgba, w, h) = if svg_path.is_file() {
-            let bytes = std::fs::read(&svg_path).ok()?;
-            rasterize_svg(&bytes, target)?
-        } else {
-            let bytes = std::fs::read(&png_path).ok()?;
-            let img = image::load_from_memory(&bytes).ok()?.to_rgba8();
-            let (w, h) = (img.width() as usize, img.height() as usize);
-            (img.into_raw(), w, h)
-        };
+    // Текстура из готовых RGBA: цвет и белая маска для подсветки.
+    let make = |name: &str, rgba: Vec<u8>, w: usize, h: usize| -> PieceArt {
         let color = egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba);
         let color_tex = ctx.load_texture(
             format!("piece_{tag}_{name}"),
@@ -299,10 +332,27 @@ fn load_piece_textures(
             mask,
             egui::TextureOptions::LINEAR,
         );
-        Some(PieceArt {
+        PieceArt {
             color: color_tex,
             mask: mask_tex,
-        })
+        }
+    };
+    // Фигура своего цвета; если для чёрных файла нет — берём белую и
+    // затемняем, чтобы паку хватило нарисовать только белый комплект.
+    let load = |prefix: &str, side: Side, base: &str| -> Option<PieceArt> {
+        let name = format!("{prefix}_{base}");
+        if let Some((rgba, w, h)) = read_piece_rgba(dir, &name, target) {
+            return Some(make(&name, rgba, w, h));
+        }
+        if side == Side::Black {
+            if let Some((mut rgba, w, h)) =
+                read_piece_rgba(dir, &format!("white_{base}"), target)
+            {
+                darken_rgba(&mut rgba);
+                return Some(make(&format!("black_{base}_auto"), rgba, w, h));
+            }
+        }
+        None
     };
     for side in [Side::White, Side::Black] {
         let prefix = if side == Side::White { "white" } else { "black" };
@@ -314,8 +364,7 @@ fn load_piece_textures(
             Kind::Queen,
             Kind::King,
         ] {
-            let name = format!("{}_{}", prefix, kind_file(kind));
-            if let Some(art) = load(&name) {
+            if let Some(art) = load(prefix, side, kind_file(kind)) {
                 let arr = match side {
                     Side::White => &mut out.white,
                     Side::Black => &mut out.black,
@@ -324,9 +373,9 @@ fn load_piece_textures(
             }
         }
         let i = PieceTextures::side_index(side);
-        out.checker[i] = load(&format!("{prefix}_checker"));
-        out.damka[i] = load(&format!("{prefix}_damka"));
-        out.royal[i] = load(&format!("{prefix}_royal"));
+        out.checker[i] = load(prefix, side, "checker");
+        out.damka[i] = load(prefix, side, "damka");
+        out.royal[i] = load(prefix, side, "royal");
     }
     out
 }
@@ -987,6 +1036,10 @@ impl App {
                 game::Status::Win { side, reason } => i18n::logf(
                     "победа {side} — {reason}",
                     &[("side", side.name_log_lower()), ("reason", &i18n::log_owned(reason.clone()))],
+                ),
+                game::Status::Draw { reason } => i18n::logf(
+                    "ничья — {reason}",
+                    &[("reason", &i18n::log_owned(reason.clone()))],
                 ),
                 _ => i18n::log("не завершена").to_string(),
             }
@@ -5199,6 +5252,11 @@ impl App {
                 reason.clone(),
                 pal.accent,
             ),
+            game::Status::Draw { reason } => (
+                i18n::tr("НИЧЬЯ").to_string(),
+                i18n::tr_owned(reason.clone()),
+                pal.text,
+            ),
             _ => ("ПАРТИЯ".to_string(), String::new(), pal.text),
         };
         let pad = 22.0;
@@ -5920,7 +5978,7 @@ impl eframe::App for App {
                 && !self.game.is_over();
             self.game.tick(dt);
         // Фанфара в конце партии — один раз.
-        if self.game.is_over() && !self.win_sound_played {
+        if matches!(self.game.status, game::Status::Win { .. }) && !self.win_sound_played {
             self.win_sound_played = true;
             sound::win();
         }
@@ -6407,6 +6465,25 @@ fn apply_demo(game: &mut Game, demo: Option<&str>) {
             };
             game.log.push("демо: мат с окружением".into());
         }
+        Some("draw") => {
+            // Король против короля: оба сходили пусто — ничья.
+            game.board = [[None; 8]; 8];
+            game.phase = Phase::Chess;
+            game.board[0][0] = Some(Piece::new(Side::White, Kind::King)); // a1
+            game.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
+            game.turn = Side::White;
+            game.apply(game::Move {
+                from: (0, 0),
+                to: (0, 1),
+                captured: None,
+            });
+            game.apply(game::Move {
+                from: (7, 7),
+                to: (7, 6),
+                captured: None,
+            });
+            game.log.push("демо: ничья «король против короля»".into());
+        }
         Some("pause") => {
             game.paused = true;
             game.log.push("демо: пауза".into());
@@ -6826,5 +6903,23 @@ fn badge(painter: &egui::Painter, right_top: Pos2, label: &str, color: Color32, 
             size,
             alpha(color, 0.5),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn darken_keeps_alpha_and_dims_bright_pixels() {
+        let mut px = vec![200u8, 210, 90, 255, 40, 40, 40, 128];
+        darken_rgba(&mut px);
+        assert!(
+            px[0] < 200 && px[1] < 210 && px[2] < 90,
+            "яркие участки темнеют"
+        );
+        assert_eq!(px[3], 255, "альфа не меняется");
+        assert!(px[4] < 40 && px[5] < 40 && px[6] < 40, "тёмные тоже темнеют");
+        assert_eq!(px[7], 128, "альфа не меняется у полупрозрачных");
     }
 }

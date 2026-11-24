@@ -1115,3 +1115,12 @@ msgstr "Müzik: {name}"
 
 msgid "Встроенная"
 msgstr "Yerleşik"
+
+msgid "НИЧЬЯ"
+msgstr "BERABERE"
+
+msgid "ничья — {reason}"
+msgstr "berabere — {reason}"
+
+msgid "король против короля"
+msgstr "şah şaha karşı"

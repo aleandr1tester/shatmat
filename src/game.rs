@@ -210,6 +210,8 @@ pub enum Status {
     Playing,
     Check(Side),
     Win { side: Side, reason: String },
+    /// Ничья: обе стороны остались с королями и не могут зажать друг друга.
+    Draw { reason: String },
 }
 
 #[derive(Clone)]
@@ -255,6 +257,9 @@ pub struct Game {
     pub crowned_flash: Option<(Square, f32)>,
     /// Сколько ходов подряд пропущено из-за отсутствия ходов в шашках.
     pub passes: u8,
+    /// Сколько подряд пустых (без взятия) полуходов сделано, когда у сторон
+    /// осталось только по королю — счётчик правила «король против короля».
+    pub kings_only_plies: u8,
     /// Пешка дошла до последнего ряда и ждёт, какую фигуру выбрать.
     pub pending_promotion: Option<Square>,
     /// Превращение после смены фазы: это не ход, очередь не передаётся.
@@ -343,6 +348,7 @@ impl Game {
             anim: 0.0,
             crowned_flash: None,
             passes: 0,
+            kings_only_plies: 0,
             pending_promotion: None,
             promotion_free: false,
             promotion_choice: false,
@@ -374,8 +380,57 @@ impl Game {
         });
     }
 
+    /// На доске ровно по королю у каждой стороны — и больше ничего.
+    fn kings_only(&self) -> bool {
+        let mut n = 0;
+        let mut white = false;
+        let mut black = false;
+        for row in &self.board {
+            for cell in row {
+                if let Some(p) = cell {
+                    if p.kind != Kind::King {
+                        return false;
+                    }
+                    n += 1;
+                    match p.side {
+                        Side::White => white = true,
+                        Side::Black => black = true,
+                    }
+                }
+            }
+        }
+        n == 2 && white && black
+    }
+
+    /// Может ли кто-то прямо сейчас взять короля: в шашечной фазе король
+    /// бьётся как дамка, и тогда позиция не ничейная, а выигрышная.
+    fn king_capture_possible(&self) -> bool {
+        if self.phase != Phase::Checkers {
+            return false;
+        }
+        for r in 0..8 {
+            for f in 0..8 {
+                if let Some(p) = self.board[r][f] {
+                    if p.kind == Kind::King && !self.checker_captures_from((f, r)).is_empty() {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Учёт полухода для правила «король против короля».
+    fn note_kings_only_ply(&mut self, captured: bool) {
+        if captured || !self.kings_only() {
+            self.kings_only_plies = 0;
+        } else {
+            self.kings_only_plies = self.kings_only_plies.saturating_add(1);
+        }
+    }
+
     pub fn is_over(&self) -> bool {
-        matches!(self.status, Status::Win { .. })
+        matches!(self.status, Status::Win { .. } | Status::Draw { .. })
     }
 
     pub fn is_locked(&self) -> bool {
@@ -815,6 +870,8 @@ impl Game {
 
         self.board[to.1][to.0] = Some(piece);
         self.last_move = Some((from, to));
+        // Ничья «король против короля»: считаем пустые полуходы.
+        self.note_kings_only_ply(mv.captured.is_some());
         self.selected = None;
         self.legal.clear();
         self.history.push(MoveRecord {
@@ -1341,6 +1398,8 @@ impl Game {
         b.push(self.max_chain as u8);
         b.push(self.phase_moves);
         b.extend_from_slice(&self.plies_in_phase.to_le_bytes());
+        // Добавлено в 0.21.1: старые состояния короче на один байт.
+        b.push(self.kings_only_plies);
         b
     }
 
@@ -1361,6 +1420,7 @@ impl Game {
         self.max_chain = st.max_chain;
         self.phase_moves = st.phase_moves;
         self.plies_in_phase = st.plies_in_phase;
+        self.kings_only_plies = st.kings_only_plies;
         self.passes = st.passes;
         self.royal_captured = st.royal_captured;
         self.phase_left = st.phase_left;
@@ -1406,6 +1466,16 @@ impl Game {
             self.status = Status::Win {
                 side: self.turn,
                 reason: "у соперника не осталось фигур".into(),
+            };
+            self.end_turn();
+            return;
+        }
+        // Два короля не могут зажать друг друга: в шашках они к тому же
+        // стоят на разных диагоналях, а в шахматах микрошагами не загнать
+        // в угол. После пустого полухода каждого — ничья.
+        if self.kings_only() && self.kings_only_plies >= 2 && !self.king_capture_possible() {
+            self.status = Status::Draw {
+                reason: "король против короля".into(),
             };
             self.end_turn();
             return;
@@ -2066,6 +2136,7 @@ struct GameStateData {
     max_chain: bool,
     phase_moves: u8,
     plies_in_phase: u16,
+    kings_only_plies: u8,
 }
 
 fn rd_u8(d: &[u8], i: &mut usize) -> Option<u8> {
@@ -2192,6 +2263,8 @@ fn parse_game_state(d: &[u8]) -> Option<GameStateData> {
     let max_chain = *d.get(i)? != 0;
     let phase_moves = (*d.get(i + 1)?).clamp(2, 4);
     let plies_in_phase = u16::from_le_bytes([*d.get(i + 2)?, *d.get(i + 3)?]);
+    // Байт добавлен в 0.21.1; обрезанные данные по-прежнему отвергаются.
+    let kings_only_plies = *d.get(i + 4)?;
     Some(GameStateData {
         phase,
         turn,
@@ -2225,6 +2298,7 @@ fn parse_game_state(d: &[u8]) -> Option<GameStateData> {
         max_chain,
         phase_moves,
         plies_in_phase,
+        kings_only_plies,
     })
 }
 
@@ -2234,6 +2308,65 @@ mod tests {
 
     fn test_game() -> Game {
         Game::new(25.0)
+    }
+
+    #[test]
+    fn kings_only_draw_after_two_empty_plies() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Chess;
+        g.board[0][0] = Some(Piece::new(Side::White, Kind::King));
+        g.board[7][7] = Some(Piece::new(Side::Black, Kind::King));
+        g.turn = Side::White;
+        g.apply(Move {
+            from: (0, 0),
+            to: (0, 1),
+            captured: None,
+        });
+        assert!(
+            matches!(g.status, Status::Playing),
+            "после одного пустого полухода ничьей ещё нет: {:?}",
+            g.status
+        );
+        g.apply(Move {
+            from: (7, 7),
+            to: (7, 6),
+            captured: None,
+        });
+        assert!(
+            matches!(g.status, Status::Draw { .. }),
+            "оба короля сходили пусто — ничья: {:?}",
+            g.status
+        );
+        assert!(g.is_over(), "ничья завершает партию");
+    }
+
+    #[test]
+    fn kings_only_draw_skipped_when_king_can_be_captured() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        // Белый король на (2,2) бьёт чёрного на (1,1): это победа, а не тупик.
+        g.board[2][2] = Some(Piece::new(Side::White, Kind::King));
+        g.board[1][1] = Some(Piece::new(Side::Black, Kind::King));
+        g.turn = Side::White;
+        g.kings_only_plies = 5;
+        g.refresh_status();
+        assert!(
+            !matches!(g.status, Status::Draw { .. }),
+            "взятие короля возможно — ничьей нет: {:?}",
+            g.status
+        );
+    }
+
+    #[test]
+    fn draw_counter_roundtrips_in_state() {
+        let mut g = test_game();
+        g.kings_only_plies = 2;
+        let data = g.export_state();
+        let mut back = test_game();
+        assert!(back.import_state(&data));
+        assert_eq!(back.kings_only_plies, 2, "счётчик ничьей переносится");
     }
 
     #[test]

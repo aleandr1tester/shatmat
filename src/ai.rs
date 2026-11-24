@@ -101,6 +101,8 @@ fn negamax(g: &Game, depth: u8, mut alpha: f32, beta: f32, ply: u8) -> f32 {
                 -MATE + ply as f32
             };
         }
+        // Ничья одинаково ничейна для обеих сторон.
+        Status::Draw { .. } => return 0.0,
         _ => {}
     }
     if depth == 0 {

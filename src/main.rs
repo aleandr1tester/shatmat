@@ -780,6 +780,8 @@ pub struct App {
     mate_escape: bool,
     /// Карточка «Правила партии» в панели: сводка раскрыта.
     rules_open: bool,
+    /// Сколько строк было в журнале на прошлом кадре: новый ход сворачивает сводку.
+    rules_seen_log: usize,
     font_faces: Vec<fonts::FontFace>,
     font_index: usize,
     game_start: Option<String>,
@@ -961,6 +963,7 @@ impl App {
             mate_lines: true,
             mate_escape: true,
             rules_open: true,
+            rules_seen_log: 0,
             font_faces,
             font_index,
             game_start,
@@ -3601,6 +3604,12 @@ impl App {
         if toggle_rules {
             self.rules_open = !self.rules_open;
         }
+        // Идёт партия и в журнал записан новый ход — сводка снова сворачивается,
+        // чтобы не занимать место у журнала. Раскрыть можно ссылкой.
+        if self.started && self.rules_open && g.log.len() > self.rules_seen_log {
+            self.rules_open = false;
+        }
+        self.rules_seen_log = g.log.len();
         // --- взаимодействие ---
         if self.game.is_over() {
             return;

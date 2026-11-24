@@ -1148,3 +1148,9 @@ msgstr "démo IA (moyen)"
 
 msgid "Код партии: {code} · зерно: {seed}"
 msgstr "Code de partie : {code} · graine : {seed}"
+
+msgid "нет взятий"
+msgstr "sans prises"
+
+msgid "Ничья без взятий: {n} полуходов"
+msgstr "Nulle après {n} demi-coups sans prise"

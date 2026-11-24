@@ -19,6 +19,9 @@ pub const GRACE_SECS: f32 = 5.0;
 /// Пауза после хода перед появлением сумерек в режиме «по ходам»:
 /// игрок успевает увидеть результат хода.
 pub const MOVE_TWILIGHT_PAUSE: f32 = 2.0;
+/// Ничья, если столько полуходов подряд сыграно без единого взятия:
+/// позиция «мёртвая», и добивать её бессмысленно.
+pub const NO_CAPTURE_DRAW_PLIES: usize = 50;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Side {
@@ -430,6 +433,15 @@ impl Game {
         } else {
             self.kings_only_plies = self.kings_only_plies.saturating_add(1);
         }
+    }
+
+    /// Сколько полуходов подряд сыграно без взятий.
+    pub fn no_capture_plies(&self) -> usize {
+        self.history
+            .iter()
+            .rev()
+            .take_while(|m| m.captured.is_none())
+            .count()
     }
 
     /// Король стороны под боем: соперник может взять его следующим ходом.
@@ -1534,6 +1546,14 @@ impl Game {
             self.end_turn();
             return;
         }
+        // Полсотни полуходов без единого взятия — позиция мёртвая.
+        if self.no_capture_plies() >= NO_CAPTURE_DRAW_PLIES {
+            self.status = Status::Draw {
+                reason: "нет взятий".into(),
+            };
+            self.end_turn();
+            return;
+        }
         let moves = self.all_moves();
         match self.phase {
             Phase::Chess => {
@@ -2408,6 +2428,44 @@ mod tests {
 
     /// Король под боем может уйти вместо обязательного взятия.
     #[test]
+    /// Полсотни полуходов без единого взятия — позиция мёртвая, ничья.
+    #[test]
+    fn draw_after_long_time_without_captures() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Chess;
+        g.board[0][0] = Some(Piece::new(Side::White, Kind::King)); // a1
+        g.board[0][1] = Some(Piece::new(Side::White, Kind::Rook)); // b1
+        g.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
+        g.board[7][6] = Some(Piece::new(Side::Black, Kind::Rook)); // g8
+        g.turn = Side::White;
+        let mut sq_w = (0, 0);
+        let mut sq_b = (7, 7);
+        for _ in 0..NO_CAPTURE_DRAW_PLIES {
+            let (from, to) = if g.turn == Side::White {
+                let to = if sq_w == (0, 0) { (0, 1) } else { (0, 0) };
+                let m = (sq_w, to);
+                sq_w = to;
+                m
+            } else {
+                let to = if sq_b == (7, 7) { (7, 6) } else { (7, 7) };
+                let m = (sq_b, to);
+                sq_b = to;
+                m
+            };
+            g.apply(Move {
+                from,
+                to,
+                captured: None,
+            });
+        }
+        assert!(
+            matches!(g.status, Status::Draw { .. }),
+            "без взятий {NO_CAPTURE_DRAW_PLIES} полуходов — ничья: {:?}",
+            g.status
+        );
+    }
+
     fn king_escape_lets_king_leave_forced_capture() {
         let pos = || {
             let mut g = test_game();

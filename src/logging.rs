@@ -193,6 +193,10 @@ pub fn format_game_log(
             },
         )],
     ));
+    s.push_str(&crate::i18n::logf(
+        "Ничья без взятий: {n} полуходов\n",
+        &[("n", &crate::game::NO_CAPTURE_DRAW_PLIES.to_string())],
+    ));
     s.push_str(&crate::i18n::logf("Результат: {result}\n", &[("result", result)]));
     s.push_str(&crate::i18n::logf(
         "Всего ходов: {total} (белые: {white}, чёрные: {black})\n",

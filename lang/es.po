@@ -1147,3 +1147,9 @@ msgstr "demostración de IA (medio)"
 
 msgid "Код партии: {code} · зерно: {seed}"
 msgstr "Código de partida: {code} · semilla: {seed}"
+
+msgid "нет взятий"
+msgstr "sin capturas"
+
+msgid "Ничья без взятий: {n} полуходов"
+msgstr "Tablas tras {n} medias jugadas sin capturas"

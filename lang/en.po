@@ -1148,3 +1148,9 @@ msgstr "AI demo (medium)"
 
 msgid "Код партии: {code} · зерно: {seed}"
 msgstr "Game code: {code} · seed: {seed}"
+
+msgid "нет взятий"
+msgstr "no captures"
+
+msgid "Ничья без взятий: {n} полуходов"
+msgstr "Draw after {n} plies without captures"

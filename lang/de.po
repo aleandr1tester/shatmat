@@ -1147,3 +1147,9 @@ msgstr "KI-Demo (mittel)"
 
 msgid "Код партии: {code} · зерно: {seed}"
 msgstr "Partiecode: {code} · Startwert: {seed}"
+
+msgid "нет взятий"
+msgstr "keine Schläge"
+
+msgid "Ничья без взятий: {n} полуходов"
+msgstr "Remis nach {n} Halbzügen ohne Schlag"

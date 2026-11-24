@@ -1302,9 +1302,19 @@ impl App {
                     if let Some(mv) = mv {
                         self.demo.apply(mv);
                     }
-                    // Шахматная часть — на несколько секунд медленнее:
-                    // фигур много, и позицию надо успеть разглядеть.
-                    self.demo_wait = if self.demo.phase == Phase::Chess {
+                    // Концовку (мало фигур) показываем быстрее, чтобы демо
+                    // не вязло в мёртвых позициях; шахматная часть при полной
+                    // доске — медленнее: позицию надо успеть разглядеть.
+                    let pieces = self
+                        .demo
+                        .board
+                        .iter()
+                        .flatten()
+                        .filter(|c| c.is_some())
+                        .count();
+                    self.demo_wait = if pieces <= 6 {
+                        0.7
+                    } else if self.demo.phase == Phase::Chess {
                         2.4
                     } else {
                         1.1

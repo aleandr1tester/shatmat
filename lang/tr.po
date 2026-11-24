@@ -1148,3 +1148,9 @@ msgstr "yapay zekâ gösterimi (orta)"
 
 msgid "Код партии: {code} · зерно: {seed}"
 msgstr "Parti kodu: {code} · tohum: {seed}"
+
+msgid "нет взятий"
+msgstr "vuruş yok"
+
+msgid "Ничья без взятий: {n} полуходов"
+msgstr "{n} yarım hamle vuruş olmadan: berabere"

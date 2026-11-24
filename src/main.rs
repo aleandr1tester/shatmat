@@ -1937,9 +1937,6 @@ impl App {
                     if self.net_window {
                         self.paint_net(ui, &painter, layout);
                     }
-                    if self.game.is_over() && !self.rules && !self.settings {
-                        self.paint_result(ui, ctx, &painter, layout);
-                    }
                     if self.journal {
                         self.paint_journal(ui, &painter, layout);
                     }
@@ -3037,6 +3034,134 @@ impl App {
             alpha(cur.text_dim, 0.9),
         );
 
+        let over = g.is_over();
+        if over {
+            // Итог партии — наверху панели, как заголовок: кто победил,
+            // почему и что было последним ходом.
+            let (title, reason, color) = match &g.status {
+                game::Status::Win { side, reason } => (
+                    i18n::trf("ПОБЕДА {side}", &[("side", &side.name_ru().to_uppercase())]),
+                    i18n::tr_owned(reason.clone()),
+                    cur.accent,
+                ),
+                game::Status::Draw { reason } => (
+                    i18n::tr("НИЧЬЯ").to_string(),
+                    i18n::tr_owned(reason.clone()),
+                    cur.text,
+                ),
+                _ => ("ПАРТИЯ".to_string(), String::new(), cur.text),
+            };
+            spaced_text(painter, Pos2::new(x, y), &title, 23.0, color, 2.2);
+            y += 34.0;
+            if !reason.is_empty() {
+                text_fit(
+                    painter,
+                    Pos2::new(x, y),
+                    &reason,
+                    w,
+                    13.0,
+                    alpha(cur.text_dim, 0.95),
+                );
+                y += 26.0;
+            }
+            // Строка повтора: кто кого срубил и в каком режиме.
+            let replay_line = if let Some((_, to)) = g.last_move {
+                if let (Some(attacker), Some((_, victim))) = (g.piece_at(to), g.last_capture) {
+                    let phase = if g.phase == Phase::Checkers {
+                        i18n::tr("шашки")
+                    } else {
+                        i18n::tr("шахматы")
+                    };
+                    let side_ru = |s: Side| {
+                        if s == Side::White {
+                            i18n::tr("белые")
+                        } else {
+                            i18n::tr("чёрные")
+                        }
+                    };
+                    let (att, vic) = if g.phase == Phase::Checkers {
+                        (
+                            if attacker.is_damka() {
+                                i18n::tr("дамка")
+                            } else {
+                                i18n::tr("шашка")
+                            },
+                            if victim.kind == Kind::King {
+                                i18n::tr("король")
+                            } else {
+                                i18n::tr("шашка")
+                            },
+                        )
+                    } else {
+                        (piece_ru(attacker.kind), piece_ru(victim.kind))
+                    };
+                    i18n::trf(
+                        "Повтор: {att_side} — {att}, {vic_side} — {vic} · {phase}",
+                        &[
+                            ("att_side", side_ru(attacker.side)),
+                            ("att", att),
+                            ("vic_side", side_ru(victim.side)),
+                            ("vic", vic),
+                            ("phase", phase),
+                        ],
+                    )
+                } else {
+                    "Повтор последнего хода".to_string()
+                }
+            } else {
+                String::new()
+            };
+            if !replay_line.is_empty() {
+                let galley = painter.layout(
+                    replay_line,
+                    FontId::proportional(11.5),
+                    alpha(cur.text, 0.9),
+                    w,
+                );
+                let h = galley.size().y;
+                painter.galley(Pos2::new(x, y), galley, Color32::WHITE);
+                y += h + 6.0;
+            }
+            // Матующие фигуры — если победа матом.
+            if self.mate_lines && g.phase == Phase::Chess {
+                if let game::Status::Win { side, reason } = &g.status {
+                    if reason.contains("мат") {
+                        if let Some(king) = g.king_sq(side.other()) {
+                            let attackers = g.attackers_to(king, *side);
+                            if !attackers.is_empty() {
+                                let names = attackers
+                                    .iter()
+                                    .map(|(sq, kind)| {
+                                        format!("{} {}", piece_ru(*kind), game::sq_name(*sq))
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join(" · ");
+                                let line =
+                                    i18n::trf("Мат ставят: {names}", &[("names", &names)]);
+                                let galley = painter.layout(
+                                    line,
+                                    FontId::proportional(10.5),
+                                    alpha(cur.danger, 0.95),
+                                    w,
+                                );
+                                let h = galley.size().y;
+                                painter.galley(Pos2::new(x, y), galley, Color32::WHITE);
+                                y += h + 6.0;
+                            }
+                        }
+                    }
+                }
+            }
+            text_fit(
+                painter,
+                Pos2::new(x, y),
+                &i18n::trf("Ходов: {n}", &[("n", &g.history.len().to_string())]),
+                w,
+                11.0,
+                alpha(cur.text_dim, 0.72),
+            );
+            y += 24.0;
+        } else {
         let display_phase = if g.trans > 0.55 { g.phase.other() } else { g.phase };
         let display_pal = Palette::for_phase(display_phase);
         spaced_text(
@@ -3342,6 +3467,7 @@ impl App {
             alpha(cur.text_dim, 0.95),
         );
         y += 24.0;
+        }
 
         divider(painter, x, y, w, cur.text_dim);
         y += 16.0;
@@ -3632,10 +3758,26 @@ impl App {
         }
         self.rules_seen_log = g.log.len();
         // --- взаимодействие ---
-        if self.game.is_over() {
+        if self.settings || self.rules || self.guide || self.journal {
             return;
         }
-        if self.settings || self.rules || self.guide {
+        if g.is_over() {
+            // Финальные кнопки стоят там же, где игровые: меняется только
+            // содержимое — добавлены журнал и просмотр партии.
+            if button(ui, rules_btn, "Журнал", false, &cur, 12.0) {
+                self.journal_text = self.build_journal_text();
+                self.journal = true;
+            }
+            if button_gear(ui, settings_btn, "Настройки", false, &cur, 11.5) {
+                self.settings = true;
+                self.rules = false;
+            }
+            if button(ui, play_btn, "Новая партия", true, &cur, 14.5) {
+                self.new_game();
+            }
+            if button(ui, new_btn, "Просмотр", false, &cur, 14.5) {
+                self.start_review();
+            }
             return;
         }
         if self.game.pending_promotion.is_some() {
@@ -5799,192 +5941,6 @@ impl App {
     }
 
     // ------------------------- результат -------------------------
-
-    fn paint_result(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
-        // Лёгкое затемнение: доска с повтором остаётся видимой.
-        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(70));
-        let card = Rect::from_center_size(
-            layout.panel.center(),
-            Vec2::new((layout.panel.width() - 18.0).max(260.0), 320.0),
-        );
-        let pal = Palette::for_phase(self.game.phase);
-        rr(
-            painter,
-            card,
-            22.0,
-            alpha(Color32::from_rgb(22, 20, 30), 0.92),
-            Stroke::new(1.0_f32, alpha(pal.accent, 0.45)),
-        );
-
-        let g = &self.game;
-        let (title, reason, color) = match &g.status {
-            game::Status::Win { side, reason } => (
-                i18n::trf("ПОБЕДА {side}", &[("side", &side.name_ru().to_uppercase())]),
-                i18n::tr_owned(reason.clone()),
-                pal.accent,
-            ),
-            game::Status::Draw { reason } => (
-                i18n::tr("НИЧЬЯ").to_string(),
-                i18n::tr_owned(reason.clone()),
-                pal.text,
-            ),
-            _ => ("ПАРТИЯ".to_string(), String::new(), pal.text),
-        };
-        let pad = 22.0;
-        let x = card.left() + pad;
-        let w = card.width() - pad * 2.0;
-
-        spaced_text(
-            painter,
-            Pos2::new(x, card.top() + 30.0),
-            &title,
-            17.0,
-            color,
-            2.0,
-        );
-        text(
-            painter,
-            Pos2::new(x, card.top() + 58.0),
-            Align2::LEFT_TOP,
-            reason,
-            12.5,
-            alpha(pal.text_dim, 0.95),
-        );
-
-        // Строка повтора: кто кого срубил и в каком режиме.
-        let replay_line = if let Some((_, to)) = g.last_move {
-            if let (Some(attacker), Some((_, victim))) = (g.piece_at(to), g.last_capture) {
-                let phase = if g.phase == Phase::Checkers {
-                    i18n::tr("шашки")
-                } else {
-                    i18n::tr("шахматы")
-                };
-                let side_ru = |s: Side| {
-                    if s == Side::White {
-                        i18n::tr("белые")
-                    } else {
-                        i18n::tr("чёрные")
-                    }
-                };
-                let (att, vic) = if g.phase == Phase::Checkers {
-                    (
-                        if attacker.is_damka() {
-                            i18n::tr("дамка")
-                        } else {
-                            i18n::tr("шашка")
-                        },
-                        if victim.kind == Kind::King {
-                            i18n::tr("король")
-                        } else {
-                            i18n::tr("шашка")
-                        },
-                    )
-                } else {
-                    (piece_ru(attacker.kind), piece_ru(victim.kind))
-                };
-                i18n::trf(
-                    "Повтор: {att_side} — {att}, {vic_side} — {vic} · {phase}",
-                    &[
-                        ("att_side", side_ru(attacker.side)),
-                        ("att", att),
-                        ("vic_side", side_ru(victim.side)),
-                        ("vic", vic),
-                        ("phase", phase),
-                    ],
-                )
-            } else {
-                "Повтор последнего хода".to_string()
-            }
-        } else {
-            String::new()
-        };
-        if !replay_line.is_empty() {
-            let galley = painter.layout(
-                replay_line,
-                FontId::proportional(11.5),
-                alpha(pal.text, 0.9),
-                w,
-            );
-            painter.galley(Pos2::new(x, card.top() + 84.0), galley, Color32::WHITE);
-        }
-        text(
-            painter,
-            Pos2::new(x, card.top() + 126.0),
-            Align2::LEFT_TOP,
-            i18n::trf("Ходов: {n}", &[("n", &g.history.len().to_string())]),
-            11.0,
-            alpha(pal.text_dim, 0.7),
-        );
-        if self.mate_lines && g.phase == Phase::Chess {
-            if let game::Status::Win { side, reason } = &g.status {
-                if reason.contains("мат") {
-                    if let Some(king) = g.king_sq(side.other()) {
-                        let attackers = g.attackers_to(king, *side);
-                        if !attackers.is_empty() {
-                            let names = attackers
-                                .iter()
-                                .map(|(sq, kind)| {
-                                    format!("{} {}", piece_ru(*kind), game::sq_name(*sq))
-                                })
-                                .collect::<Vec<_>>()
-                                .join(" · ");
-                            let line = i18n::trf("Мат ставят: {names}", &[("names", &names)]);
-                            let galley = painter.layout(
-                                line,
-                                FontId::proportional(10.5),
-                                alpha(pal.danger, 0.95),
-                                w,
-                            );
-                            painter.galley(
-                                Pos2::new(x, card.top() + 146.0),
-                                galley,
-                                Color32::WHITE,
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        if self.journal {
-            return;
-        }
-        let gap = 8.0;
-        let half = (w - gap) * 0.5;
-        let again = Rect::from_min_size(
-            Pos2::new(x, card.bottom() - 104.0),
-            Vec2::new(half, 42.0),
-        );
-        let journal = Rect::from_min_size(
-            Pos2::new(x + half + gap, card.bottom() - 104.0),
-            Vec2::new(half, 42.0),
-        );
-        let review = Rect::from_min_size(
-            Pos2::new(x, card.bottom() - 54.0),
-            Vec2::new(half, 38.0),
-        );
-        let settings = Rect::from_min_size(
-            Pos2::new(x + half + gap, card.bottom() - 54.0),
-            Vec2::new(half, 38.0),
-        );
-        if button(ui, again, "Новая партия", true, &pal, 13.0) {
-            self.new_game();
-        }
-        if button(ui, journal, "Журнал", false, &pal, 13.0) {
-            self.journal_text = self.build_journal_text();
-            self.journal = true;
-        }
-        if button(ui, review, "Просмотр", false, &pal, 13.0) {
-            self.start_review();
-        }
-        // После партии нужнее настройки: сменить сложность и начать заново.
-        // Правила по-прежнему открываются клавишей H и в панели во время игры.
-        if button_gear(ui, settings, "Настройки", false, &pal, 12.5) {
-            self.settings = true;
-            self.rules = false;
-        }
-        let _ = ctx;
-    }
 
     fn paint_guide(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(180));

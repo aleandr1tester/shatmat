@@ -15,6 +15,12 @@ the folder with a single line, e.g.:
 
 The choice is stored in pieces/current.txt (empty = built-in set).
 
+PACKS
+If you need sounds and music as well, make a pack: a folder packs/<name>/
+with a pack.txt and pieces/, sounds/, music/ inside. A selected pack takes
+precedence over this folder; here the built-in set and the old sets in
+subfolders stay. Details are in packs/README.txt.
+
 FILE NAMES INSIDE A SET (exactly these)
 Chess, 12 files:
   white_pawn   white_knight   white_bishop   white_rook   white_queen   white_king

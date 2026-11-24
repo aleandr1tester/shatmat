@@ -84,7 +84,24 @@ durations, move limit, pawn promotion, mandatory capture and the damka mode.
 - a corrupted code (a wrong character) is rejected by the checksum: the game
   reports "Invalid code" and keeps the rules unchanged.
 
-## Custom pieces
+## Custom pieces and packs
+
+There are two ways to replace the pieces. The `pieces` folder is the original
+one; the `packs` folders came later and can hold more.
+
+**A pack** is a folder `packs/<name>/` with a `pack.txt` inside, containing
+`pieces/`, `sounds/` and `music/` (any one of them is enough). In Settings a
+pack appears as a separate option in each list: you can take the pieces from a
+pack and keep the built-in sounds, or the other way round. Details and naming
+rules are in `packs/README.txt`.
+
+**Just the `pieces` folder** is the old simple way: put PNG (or SVG) files
+straight into `pieces` next to the program and the game picks them up on
+launch. In Settings this is the "Built-in" option. Sets made before packs
+existed live in subfolders `pieces/<name>/` and keep working.
+
+Priority: the selected pack → a subfolder in `pieces/` → the built-in set from
+`pieces/*.svg`.
 
 Place PNG files in the `pieces` folder next to the program — the game will
 pick them up on launch. Requirements: PNG RGBA with a transparent background,
@@ -293,7 +310,10 @@ git show --stat HEAD
 - `sounds/` — replaceable WAV/MP3 files: `move`, `capture`, `twilight`
   (same names, either extension).
 - `music/` — `theme.wav` for background music.
-- `pieces/` — custom PNG or SVG pieces (see `pieces/README.txt`).
+- `pieces/` — the built-in set plus custom PNG or SVG pieces (see
+  `pieces/README.txt`).
+- `packs/` — packs: pieces, sounds and music in one set (see
+  `packs/README.txt`).
 - `lang/` — interface translations: `ru.po`, `en.po`, `es.po`, `de.po`,
   `fr.po`, `tr.po` (or `.mo`).
 - `logs/` — game log files (see `logs/README.txt`).

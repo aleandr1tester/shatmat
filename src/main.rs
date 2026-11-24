@@ -744,6 +744,8 @@ pub struct App {
     demo_wait: f32,
     demo_rx: Option<std::sync::mpsc::Receiver<Option<Move>>>,
     demo_end_pause: f32,
+    /// Пауза перед стартом демонстрации: даём развернуть окно.
+    demo_delay: f32,
     shot: Option<Shot>,
     frames: u32,
     twilight_sounded: bool,
@@ -915,6 +917,7 @@ impl App {
             demo_wait: 0.7,
             demo_rx: None,
             demo_end_pause: 0.0,
+            demo_delay: 3.0,
             shot: shot.map(|path| Shot {
                 path,
                 requested: false,
@@ -1223,6 +1226,12 @@ impl App {
     /// Мусор не считаем, пока окно не активно или открыт диалог.
     fn update_demo(&mut self, dt: f32, ctx: &egui::Context) {
         if self.started || self.review || self.guide {
+            return;
+        }
+        // Первые секунды после запуска демонстрацию не крутим: окно часто
+        // открывается не на весь экран, и его успевают развернуть.
+        if self.demo_delay > 0.0 {
+            self.demo_delay = (self.demo_delay - dt).max(0.0);
             return;
         }
         if self.settings || self.rules || self.net_window || self.journal {

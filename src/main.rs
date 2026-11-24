@@ -3276,18 +3276,22 @@ impl App {
         y += 20.0;
 
         // ход
-        let dot = Pos2::new(x + 5.0, y + 9.0);
+        // Индикатор стороны: диаметр по высоте строчных букв (14 px при
+        // кегле 19), между кружком и текстом — заметный отступ.
+        let dot_r = 7.0;
+        let dot = Pos2::new(x + dot_r, y + 12.0);
         let side_color = match g.turn {
             Side::White => Color32::from_rgb(244, 232, 210),
             Side::Black => Color32::from_rgb(70, 82, 110),
         };
-        painter.circle_filled(dot, 5.0, side_color);
-        painter.circle_stroke(dot, 5.0, Stroke::new(1.0_f32, alpha(cur.text_dim, 0.6)));
+        painter.circle_filled(dot, dot_r, side_color);
+        painter.circle_stroke(dot, dot_r, Stroke::new(1.0_f32, alpha(cur.text_dim, 0.6)));
+        let text_x = x + dot_r * 2.0 + 10.0;
         text_fit(
             painter,
-            Pos2::new(x + 18.0, y),
+            Pos2::new(text_x, y),
             &i18n::trf("Ход {side}", &[("side", g.turn.gen_ru())]),
-            w - 18.0,
+            w - (text_x - x),
             19.0,
             cur.text,
         );

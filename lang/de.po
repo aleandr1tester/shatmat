@@ -1175,5 +1175,5 @@ msgstr "REMIS"
 msgid "Король против короля: после пустого полухода каждого — ничья."
 msgstr "König gegen König: nach einem leeren Halbzug beider Seiten — Remis."
 
-msgid "Одинокий король против короля и одной сильной фигуры: после 10 полуходов без взятий — ничья, позицию не доиграть."
-msgstr "Ein einsamer König gegen König und eine starke Figur: nach 10 Halbzügen ohne Schlag — Remis, die Stellung ist nicht zu gewinnen."
+msgid "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть."
+msgstr "Ein einsamer König gegen König und eine starke Figur: nach 20 Halbzügen ohne Schlag — Remis, die Stellung ist nicht zu gewinnen."

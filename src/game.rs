@@ -21,7 +21,7 @@ pub const GRACE_SECS: f32 = 5.0;
 pub const MOVE_TWILIGHT_PAUSE: f32 = 2.0;
 /// Ничья в мёртвом эндшпиле, если столько полуходов подряд сыграно
 /// без единого взятия: одинокого короля с одной фигурой не добить.
-pub const NO_CAPTURE_DRAW_PLIES: usize = 10;
+pub const NO_CAPTURE_DRAW_PLIES: usize = 20;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Side {

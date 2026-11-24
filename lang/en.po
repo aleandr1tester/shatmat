@@ -1176,5 +1176,5 @@ msgstr "DRAWS"
 msgid "Король против короля: после пустого полухода каждого — ничья."
 msgstr "King versus king: after an empty half-move by each side — a draw."
 
-msgid "Одинокий король против короля и одной сильной фигуры: после 10 полуходов без взятий — ничья, позицию не доиграть."
-msgstr "A lone king versus a king and one strong piece: after 10 plies without captures — a draw, the position cannot be finished."
+msgid "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть."
+msgstr "A lone king versus a king and one strong piece: after 20 plies without captures — a draw, the position cannot be finished."

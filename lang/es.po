@@ -1175,5 +1175,5 @@ msgstr "TABLAS"
 msgid "Король против короля: после пустого полухода каждого — ничья."
 msgstr "Rey contra rey: tras un medio movimiento vacío de cada bando — tablas."
 
-msgid "Одинокий король против короля и одной сильной фигуры: после 10 полуходов без взятий — ничья, позицию не доиграть."
-msgstr "Un rey solitario contra rey y una pieza fuerte: tras 10 medias jugadas sin capturas — tablas, la posición no se puede acabar."
+msgid "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть."
+msgstr "Un rey solitario contra rey y una pieza fuerte: tras 20 medias jugadas sin capturas — tablas, la posición no se puede acabar."

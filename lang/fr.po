@@ -1176,5 +1176,5 @@ msgstr "NULLES"
 msgid "Король против короля: после пустого полухода каждого — ничья."
 msgstr "Roi contre roi : après un demi-coup vide de chaque camp — nulle."
 
-msgid "Одинокий король против короля и одной сильной фигуры: после 10 полуходов без взятий — ничья, позицию не доиграть."
-msgstr "Un roi seul contre roi et une pièce forte : après 10 demi-coups sans prise — nulle, la position ne se termine pas."
+msgid "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть."
+msgstr "Un roi seul contre roi et une pièce forte : après 20 demi-coups sans prise — nulle, la position ne se termine pas."

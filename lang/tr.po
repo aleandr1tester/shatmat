@@ -1200,3 +1200,9 @@ msgstr "H — kurallar"
 msgid "ПРАВИЛА ПАРТИИ"
 msgstr "OYUN KURALLARI"
 
+msgid "Дамками становятся все фигуры, а не только пешки."
+msgstr "Yalnızca piyonlar değil, tüm taşlar dama olur."
+
+msgid "Дамками становятся только пешки."
+msgstr "Yalnızca piyonlar dama olur."
+

@@ -1200,3 +1200,9 @@ msgstr "H — règles"
 msgid "ПРАВИЛА ПАРТИИ"
 msgstr "RÈGLES DE LA PARTIE"
 
+msgid "Дамками становятся все фигуры, а не только пешки."
+msgstr "Toutes les pièces deviennent des dames, pas seulement les pions."
+
+msgid "Дамками становятся только пешки."
+msgstr "Seuls les pions deviennent des dames."
+

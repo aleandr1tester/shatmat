@@ -1200,3 +1200,9 @@ msgstr "H — rules"
 msgid "ПРАВИЛА ПАРТИИ"
 msgstr "GAME RULES"
 
+msgid "Дамками становятся все фигуры, а не только пешки."
+msgstr "All pieces become checker kings, not just pawns."
+
+msgid "Дамками становятся только пешки."
+msgstr "Only pawns become checker kings."
+

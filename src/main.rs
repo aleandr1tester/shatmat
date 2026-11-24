@@ -3355,15 +3355,13 @@ impl App {
             Pos2::new(x + half + gap, row_y),
             Vec2::new(half, 36.0),
         );
-        let chips_y = row_y - 30.0 - 30.0;
-        // Карточка смены фаз: поля совпадают с общими отступами панели,
-        // высота с запасом снизу — последняя строка не липнет к краю.
+        // Карточка смены фаз: поля совпадают с общими отступами панели.
         let setup_pad = 12.0;
         let setup_w = w - setup_pad * 2.0;
-        // Высота по содержимому: в «по ходам» — фаза и сводка правил, в
-        // остальных режимах нужен ряд чипов/вторая строка. Низ карточки держим
-        // в 10 px над кнопками, чтобы она не «висела».
-        let setup_h = 88.0;
+        // Высота по содержимому: в «по ходам» — подробная памятка правил,
+        // в остальных режимах — ряд чипов/вторая строка. Низ карточки держим
+        // в 10 px над кнопками, а журнал подрезаем по её верхнему краю.
+        let setup_h = if g.twilight_by_moves { 106.0 } else { 88.0 };
         let setup_top = row_y - 10.0 - setup_h;
         let chips = [
             (10.0, "10 с"),
@@ -3381,7 +3379,7 @@ impl App {
         }
         // журнал ходов (последние строки)
         let log_top = y;
-        let log_bottom = chips_y - 46.0;
+        let log_bottom = setup_top - 10.0;
         let line_h = 17.0;
         let max_lines = (((log_bottom - log_top) / line_h).floor() as usize).max(0);
         if max_lines > 0 && !g.log.is_empty() {
@@ -3466,44 +3464,35 @@ impl App {
                 9.5,
                 alpha(cur.text_dim, 0.75),
             );
-            // Сводка закодированных правил — то же, что в настройках,
-            // но под рукой во время партии.
-            let cap = if g.mandatory_capture {
-                "Взятие: да"
-            } else {
-                "Взятие: нет"
-            };
-            let chain = if g.max_chain {
-                "Цепочка: максимум"
-            } else {
-                "Цепочка: любая"
-            };
-            let crown = if g.crown_non_pawns {
-                "Дамки: все"
-            } else {
-                "Дамки: пешки"
-            };
-            let king = if g.king_escape {
-                "Король уходит: да"
-            } else {
-                "Король уходит: нет"
-            };
-            let col2 = x + setup_pad + setup_w * 0.50;
-            let col_w = setup_w * 0.47;
-            for (dy, left, right) in [(48.0, cap, chain), (68.0, crown, king)] {
+            // Подробная памятка: то же, что блок пояснений в настройках.
+            let rules = [
+                if g.mandatory_capture {
+                    "Бить обязательно; серию нужно продолжать."
+                } else {
+                    "Можно без взятия; серию можно закончить."
+                },
+                if g.max_chain {
+                    "Брать можно только самую длинную серию взятий."
+                } else {
+                    "Достаточно любого взятия, длина серии не важна."
+                },
+                if g.crown_non_pawns {
+                    "Дамками становятся все фигуры, а не только пешки."
+                } else {
+                    "Дамками становятся только пешки."
+                },
+                if g.king_escape {
+                    "Король под боем может уйти вместо обязательного взятия."
+                } else {
+                    "Под боем король бьёт наравне со всеми — без исключений."
+                },
+            ];
+            for (i, line) in rules.iter().enumerate() {
                 text_fit(
                     painter,
-                    Pos2::new(x + setup_pad, setup_top + dy),
-                    left,
-                    col_w,
-                    10.5,
-                    alpha(cur.text_dim, 0.9),
-                );
-                text_fit(
-                    painter,
-                    Pos2::new(col2, setup_top + dy),
-                    right,
-                    col_w,
+                    Pos2::new(x + setup_pad, setup_top + 36.0 + i as f32 * 16.0),
+                    line,
+                    setup_w,
                     10.5,
                     alpha(cur.text_dim, 0.9),
                 );

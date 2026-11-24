@@ -1065,8 +1065,8 @@ msgstr "Any capture is enough; series length does not matter."
 msgid "смена через {n} х."
 msgstr "switch in {n} moves"
 
-msgid "фаза: {n} полных хода, смена после хода каждого"
-msgstr "phase: {n} full moves, switch after each side moves"
+msgid "длина фазы: {n} полных хода"
+msgstr "phase length: {n} full moves"
 
 msgid "по ходам, фаза {n} полных хода"
 msgstr "by moves, phase {n} full moves"

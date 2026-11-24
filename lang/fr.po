@@ -1065,8 +1065,8 @@ msgstr "Toute prise suffit ; la longueur n'importe pas."
 msgid "смена через {n} х."
 msgstr "changement dans {n} coups"
 
-msgid "фаза: {n} полных хода, смена после хода каждого"
-msgstr "phase : {n} coups complets, changement après chaque coup"
+msgid "длина фазы: {n} полных хода"
+msgstr "durée de la phase : {n} coups complets"
 
 msgid "по ходам, фаза {n} полных хода"
 msgstr "par coups, phase {n} coups complets"

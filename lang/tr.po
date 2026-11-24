@@ -1065,8 +1065,8 @@ msgstr "Herhangi bir vuruş yeterli; dizi uzunluğu önemsiz."
 msgid "смена через {n} х."
 msgstr "değişim {n} hamlede"
 
-msgid "фаза: {n} полных хода, смена после хода каждого"
-msgstr "faz: {n} tam hamle, her hamleden sonra değişir"
+msgid "длина фазы: {n} полных хода"
+msgstr "faz uzunluğu: {n} tam hamle"
 
 msgid "по ходам, фаза {n} полных хода"
 msgstr "hamleye göre, faz {n} tam hamle"

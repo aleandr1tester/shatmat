@@ -3428,7 +3428,7 @@ impl App {
                 painter,
                 Pos2::new(x + setup_pad, setup_top + 40.0),
                 &i18n::trf(
-                    "фаза: {n} полных хода, смена после хода каждого",
+                    "длина фазы: {n} полных хода",
                     &[("n", &g.phase_moves.to_string())],
                 ),
                 setup_w,
@@ -3456,7 +3456,7 @@ impl App {
         text_fit(
             painter,
             Pos2::new(x + setup_pad, setup_top + 68.0),
-            "клик — ход · Space — пауза · R — новая партия · H — правила",
+            "Space — пауза · R — новая партия · H — правила",
             setup_w,
             10.5,
             alpha(cur.text_dim, 0.85),

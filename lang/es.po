@@ -1064,8 +1064,8 @@ msgstr "Basta cualquier captura; la longitud no importa."
 msgid "смена через {n} х."
 msgstr "cambio en {n} jugadas"
 
-msgid "фаза: {n} полных хода, смена после хода каждого"
-msgstr "fase: {n} jugadas completas, cambio tras mover cada uno"
+msgid "длина фазы: {n} полных хода"
+msgstr "duración de la fase: {n} jugadas completas"
 
 msgid "по ходам, фаза {n} полных хода"
 msgstr "por jugadas, fase {n} jugadas completas"

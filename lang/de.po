@@ -1064,8 +1064,8 @@ msgstr "Jedes Schlagen genügt; die Länge ist beliebig."
 msgid "смена через {n} х."
 msgstr "Wechsel in {n} Zügen"
 
-msgid "фаза: {n} полных хода, смена после хода каждого"
-msgstr "Phase: {n} volle Züge, Wechsel nach jedem Zug"
+msgid "длина фазы: {n} полных хода"
+msgstr "Phasenlänge: {n} volle Züge"
 
 msgid "по ходам, фаза {n} полных хода"
 msgstr "nach Zügen, Phase {n} volle Züge"

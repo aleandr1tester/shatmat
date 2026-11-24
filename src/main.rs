@@ -3550,7 +3550,7 @@ impl App {
                     10.5,
                     alpha(cur.text_dim, 0.9),
                 );
-                divider(painter, x + setup_pad, setup_top + 72.0, setup_w, cur.text_dim);
+                divider(painter, x + setup_pad, setup_top + 74.5, setup_w, cur.text_dim);
                 // Подробная памятка: то же, что блок пояснений в настройках.
                 let rules = [
                     if g.mandatory_capture {

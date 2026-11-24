@@ -3609,6 +3609,44 @@ mod tests {
         assert!(g.phase_left < 30.0, "вне последних 5 секунд таймер идёт");
     }
 
+        /// Часы хода не идут в чужой ход: пока компьютер «думает», время игрока
+    /// стоит, а после ответа отсчёт нового хода начинается сразу.
+    #[test]
+    fn move_clock_pauses_during_opponent_turn() {
+        let mut g = test_game();
+        g.twilight_by_moves = true;
+        g.move_time_limit = 60.0;
+        g.move_left = 60.0;
+        g.move_anim = 1.0;
+        for _ in 0..30 {
+            g.tick(0.1);
+        }
+        assert!((g.move_left - 57.0).abs() < 0.05, "свои часы идут");
+        g.apply(Move {
+            from: (7, 1),
+            to: (7, 3),
+            captured: None,
+        }); // h2-h4
+        assert_eq!(g.turn, Side::Black);
+        assert_eq!(g.move_left, 60.0, "новый ход — новые 60 секунд");
+        // Ход компьютера: приложение выставляет phase_hold.
+        g.phase_hold = true;
+        for _ in 0..30 {
+            g.tick(0.1);
+        }
+        assert_eq!(g.move_left, 60.0, "пока думает компьютер, часы стоят");
+        // Ответил — часы пошли (минус анимация хода 0.22 с).
+        g.phase_hold = false;
+        for _ in 0..10 {
+            g.tick(0.1);
+        }
+        assert!(
+            g.move_left < 60.0 && g.move_left > 58.0,
+            "после ответа отсчёт пошёл сразу: {}",
+            g.move_left
+        );
+    }
+
     #[test]
     fn crown_option_can_restrict_damki_to_pawns() {
         let mut g = test_game();

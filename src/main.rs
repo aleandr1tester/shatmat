@@ -2986,7 +2986,9 @@ impl App {
             ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
         }
         if !demo_over {
-            resp.on_hover_text(i18n::tr("Запуск игры"));
+            // Подсказка у курсора, как у ссылки в браузере: плашка широкая,
+            // и привязка к её краю уводила текст далеко от мыши.
+            resp.on_hover_text_at_pointer(i18n::tr("Запуск игры"));
         }
     }
 

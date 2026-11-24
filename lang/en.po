@@ -1164,8 +1164,8 @@ msgstr "In checkers the king looks like a marked checker but moves and captures 
 msgid "Король под боем может уйти вместо обязательного взятия — настройка «Король уходит»."
 msgstr "A threatened king may flee instead of the forced capture — the “King may flee” setting."
 
-msgid "Сумерки — это смена игрового режима: природа фигур и правила меняются вместе с ними."
-msgstr "Twilight is a change of game mode: the nature of the pieces and the rules change with them."
+msgid "Сумерки — это смена игрового режима: игра идёт по правилам шашек, природа фигур и правила меняются вместе с ними."
+msgstr "Twilight is a change of game mode: play follows checkers rules, and the nature of the pieces and the rules change with them."
 
 msgid "Смена фаз не начинается, пока в текущем режиме не решена ясная ситуация: в шашках — если можно съесть короля, в шахматах — если не отыгран шах. Сумерки ждут следующий ход."
 msgstr "The phase does not change while the current mode has an unresolved clear situation: in checkers — when a king can be captured, in chess — when a check is unanswered. Twilight waits for the next move."

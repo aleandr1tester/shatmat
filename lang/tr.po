@@ -1164,8 +1164,8 @@ msgstr "Damada şah işaretli bir taş gibi görünür ama dama gibi hareket ede
 msgid "Король под боем может уйти вместо обязательного взятия — настройка «Король уходит»."
 msgstr "Tehdit altındaki şah zorunlu vuruş yerine kaçabilir — «Şah kaçabilir» ayarı."
 
-msgid "Сумерки — это смена игрового режима: природа фигур и правила меняются вместе с ними."
-msgstr "Alacakaranlık bir oyun modu değişimidir: taşların doğası ve kurallar birlikte değişir."
+msgid "Сумерки — это смена игрового режима: игра идёт по правилам шашек, природа фигур и правила меняются вместе с ними."
+msgstr "Alacakaranlık bir oyun modu değişimidir: dama kurallarıyla oynanır; taşların doğası ve kurallar birlikte değişir."
 
 msgid "Смена фаз не начинается, пока в текущем режиме не решена ясная ситуация: в шашках — если можно съесть короля, в шахматах — если не отыгран шах. Сумерки ждут следующий ход."
 msgstr "Mevcut modda net bir durum çözülmeden faz değişmez: damada — şah yenilebiliyorsa, satrançta — şah çekilmişse. Alacakaranlık bir sonraki hamleyi bekler."

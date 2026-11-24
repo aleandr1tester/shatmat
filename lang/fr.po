@@ -1164,8 +1164,8 @@ msgstr "Aux dames, le roi ressemble à un pion marqué, mais se déplace et pren
 msgid "Король под боем может уйти вместо обязательного взятия — настройка «Король уходит»."
 msgstr "Un roi menacé peut fuir au lieu de la prise obligatoire — option « Le roi peut fuir »."
 
-msgid "Сумерки — это смена игрового режима: природа фигур и правила меняются вместе с ними."
-msgstr "Le crépuscule est un changement de mode de jeu : la nature des pièces et les règles changent avec elles."
+msgid "Сумерки — это смена игрового режима: игра идёт по правилам шашек, природа фигур и правила меняются вместе с ними."
+msgstr "Le crépuscule est un changement de mode de jeu : on joue selon les règles des dames, et la nature des pièces et les règles changent avec elles."
 
 msgid "Смена фаз не начинается, пока в текущем режиме не решена ясная ситуация: в шашках — если можно съесть короля, в шахматах — если не отыгран шах. Сумерки ждут следующий ход."
 msgstr "Le changement de phase ne commence pas tant qu’une situation claire n’est pas résolue : aux dames — si l’on peut prendre un roi, aux échecs — si un échec n’est pas paré. Le crépuscule attend le coup suivant."

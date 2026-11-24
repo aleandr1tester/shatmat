@@ -1163,8 +1163,8 @@ msgstr "In Damen sieht der König wie ein markierter Stein aus, zieht und schlä
 msgid "Король под боем может уйти вместо обязательного взятия — настройка «Король уходит»."
 msgstr "Ein bedrohter König darf statt des Pflichtschlags fliehen — Einstellung „König darf fliehen“."
 
-msgid "Сумерки — это смена игрового режима: природа фигур и правила меняются вместе с ними."
-msgstr "Die Dämmerung ist ein Wechsel des Spielmodus: Die Natur der Figuren und die Regeln ändern sich mit ihnen."
+msgid "Сумерки — это смена игрового режима: игра идёт по правилам шашек, природа фигур и правила меняются вместе с ними."
+msgstr "Die Dämmerung ist ein Wechsel des Spielmodus: Es wird nach Damenregeln gespielt, und die Natur der Figuren und die Regeln ändern sich mit ihnen."
 
 msgid "Смена фаз не начинается, пока в текущем режиме не решена ясная ситуация: в шашках — если можно съесть короля, в шахматах — если не отыгран шах. Сумерки ждут следующий ход."
 msgstr "Der Phasenwechsel beginnt nicht, solange im aktuellen Modus eine klare Situation offen ist: in Damen — wenn ein König geschlagen werden kann, in Schach — wenn ein Schach nicht beantwortet ist. Die Dämmerung wartet auf den nächsten Zug."

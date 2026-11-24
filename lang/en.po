@@ -1124,3 +1124,18 @@ msgstr "draw — {reason}"
 
 msgid "король против короля"
 msgstr "king versus king"
+
+msgid "Король уходит: да"
+msgstr "King may flee: on"
+
+msgid "Король уходит: нет"
+msgstr "King may flee: off"
+
+msgid "Король под боем может уйти вместо обязательного взятия."
+msgstr "A threatened king may flee instead of the forced capture."
+
+msgid "Под боем король бьёт наравне со всеми — без исключений."
+msgstr "A threatened king captures like any other piece — no exceptions."
+
+msgid "Король уходит от боя: {value}"
+msgstr "King may flee from capture: {value}"

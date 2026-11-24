@@ -182,6 +182,17 @@ pub fn format_game_log(
             },
         )],
     ));
+    s.push_str(&crate::i18n::logf(
+        "Король уходит от боя: {value}\n",
+        &[(
+            "value",
+            if game.king_escape {
+                crate::i18n::log("вкл")
+            } else {
+                crate::i18n::log("выкл")
+            },
+        )],
+    ));
     s.push_str(&crate::i18n::logf("Результат: {result}\n", &[("result", result)]));
     s.push_str(&crate::i18n::logf(
         "Всего ходов: {total} (белые: {white}, чёрные: {black})\n",

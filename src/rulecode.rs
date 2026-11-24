@@ -37,6 +37,8 @@ pub struct Rules {
     pub crown_non_pawns: bool,
     /// Максимальная цепочка: брать надо самую длинную серию взятий.
     pub max_chain: bool,
+    /// Король под боем может уйти вместо обязательного взятия.
+    pub king_escape: bool,
     /// Длина фазы в полных ходах (2–4) для режима «по ходам».
     pub phase_moves: u8,
 }
@@ -55,6 +57,7 @@ impl Rules {
             mandatory_capture: game.mandatory_capture,
             crown_non_pawns: game.crown_non_pawns,
             max_chain: game.max_chain,
+            king_escape: game.king_escape,
             phase_moves: game.phase_moves,
         }
     }
@@ -72,6 +75,7 @@ impl Rules {
         game.mandatory_capture = self.mandatory_capture;
         game.crown_non_pawns = self.crown_non_pawns;
         game.max_chain = self.max_chain;
+        game.king_escape = self.king_escape;
         game.set_phase_moves(self.phase_moves);
     }
 
@@ -120,6 +124,8 @@ fn pack(r: &Rules) -> u32 {
     v |= checkers << 12; // 12..15
     v |= auto_max << 16; // 16..19
     v |= mtl << 20; // 20..25
+    // Бит 26 свободен: новое правило не ломает старые коды (там он 0).
+    v |= (r.king_escape as u32) << 26;
     v
 }
 
@@ -137,6 +143,7 @@ fn unpack(v: u32) -> Rules {
         checkers_len: ((((v >> 12) & 0xF) as f32) * 5.0) + 5.0,
         auto_max: ((((v >> 16) & 0xF) as f32) * 5.0) + 10.0,
         move_time_limit: ((((v >> 20) & 0x3F) as f32) * 5.0) + 10.0,
+        king_escape: (v >> 26) & 1 != 0,
     }
 }
 
@@ -271,6 +278,8 @@ fn pack20(r: &Rules) -> u32 {
     v |= (r.mandatory_capture as u32) << 3; // 3
     v |= (r.crown_non_pawns as u32) << 4; // 4
     v |= (r.max_chain as u32) << 5; // 5
+    // Бит 17 свободен в обоих режимах (по ходам: 13..19, по времени: 17..19).
+    v |= (r.king_escape as u32) << 17;
     if r.twilight_by_moves {
         v |= ((r.phase_moves.clamp(2, 4) - 2) as u32) << 6; // 6..7
         let mtl =
@@ -297,6 +306,7 @@ fn unpack20(v: u32) -> Rules {
         mandatory_capture: (v >> 3) & 1 != 0,
         crown_non_pawns: (v >> 4) & 1 != 0,
         max_chain: (v >> 5) & 1 != 0,
+        king_escape: (v >> 17) & 1 != 0,
         phase_moves: if by_moves {
             (((v >> 6) & 0x3) as u8).min(2) + 2
         } else {
@@ -383,6 +393,20 @@ mod tests {
     }
 
     #[test]
+    fn king_escape_rides_in_codes() {
+        let mut r = default_rules();
+        r.king_escape = false;
+        assert!(!decode(&encode(&r)).unwrap().king_escape, "код рукопожатия");
+        assert!(
+            !decode_compact(&encode_compact(&r)).unwrap().king_escape,
+            "компактный код"
+        );
+        r.king_escape = true;
+        assert!(decode(&encode(&r)).unwrap().king_escape);
+        assert!(decode_compact(&encode_compact(&r)).unwrap().king_escape);
+    }
+
+    #[test]
     fn code_roundtrip_defaults() {
         let r = default_rules();
         let code = encode(&r);
@@ -405,6 +429,7 @@ mod tests {
             mandatory_capture: true,
             crown_non_pawns: true,
                 max_chain: true,
+                king_escape: true,
                 phase_moves: 3,
         };
         let code = encode_compact(&r);
@@ -426,6 +451,7 @@ mod tests {
             mandatory_capture: false,
             crown_non_pawns: false,
                 max_chain: true,
+                king_escape: true,
                 phase_moves: 3,
         };
         let back2 = decode_compact(&encode_compact(&r2)).unwrap();
@@ -450,6 +476,7 @@ mod tests {
             mandatory_capture: true,
             crown_non_pawns: true,
             max_chain: false,
+            king_escape: true,
             phase_moves: 4,
         };
         let short = decode_compact(&encode_compact(&r)).expect("компактный код");
@@ -474,6 +501,7 @@ mod tests {
                 mandatory_capture: false,
                 crown_non_pawns: false,
                 max_chain: true,
+                king_escape: true,
                 phase_moves: 3,
             },
             Rules {
@@ -487,6 +515,7 @@ mod tests {
                 mandatory_capture: true,
                 crown_non_pawns: true,
                 max_chain: true,
+                king_escape: true,
                 phase_moves: 3,
             },
             Rules {
@@ -500,6 +529,7 @@ mod tests {
                 mandatory_capture: false,
                 crown_non_pawns: true,
                 max_chain: true,
+                king_escape: true,
                 phase_moves: 3,
             },
         ];

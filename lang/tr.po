@@ -1124,3 +1124,18 @@ msgstr "berabere — {reason}"
 
 msgid "король против короля"
 msgstr "şah şaha karşı"
+
+msgid "Король уходит: да"
+msgstr "Şah kaçabilir: açık"
+
+msgid "Король уходит: нет"
+msgstr "Şah kaçabilir: kapalı"
+
+msgid "Король под боем может уйти вместо обязательного взятия."
+msgstr "Tehdit altındaki şah zorunlu vuruş yerine kaçabilir."
+
+msgid "Под боем король бьёт наравне со всеми — без исключений."
+msgstr "Tehdit altındaki şah herkes gibi vurur — istisnasız."
+
+msgid "Король уходит от боя: {value}"
+msgstr "Şah vuruştan kaçabilir: {value}"

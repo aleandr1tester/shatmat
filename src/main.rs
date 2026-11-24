@@ -2168,7 +2168,14 @@ impl App {
                         && !g.is_over()
                         && g.trans == 0.0
                     {
-                        art::draw_king_ring(painter, center, size, 1.0, self.time);
+                        // Тревожное кольцо — только когда короля реально
+                        // бьют следующим ходом; иначе едва заметное.
+                        let a = if g.king_under_attack(piece.side) {
+                            1.0
+                        } else {
+                            0.30
+                        };
+                        art::draw_king_ring(painter, center, size, a, self.time);
                     }
                     if let Some((csq, t)) = g.crowned_flash {
                         if csq == sq {
@@ -3983,6 +3990,10 @@ impl App {
             Pos2::new(right_x, ry + 34.0),
             Vec2::new((right_w - 8.0) * 0.5, 28.0),
         );
+        let escape_chip = Rect::from_min_size(
+            Pos2::new(right_x + (right_w - 8.0) * 0.5 + 8.0, ry + 34.0),
+            Vec2::new((right_w - 8.0) * 0.5, 28.0),
+        );
         if chip(
             ui,
             capture_chip,
@@ -4035,6 +4046,19 @@ impl App {
         ) {
             self.game.max_chain = !self.game.max_chain;
         }
+        if chip(
+            ui,
+            escape_chip,
+            if self.game.king_escape {
+                "Король уходит: да"
+            } else {
+                "Король уходит: нет"
+            },
+            self.game.king_escape,
+            &pal,
+        ) {
+            self.game.king_escape = !self.game.king_escape;
+        }
         ry += 70.0;
         text_fit(
             painter,
@@ -4070,7 +4094,20 @@ impl App {
             11.0,
             alpha(pal.text_dim, 0.95),
         );
-        ry += 30.0;
+        ry += 15.0;
+        text_fit(
+            painter,
+            Pos2::new(right_x, ry),
+            if self.game.king_escape {
+                "Король под боем может уйти вместо обязательного взятия."
+            } else {
+                "Под боем король бьёт наравне со всеми — без исключений."
+            },
+            right_w,
+            11.0,
+            alpha(pal.text_dim, 0.95),
+        );
+        ry += 15.0;
 
         ry += 6.0;
         divider(painter, right_x, ry, right_w, pal.text_dim);

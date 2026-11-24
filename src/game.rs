@@ -272,6 +272,8 @@ pub struct Game {
     pub crown_non_pawns: bool,
     /// Максимальная цепочка: брать надо самую длинную серию взятий.
     pub max_chain: bool,
+    /// Король под боем может уйти вместо обязательного взятия.
+    pub king_escape: bool,
     /// Длина фазы в полных ходах (2–4) для режима «по ходам».
     pub phase_moves: u8,
     /// Сколько полуходов сыграно в текущей фазе.
@@ -355,6 +357,7 @@ impl Game {
             mandatory_capture: true,
             crown_non_pawns: true,
             max_chain: true,
+            king_escape: true,
             phase_moves: 3,
             plies_in_phase: 0,
             twilight_by_moves: true,
@@ -427,6 +430,30 @@ impl Game {
         } else {
             self.kings_only_plies = self.kings_only_plies.saturating_add(1);
         }
+    }
+
+    /// Король стороны под боем: соперник может взять его следующим ходом.
+    pub fn king_under_attack(&self, side: Side) -> bool {
+        if self.phase != Phase::Checkers {
+            return false;
+        }
+        let Some(king) = self.king_sq(side) else {
+            return false;
+        };
+        for r in 0..8 {
+            for f in 0..8 {
+                let Some(p) = self.board[r][f] else {
+                    continue;
+                };
+                if p.side != side.other() {
+                    continue;
+                }
+                if can_capture_at(&self.board, (f as i32, r as i32), p, king) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     pub fn is_over(&self) -> bool {
@@ -807,6 +834,18 @@ impl Game {
                         }
                     }
                     return moves;
+                }
+                // Король под боем: правило «король дороже боя» разрешает
+                // увести его вместо обязательного взятия. Иначе игрок
+                // обязан бить и теряет короля без выбора.
+                if self.king_escape && self.king_under_attack(self.turn) {
+                    if let Some(king) = self.king_sq(self.turn) {
+                        for mv in self.checker_quiet_from(king) {
+                            if !forced.iter().any(|m| m.from == mv.from && m.to == mv.to) {
+                                forced.push(mv);
+                            }
+                        }
+                    }
                 }
                 // «Максимальная цепочка»: длинную серию обходить нельзя.
                 let need = if self.max_chain {
@@ -1995,6 +2034,48 @@ fn attacked(b: &Board, sq: Square, by: Side) -> bool {
 }
 
 /// Клетка на доске (любая очередь, без проверок).
+/// Может ли фигура `p` с клетки `from` взять фигуру на `target` (шашки).
+/// Дамка и король бьют с любого расстояния по свободной диагонали,
+/// простая шашка — только через соседнюю клетку.
+pub(crate) fn can_capture_at(
+    b: &Board,
+    from: (i32, i32),
+    p: Piece,
+    target: Square,
+) -> bool {
+    let (tf, tr) = (target.0 as i32, target.1 as i32);
+    let (df, dr) = (tf - from.0, tr - from.1);
+    if df == 0 || df.abs() != dr.abs() {
+        return false;
+    }
+    let (sx, sy) = (df.signum(), dr.signum());
+    // Поле приземления — сразу за целью, оно должно быть свободным.
+    let (lx, ly) = (tf + sx, tr + sy);
+    if !inb(lx, ly) || b[ly as usize][lx as usize].is_some() {
+        return false;
+    }
+    if p.is_damka() || p.kind == Kind::King {
+        let mut x = from.0 + sx;
+        let mut y = from.1 + sy;
+        while (x, y) != (tf, tr) {
+            if !inb(x, y) || b[y as usize][x as usize].is_some() {
+                return false;
+            }
+            x += sx;
+            y += sy;
+        }
+        true
+    } else {
+        // Простая шашка бьёт только через соседнюю клетку: цель рядом,
+        // поле приземления за ней уже проверено.
+        df.abs() == 1
+    }
+}
+
+fn inb(f: i32, r: i32) -> bool {
+    (0..8).contains(&f) && (0..8).contains(&r)
+}
+
 fn board_at(b: &Board, sq: Square) -> Option<Piece> {
     at_b(b, sq.0 as i32, sq.1 as i32)
 }
@@ -2323,6 +2404,48 @@ mod tests {
 
     fn test_game() -> Game {
         Game::new(25.0)
+    }
+
+    /// Король под боем может уйти вместо обязательного взятия.
+    #[test]
+    fn king_escape_lets_king_leave_forced_capture() {
+        let pos = || {
+            let mut g = test_game();
+            g.board = [[None; 8]; 8];
+            g.phase = Phase::Checkers;
+            g.board[1][1] = Some(Piece::new(Side::White, Kind::King)); // b2
+            g.board[2][0] = Some(Piece::new(Side::Black, Kind::Pawn)); // a3
+            g.board[3][3] = Some(Piece::new(Side::White, Kind::Pawn)); // d4
+            g.board[4][2] = Some(Piece::new(Side::Black, Kind::Pawn)); // c5
+            g.turn = Side::White;
+            g.mandatory_capture = true;
+            g.max_chain = true;
+            g
+        };
+        let mut on = pos();
+        on.king_escape = true;
+        let moves_on = on.all_moves();
+        assert!(
+            moves_on
+                .iter()
+                .any(|m| m.from == (1, 1) && m.captured.is_none()),
+            "король уходит из-под боя: {:?}",
+            moves_on
+        );
+        let mut off = pos();
+        off.king_escape = false;
+        let moves_off = off.all_moves();
+        assert!(
+            !moves_off
+                .iter()
+                .any(|m| m.from == (1, 1) && m.captured.is_none()),
+            "без правила король не ходит: {:?}",
+            moves_off
+        );
+        assert!(
+            moves_off.iter().any(|m| m.captured.is_some()),
+            "взятие шашкой остаётся обязательным"
+        );
     }
 
     #[test]

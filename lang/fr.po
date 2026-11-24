@@ -1124,3 +1124,18 @@ msgstr "nulle — {reason}"
 
 msgid "король против короля"
 msgstr "roi contre roi"
+
+msgid "Король уходит: да"
+msgstr "Le roi peut fuir : oui"
+
+msgid "Король уходит: нет"
+msgstr "Le roi peut fuir : non"
+
+msgid "Король под боем может уйти вместо обязательного взятия."
+msgstr "Un roi menacé peut fuir au lieu de la prise obligatoire."
+
+msgid "Под боем король бьёт наравне со всеми — без исключений."
+msgstr "Un roi menacé prend comme toute autre pièce, sans exception."
+
+msgid "Король уходит от боя: {value}"
+msgstr "Le roi peut fuir la prise : {value}"

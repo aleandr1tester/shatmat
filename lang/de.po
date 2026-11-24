@@ -1123,3 +1123,18 @@ msgstr "Remis — {reason}"
 
 msgid "король против короля"
 msgstr "König gegen König"
+
+msgid "Король уходит: да"
+msgstr "König darf fliehen: an"
+
+msgid "Король уходит: нет"
+msgstr "König darf fliehen: aus"
+
+msgid "Король под боем может уйти вместо обязательного взятия."
+msgstr "Ein bedrohter König darf statt des Pflichtschlags fliehen."
+
+msgid "Под боем король бьёт наравне со всеми — без исключений."
+msgstr "Ein bedrohter König schlägt wie jede andere Figur — ohne Ausnahme."
+
+msgid "Король уходит от боя: {value}"
+msgstr "König darf dem Schlag ausweichen: {value}"

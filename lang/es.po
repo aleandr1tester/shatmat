@@ -1123,3 +1123,18 @@ msgstr "tablas — {reason}"
 
 msgid "король против короля"
 msgstr "rey contra rey"
+
+msgid "Король уходит: да"
+msgstr "El rey puede huir: sí"
+
+msgid "Король уходит: нет"
+msgstr "El rey puede huir: no"
+
+msgid "Король под боем может уйти вместо обязательного взятия."
+msgstr "Un rey amenazado puede huir en lugar de la captura obligatoria."
+
+msgid "Под боем король бьёт наравне со всеми — без исключений."
+msgstr "Un rey amenazado captura como cualquier pieza, sin excepciones."
+
+msgid "Король уходит от боя: {value}"
+msgstr "El rey puede huir de la captura: {value}"

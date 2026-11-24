@@ -4,7 +4,7 @@
 //! сложно — 5 полуходов с отсечением. Перебор переходит через смену фаз. Оценка учитывает и шахматную, и шашечную
 //! силу фигур, потому что через несколько секунд природа фигур меняется.
 
-use crate::game::{Board, Game, Kind, Move, Phase, Piece, Side, Square, Status};
+use crate::game::{Board, Game, Kind, Move, Phase, Side, Square, Status};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Difficulty {
@@ -275,41 +275,12 @@ fn king_capturers(b: &Board, target: Square, by: Side) -> usize {
             if p.side != by {
                 continue;
             }
-            if can_capture(b, (f as i32, r as i32), p, target) {
+            if crate::game::can_capture_at(b, (f as i32, r as i32), p, target) {
                 n += 1;
             }
         }
     }
     n
-}
-
-/// Может ли фигура `p` с клетки `from` съесть фигуру на `target`.
-fn can_capture(b: &Board, from: (i32, i32), p: Piece, target: Square) -> bool {
-    let (tf, tr) = (target.0 as i32, target.1 as i32);
-    let (df, dr) = (tf - from.0, tr - from.1);
-    if df == 0 || df.abs() != dr.abs() {
-        return false;
-    }
-    let (sx, sy) = (df.signum(), dr.signum());
-    // ближняя к цели клетка за ней — поле приземления
-    let land = (tf + sx, tr + sy);
-    if !inb(land.0, land.1) || b[land.1 as usize][land.0 as usize].is_some() {
-        return false;
-    }
-    if p.is_damka() || p.kind == Kind::King {
-        // дамка бьёт с любого расстояния по свободной диагонали
-        let mut x = from.0 + sx;
-        let mut y = from.1 + sy;
-        while (x, y) != (tf, tr) {
-            if !inb(x, y) || b[y as usize][x as usize].is_some() {
-                return false;
-            }
-            x += sx;
-            y += sy;
-        }
-        return (x, y) == (tf, tr);
-    }
-    df.abs() == 2
 }
 
 /// Сколько полей приземления за королём уже заняты своими фигурами.

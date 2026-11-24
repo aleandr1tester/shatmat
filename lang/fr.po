@@ -1157,3 +1157,24 @@ msgstr "Nulle après {n} demi-coups sans prise"
 
 msgid "Ничья без взятий: {n} полуходов (одинокий король)"
 msgstr "Nulle après {n} demi-coups sans prise (roi seul)"
+
+msgid "Король в шашках выглядит как шашка с меткой, но ходит и бьёт как дамка. Его можно съесть — это сразу поражение."
+msgstr "Aux dames, le roi ressemble à un pion marqué, mais se déplace et prend comme une dame. Il peut être pris : c’est une défaite immédiate."
+
+msgid "Король под боем может уйти вместо обязательного взятия — настройка «Король уходит»."
+msgstr "Un roi menacé peut fuir au lieu de la prise obligatoire — option « Le roi peut fuir »."
+
+msgid "Сумерки — это смена игрового режима: природа фигур и правила меняются вместе с ними."
+msgstr "Le crépuscule est un changement de mode de jeu : la nature des pièces et les règles changent avec elles."
+
+msgid "Смена фаз не начинается, пока в текущем режиме не решена ясная ситуация: в шашках — если можно съесть короля, в шахматах — если не отыгран шах. Сумерки ждут следующий ход."
+msgstr "Le changement de phase ne commence pas tant qu’une situation claire n’est pas résolue : aux dames — si l’on peut prendre un roi, aux échecs — si un échec n’est pas paré. Le crépuscule attend le coup suivant."
+
+msgid "НИЧЬИ"
+msgstr "NULLES"
+
+msgid "Король против короля: после пустого полухода каждого — ничья."
+msgstr "Roi contre roi : après un demi-coup vide de chaque camp — nulle."
+
+msgid "Одинокий король против короля и одной сильной фигуры: после 10 полуходов без взятий — ничья, позицию не доиграть."
+msgstr "Un roi seul contre roi et une pièce forte : après 10 demi-coups sans prise — nulle, la position ne se termine pas."

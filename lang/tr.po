@@ -1157,3 +1157,24 @@ msgstr "{n} yarım hamle vuruş olmadan: berabere"
 
 msgid "Ничья без взятий: {n} полуходов (одинокий король)"
 msgstr "{n} yarım hamle vuruş olmadan berabere (yalnız şah)"
+
+msgid "Король в шашках выглядит как шашка с меткой, но ходит и бьёт как дамка. Его можно съесть — это сразу поражение."
+msgstr "Damada şah işaretli bir taş gibi görünür ama dama gibi hareket eder ve vurur. Yenilebilir — bu anında yenilgidir."
+
+msgid "Король под боем может уйти вместо обязательного взятия — настройка «Король уходит»."
+msgstr "Tehdit altındaki şah zorunlu vuruş yerine kaçabilir — «Şah kaçabilir» ayarı."
+
+msgid "Сумерки — это смена игрового режима: природа фигур и правила меняются вместе с ними."
+msgstr "Alacakaranlık bir oyun modu değişimidir: taşların doğası ve kurallar birlikte değişir."
+
+msgid "Смена фаз не начинается, пока в текущем режиме не решена ясная ситуация: в шашках — если можно съесть короля, в шахматах — если не отыгран шах. Сумерки ждут следующий ход."
+msgstr "Mevcut modda net bir durum çözülmeden faz değişmez: damada — şah yenilebiliyorsa, satrançta — şah çekilmişse. Alacakaranlık bir sonraki hamleyi bekler."
+
+msgid "НИЧЬИ"
+msgstr "BERABERE"
+
+msgid "Король против короля: после пустого полухода каждого — ничья."
+msgstr "Şah şaha karşı: her iki taraf bir boş yarım hamle yapınca — berabere."
+
+msgid "Одинокий король против короля и одной сильной фигуры: после 10 полуходов без взятий — ничья, позицию не доиграть."
+msgstr "Yalnız şah, şah ve bir güçlü taşa karşı: vuruşsuz 10 yarım hamleden sonra — berabere, pozisyon bitirilemez."

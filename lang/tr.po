@@ -1178,3 +1178,6 @@ msgstr "Şah şaha karşı: her iki taraf bir boş yarım hamle yapınca — ber
 
 msgid "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть."
 msgstr "Yalnız şah, şah ve bir güçlü taşa karşı: vuruşsuz 20 yarım hamleden sonra — berabere, pozisyon bitirilemez."
+
+msgid "Держать сумерки дольше двух ходов подряд нельзя: если смена фаз всё-таки наступила, а короли стоят вплотную, тот, чей ход, забирает чужого короля."
+msgstr "Alacakaranlık iki hamleden fazla tutulamaz: faz değişimi yine de şahlar yan yanayken gerçekleşirse, sıra kimdeyse rakibin şahını alır."

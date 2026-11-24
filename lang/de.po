@@ -1177,3 +1177,6 @@ msgstr "König gegen König: nach einem leeren Halbzug beider Seiten — Remis."
 
 msgid "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть."
 msgstr "Ein einsamer König gegen König und eine starke Figur: nach 20 Halbzügen ohne Schlag — Remis, die Stellung ist nicht zu gewinnen."
+
+msgid "Держать сумерки дольше двух ходов подряд нельзя: если смена фаз всё-таки наступила, а короли стоят вплотную, тот, чей ход, забирает чужого короля."
+msgstr "Die Dämmerung lässt sich nicht länger als zwei Züge hintereinander aufhalten: Kommt der Phasenwechsel trotzdem zustande, während die Könige nebeneinander stehen, nimmt der Zugberechtigte den gegnerischen König."

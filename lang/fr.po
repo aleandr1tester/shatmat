@@ -1178,3 +1178,6 @@ msgstr "Roi contre roi : après un demi-coup vide de chaque camp — nulle."
 
 msgid "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть."
 msgstr "Un roi seul contre roi et une pièce forte : après 20 demi-coups sans prise — nulle, la position ne se termine pas."
+
+msgid "Держать сумерки дольше двух ходов подряд нельзя: если смена фаз всё-таки наступила, а короли стоят вплотную, тот, чей ход, забирает чужого короля."
+msgstr "Le crépuscule ne peut être retenu plus de deux coups de suite : si le changement de phase a lieu malgré tout avec les rois côte à côte, celui qui a le trait prend le roi adverse."

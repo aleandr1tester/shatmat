@@ -1177,3 +1177,6 @@ msgstr "Rey contra rey: tras un medio movimiento vacío de cada bando — tablas
 
 msgid "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть."
 msgstr "Un rey solitario contra rey y una pieza fuerte: tras 20 medias jugadas sin capturas — tablas, la posición no se puede acabar."
+
+msgid "Держать сумерки дольше двух ходов подряд нельзя: если смена фаз всё-таки наступила, а короли стоят вплотную, тот, чей ход, забирает чужого короля."
+msgstr "El crepúsculo no puede retenerse más de dos jugadas seguidas: si el cambio de fase ocurre igualmente con los reyes juntos, el bando que mueve se lleva el rey contrario."

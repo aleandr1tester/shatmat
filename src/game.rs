@@ -19,6 +19,10 @@ pub const GRACE_SECS: f32 = 5.0;
 /// Пауза после хода перед появлением сумерек в режиме «по ходам»:
 /// игрок успевает увидеть результат хода.
 pub const MOVE_TWILIGHT_PAUSE: f32 = 2.0;
+/// Сколько секунд сумерки могут ждать решающую ситуацию за один раз:
+/// две отложки по паузе хода — и фаза меняется принудительно.
+pub const TWILIGHT_HOLD_MAX: f32 = 4.0;
+
 /// Ничья в мёртвом эндшпиле, если столько полуходов подряд сыграно
 /// без единого взятия: одинокого короля с одной фигурой не добить.
 pub const NO_CAPTURE_DRAW_PLIES: usize = 20;
@@ -287,6 +291,8 @@ pub struct Game {
     pub move_twilight_pending: bool,
     /// Сколько ещё ждать перед решением о сумерках после хода.
     pub move_twilight_wait: f32,
+    /// Сколько уже копится удержание сумерек (сбрасывается при смене фазы).
+    twilight_hold_secs: f32,
     /// Время на один ход в режиме «по ходам» (10–180 с).
     pub move_time_limit: f32,
     /// Остаток времени на текущий ход.
@@ -366,6 +372,7 @@ impl Game {
             twilight_by_moves: true,
             move_twilight_pending: false,
             move_twilight_wait: 0.0,
+            twilight_hold_secs: 0.0,
             move_time_limit: DEFAULT_MOVE_SECS,
             move_left: DEFAULT_MOVE_SECS,
             phase_hold: false,
@@ -1207,10 +1214,13 @@ impl Game {
                 // Пауза после хода: игрок видит результат до смены игры.
                 self.move_twilight_wait -= dt;
                 if self.move_twilight_wait <= 0.0 {
-                    if self.twilight_should_wait() {
+                    let may_hold = self.twilight_hold_secs < TWILIGHT_HOLD_MAX;
+                    if self.twilight_should_wait() && may_hold {
                         // Решающий момент: король под боем или шах. Смена
                         // фазы сейчас отменила бы сам смысл хода — ждём,
                         // пока ситуация не разрешится следующим ходом.
+                        // Дольше двух отложек подряд держать нельзя.
+                        self.twilight_hold_secs += MOVE_TWILIGHT_PAUSE;
                         self.move_twilight_pending = false;
                         self.move_twilight_wait = 0.0;
                         let threshold = (self.phase_moves.max(1) as u16) * 2;
@@ -1259,10 +1269,17 @@ impl Game {
             if self.phase_left <= 0.0 {
                 self.phase_left = 0.0;
                 // переход ждёт, пока игрок завершит цепочку взятий
-                if self.chain.is_none() && !self.twilight_should_wait() {
-                    self.trans = 0.0001;
-                    self.selected = None;
-                    self.legal.clear();
+                if self.chain.is_none() {
+                    if self.twilight_should_wait()
+                        && self.twilight_hold_secs < TWILIGHT_HOLD_MAX
+                    {
+                        // Решающая ситуация: ждём, но не дольше лимита.
+                        self.twilight_hold_secs += dt;
+                    } else {
+                        self.trans = 0.0001;
+                        self.selected = None;
+                        self.legal.clear();
+                    }
                 }
             }
         }
@@ -1337,6 +1354,7 @@ impl Game {
 
     fn flip_phase(&mut self) {
         self.phase = self.phase.other();
+        self.twilight_hold_secs = 0.0;
         self.refresh_phase_timer();
         self.trans = 0.0;
         self.selected = None;
@@ -1370,6 +1388,13 @@ impl Game {
         }
         if self.phase == Phase::Chess && !self.is_over() {
             self.promote_pawns_after_flip();
+        }
+        // Принудительная смена фазы, а короли стоят вплотную: позиция в
+        // шахматах невозможна, поэтому взятие не отменяется — тот, чей ход,
+        // забирает чужого короля.
+        if self.phase == Phase::Chess && self.kings_adjacent() {
+            self.royal_captured = Some(self.turn.other());
+            self.pending_promotion = None;
         }
         if !self.is_over() && self.pending_promotion.is_none() {
             self.resolve_transition_check();
@@ -2564,6 +2589,63 @@ mod tests {
         g.tick(0.01);
         assert_eq!(g.trans, 0.0, "короли рядом — сумерки ждут");
         assert_eq!(g.phase, Phase::Checkers, "фаза не сменилась");
+    }
+
+    /// Удержание сумерек ограничено: после двух отложек фаза меняется
+    /// принудительно, а короли вплотную — тот, чей ход, забирает короля.
+    #[test]
+    fn twilight_forces_flip_after_two_holds() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[1][4] = Some(Piece::new(Side::Black, Kind::King)); // e2 — вплотную
+        g.board[0][0] = Some(Piece::new(Side::White, Kind::Pawn)); // a1
+        g.board[7][0] = Some(Piece::new(Side::Black, Kind::Pawn)); // a8
+        g.turn = Side::White;
+        g.twilight_by_moves = true;
+        g.set_phase_moves(3);
+        let mut w = (4, 0);
+        let mut b = (0, 7);
+        for _ in 0..12 {
+            if g.is_over() {
+                break;
+            }
+            if g.turn == Side::White {
+                let to = if w == (4, 0) { (3, 1) } else { (4, 0) };
+                g.apply(Move {
+                    from: w,
+                    to,
+                    captured: None,
+                });
+                w = to;
+            } else {
+                let to = (b.0 + 1, b.1 - 1);
+                g.apply(Move {
+                    from: b,
+                    to,
+                    captured: None,
+                });
+                b = to;
+            }
+            // Смена фаз «наступила бы сейчас».
+            g.move_anim = 1.0;
+            g.move_twilight_pending = true;
+            g.move_twilight_wait = 0.0;
+            g.tick(0.1);
+            for _ in 0..30 {
+                if g.trans == 0.0 {
+                    break;
+                }
+                g.tick(0.1);
+            }
+        }
+        assert!(g.is_over(), "фаза не сменилась принудительно: {:?}", g.phase);
+        assert!(
+            matches!(g.status, Status::Win { .. }),
+            "короли вплотную — король съеден: {:?}",
+            g.status
+        );
     }
 
     /// В спокойной позиции сумерки начинаются как обычно.

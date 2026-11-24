@@ -1178,3 +1178,6 @@ msgstr "King versus king: after an empty half-move by each side — a draw."
 
 msgid "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть."
 msgstr "A lone king versus a king and one strong piece: after 20 plies without captures — a draw, the position cannot be finished."
+
+msgid "Держать сумерки дольше двух ходов подряд нельзя: если смена фаз всё-таки наступила, а короли стоят вплотную, тот, чей ход, забирает чужого короля."
+msgstr "Twilight cannot be held longer than two moves in a row: if the phase change still happens while the kings stand next to each other, the side to move takes the enemy king."

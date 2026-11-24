@@ -1211,3 +1211,6 @@ msgstr "ausblenden"
 msgid "показать"
 msgstr "einblenden"
 
+msgid "Фаза длится {n} полных хода — по ходу на каждого."
+msgstr "Die Phase dauert {n} volle Züge — je ein Zug pro Seite."
+

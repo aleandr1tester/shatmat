@@ -1212,3 +1212,6 @@ msgstr "masquer"
 msgid "показать"
 msgstr "afficher"
 
+msgid "Фаза длится {n} полных хода — по ходу на каждого."
+msgstr "La phase dure {n} coups complets — un par camp."
+

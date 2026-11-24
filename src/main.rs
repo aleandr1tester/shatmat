@@ -3371,7 +3371,7 @@ impl App {
         let rules_open = self.rules_open;
         let setup_h = if g.twilight_by_moves {
             if rules_open {
-                148.0
+                152.0
             } else {
                 38.0
             }
@@ -3520,24 +3520,15 @@ impl App {
                     alpha(cur.accent, 0.8)
                 },
             );
-            // Длину фазы пишем в строке заголовка справа.
-            text_fit_right(
-                painter,
-                Pos2::new(x + setup_pad + setup_w, setup_top + head_dy),
-                &i18n::trf(
-                    "длина фазы: {n} полных хода",
-                    &[("n", &g.phase_moves.to_string())],
-                ),
-                setup_w * 0.45,
-                9.5,
-                alpha(cur.text_dim, 0.75),
-            );
             if rules_open {
                 // Что означает фаза и как она меняется в этой партии.
                 text_fit(
                     painter,
                     Pos2::new(x + setup_pad, setup_top + 38.0),
-                    "Фаза меняется после полных ходов — по ходу на каждого.",
+                    &i18n::trf(
+                        "Фаза длится {n} полных хода — по ходу на каждого.",
+                        &[("n", &g.phase_moves.to_string())],
+                    ),
                     setup_w,
                     10.5,
                     alpha(cur.text_dim, 0.9),
@@ -3550,7 +3541,7 @@ impl App {
                     10.5,
                     alpha(cur.text_dim, 0.9),
                 );
-                divider(painter, x + setup_pad, setup_top + 74.5, setup_w, cur.text_dim);
+                divider(painter, x + setup_pad, setup_top + 75.5, setup_w, cur.text_dim);
                 // Подробная памятка: то же, что блок пояснений в настройках.
                 let rules = [
                     if g.mandatory_capture {
@@ -3577,7 +3568,7 @@ impl App {
                 for (i, line) in rules.iter().enumerate() {
                     text_fit(
                         painter,
-                        Pos2::new(x + setup_pad, setup_top + 80.0 + i as f32 * 16.0),
+                        Pos2::new(x + setup_pad, setup_top + 82.0 + i as f32 * 16.0),
                         line,
                         setup_w,
                         10.5,

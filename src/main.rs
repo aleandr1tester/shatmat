@@ -3373,7 +3373,7 @@ impl App {
             if rules_open {
                 148.0
             } else {
-                44.0
+                38.0
             }
         } else {
             88.0
@@ -3437,7 +3437,8 @@ impl App {
                 alpha(cur.text_dim, 0.72),
                 w,
             );
-            painter.galley(Pos2::new(x, log_top + 30.0), galley, Color32::WHITE);
+            let advice_y = (log_top + 30.0).min(log_bottom - galley.size().y - 4.0);
+            painter.galley(Pos2::new(x, advice_y), galley, Color32::WHITE);
         }
 
         // Предварительные настройки игры: компактная карточка с единым
@@ -3446,16 +3447,25 @@ impl App {
             Pos2::new(x, setup_top),
             Vec2::new(w, setup_h),
         );
+        // Непрозрачная подложка: иначе строки журнала просвечивают сквозь
+        // карточку и наезжают на текст правил.
+        let ground = {
+            let t = ((setup_bg.center().y - layout.full.top())
+                / layout.full.height().max(1.0))
+                .clamp(0.0, 1.0);
+            mix(cur.bg_top, cur.bg_bottom, t)
+        };
         rr(
             painter,
             setup_bg,
             12.0,
-            alpha(Color32::WHITE, 0.035),
+            mix(ground, Color32::WHITE, 0.08),
             Stroke::new(1.0_f32, alpha(Color32::WHITE, 0.07)),
         );
+        let head_dy = if rules_open { 12.0 } else { 13.0 };
         text(
             painter,
-            Pos2::new(x + setup_pad, setup_top + 12.0),
+            Pos2::new(x + setup_pad, setup_top + head_dy),
             Align2::LEFT_TOP,
             if g.twilight_by_moves {
                 "ПРАВИЛА ПАРТИИ"
@@ -3488,7 +3498,7 @@ impl App {
                 .size()
                 .x;
             let link_rect = Rect::from_min_size(
-                Pos2::new(x + setup_pad + header_w + 10.0, setup_top + 11.0),
+                Pos2::new(x + setup_pad + header_w + 10.0, setup_top + head_dy - 1.0),
                 Vec2::new(link_w + 2.0, 12.0),
             );
             let link_resp =
@@ -3500,7 +3510,7 @@ impl App {
                 toggle_rules = true;
             }
             painter.text(
-                Pos2::new(link_rect.left(), setup_top + 12.0),
+                Pos2::new(link_rect.left(), setup_top + head_dy),
                 Align2::LEFT_TOP,
                 &link_txt,
                 FontId::proportional(9.5),
@@ -3513,7 +3523,7 @@ impl App {
             // Длину фазы пишем в строке заголовка справа.
             text_fit_right(
                 painter,
-                Pos2::new(x + setup_pad + setup_w, setup_top + 12.0),
+                Pos2::new(x + setup_pad + setup_w, setup_top + head_dy),
                 &i18n::trf(
                     "длина фазы: {n} полных хода",
                     &[("n", &g.phase_moves.to_string())],
@@ -3540,7 +3550,7 @@ impl App {
                     10.5,
                     alpha(cur.text_dim, 0.9),
                 );
-                divider(painter, x + setup_pad, setup_top + 70.0, setup_w, cur.text_dim);
+                divider(painter, x + setup_pad, setup_top + 72.0, setup_w, cur.text_dim);
                 // Подробная памятка: то же, что блок пояснений в настройках.
                 let rules = [
                     if g.mandatory_capture {

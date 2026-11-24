@@ -746,6 +746,8 @@ pub struct App {
     demo_end_pause: f32,
     /// Пауза перед стартом демонстрации: даём развернуть окно.
     demo_delay: f32,
+    /// Повтор финального хода демонстрации после конца партии.
+    demo_replay: f32,
     shot: Option<Shot>,
     frames: u32,
     twilight_sounded: bool,
@@ -918,6 +920,7 @@ impl App {
             demo_rx: None,
             demo_end_pause: 0.0,
             demo_delay: 3.0,
+            demo_replay: 0.0,
             shot: shot.map(|path| Shot {
                 path,
                 requested: false,
@@ -1242,13 +1245,17 @@ impl App {
         }
         self.demo.tick(dt);
         if self.demo.is_over() {
+            // Концовку показываем подробнее: последний ход проигрывается
+            // дважды (цикл 4 с), и только потом начинается новая партия.
             self.demo_end_pause += dt;
-            if self.demo_end_pause > 2.2 {
+            self.demo_replay += dt;
+            if self.demo_end_pause > 8.8 {
                 self.demo = lobby_demo_game();
                 self.demo_seed = lobby_demo_seed();
                 self.demo_wait = 0.5;
                 self.demo_rx = None;
                 self.demo_end_pause = 0.0;
+                self.demo_replay = 0.0;
             }
             return;
         }
@@ -1258,7 +1265,13 @@ impl App {
                     if let Some(mv) = mv {
                         self.demo.apply(mv);
                     }
-                    self.demo_wait = 1.1;
+                    // Шахматная часть — на несколько секунд медленнее:
+                    // фигур много, и позицию надо успеть разглядеть.
+                    self.demo_wait = if self.demo.phase == Phase::Chess {
+                        2.4
+                    } else {
+                        1.1
+                    };
                     self.demo_end_pause = 0.0;
                 }
                 Err(std::sync::mpsc::TryRecvError::Empty) => {
@@ -1970,7 +1983,8 @@ impl App {
     fn active_move_anim(&self, g: &Game) -> Option<(Square, Square, f32)> {
         let (from, to) = g.last_move?;
         if g.is_over() {
-            let p = ((self.replay % 4.0) / 2.8).clamp(0.0, 1.0);
+            let t = if self.started { self.replay } else { self.demo_replay };
+            let p = ((t % 4.0) / 2.8).clamp(0.0, 1.0);
             if p >= 1.0 {
                 return None;
             }

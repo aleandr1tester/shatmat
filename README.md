@@ -269,6 +269,12 @@ cargo run --release -- --screenshot "$env:TEMP/now.png"
 cargo test
 ```
 
+
+Иконка приложения лежит в `assets/icon.ico` (9 размеров, фон
+прозрачный). Пересобрать её: `python tools/make_icon.py`, в exe она
+вшивается автоматически через `build.rs` (нужен `windres` из MinGW;
+без него сборка пройдёт без иконки). Иконка окна берётся из
+`assets/icon-256.png`.
 ## Версии
 
 История игры и всех добавлений — в git:

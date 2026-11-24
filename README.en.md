@@ -289,6 +289,12 @@ Rules check:
 cargo test
 ```
 
+
+The application icon is `assets/icon.ico` (nine sizes, transparent
+background). Regenerate it with `python tools/make_icon.py`; it is
+embedded into the exe automatically by `build.rs` (needs `windres`
+from MinGW; without it the build simply has no icon). The window icon
+comes from `assets/icon-256.png`.
 ## Versions
 
 The history of the game and all additions is in git:

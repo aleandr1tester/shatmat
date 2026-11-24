@@ -1184,3 +1184,16 @@ msgstr "Un roi seul contre roi et une pièce forte : après 20 demi-coups sans p
 
 msgid "Держать сумерки дольше двух ходов подряд нельзя: если смена фаз всё-таки наступила, а короли стоят вплотную, тот, чей ход, забирает чужого короля."
 msgstr "Le crépuscule ne peut être retenu plus de deux coups de suite : si le changement de phase a lieu malgré tout avec les rois côte à côte, celui qui a le trait prend le roi adverse."
+
+msgid "Запуск игры"
+msgstr "Démarrer la partie"
+
+msgid "Space — игра/пауза"
+msgstr "Space — jouer/pause"
+
+msgid "R — новая партия"
+msgstr "R — nouvelle partie"
+
+msgid "H — правила"
+msgstr "H — règles"
+

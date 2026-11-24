@@ -1183,3 +1183,16 @@ msgstr "Ein einsamer König gegen König und eine starke Figur: nach 20 Halbzüg
 
 msgid "Держать сумерки дольше двух ходов подряд нельзя: если смена фаз всё-таки наступила, а короли стоят вплотную, тот, чей ход, забирает чужого короля."
 msgstr "Die Dämmerung lässt sich nicht länger als zwei Züge hintereinander aufhalten: Kommt der Phasenwechsel trotzdem zustande, während die Könige nebeneinander stehen, nimmt der Zugberechtigte den gegnerischen König."
+
+msgid "Запуск игры"
+msgstr "Spiel starten"
+
+msgid "Space — игра/пауза"
+msgstr "Space — Spiel/Pause"
+
+msgid "R — новая партия"
+msgstr "R — neues Spiel"
+
+msgid "H — правила"
+msgstr "H — Regeln"
+

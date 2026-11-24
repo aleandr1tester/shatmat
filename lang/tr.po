@@ -1184,3 +1184,16 @@ msgstr "Yalnız şah, şah ve bir güçlü taşa karşı: vuruşsuz 20 yarım ha
 
 msgid "Держать сумерки дольше двух ходов подряд нельзя: если смена фаз всё-таки наступила, а короли стоят вплотную, тот, чей ход, забирает чужого короля."
 msgstr "Alacakaranlık iki hamleden fazla tutulamaz: faz değişimi yine de şahlar yan yanayken gerçekleşirse, sıra kimdeyse rakibin şahını alır."
+
+msgid "Запуск игры"
+msgstr "Oyunu başlat"
+
+msgid "Space — игра/пауза"
+msgstr "Space — oyna/duraklat"
+
+msgid "R — новая партия"
+msgstr "R — yeni oyun"
+
+msgid "H — правила"
+msgstr "H — kurallar"
+

@@ -1911,7 +1911,7 @@ impl App {
                 self.paint_header(&painter, layout);
                 self.paint_board(ctx, &painter, layout);
                 if !self.started {
-                    self.paint_start_frost(&painter, layout);
+                    self.paint_start_frost(ui, &painter, layout);
                 }
                 if self.review {
                     self.paint_review(ui, &painter, layout);
@@ -2812,7 +2812,12 @@ impl App {
 
     // ------------------------- панель -------------------------
 
-    fn paint_start_frost(&self, painter: &egui::Painter, layout: &Layout) {
+    fn paint_start_frost(
+        &self,
+        ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        layout: &Layout,
+    ) {
         let b = layout.board;
         let frost = painter.with_clip_rect(b);
         // Сильное размытие: плотная матовая вуаль в два слоя.
@@ -2872,9 +2877,11 @@ impl App {
                 ),
             }
         } else {
+            // Инструкцию «нажмите…» не пишем: плашка ведёт себя как ссылка —
+            // курсор-рука и подсказка при наведении.
             (
                 i18n::tr("ПАРТИЯ ЕЩЁ НЕ НАЧАТА").to_string(),
-                i18n::tr("Нажмите на поле или «Играть» справа").to_string(),
+                String::new(),
             )
         };
         let text_w = |text: &str, font: FontId| {
@@ -2886,11 +2893,12 @@ impl App {
         let widest = text_w(&title_text, title_font.clone())
             .max(text_w(&hint_text, hint_font.clone()))
             .max(text_w(caption_text, caption_font.clone()));
+        let has_hint = !hint_text.is_empty();
         let label = Rect::from_center_size(
             b.center(),
             Vec2::new(
                 (widest + 72.0).clamp(300.0, b.width() * 0.78),
-                104.0,
+                if has_hint { 104.0 } else { 74.0 },
             ),
         );
         // Полупрозрачная тонированная плашка: доска с демонстрацией видна сквозь неё.
@@ -2913,9 +2921,19 @@ impl App {
         );
         // Тени под текстом: плашка полупрозрачная, буквы должны читаться
         // и на светлых клетках доски.
-        let title_pos = label.center() + Vec2::new(0.0, -20.0);
-        let hint_pos = label.center() + Vec2::new(0.0, 10.0);
-        let caption_pos = label.center() + Vec2::new(0.0, 32.0);
+        let (title_pos, hint_pos, caption_pos) = if has_hint {
+            (
+                label.center() + Vec2::new(0.0, -20.0),
+                label.center() + Vec2::new(0.0, 10.0),
+                label.center() + Vec2::new(0.0, 32.0),
+            )
+        } else {
+            (
+                label.center() + Vec2::new(0.0, -12.0),
+                label.center() + Vec2::new(0.0, 10.0),
+                label.center() + Vec2::new(0.0, 16.0),
+            )
+        };
         let shadow = Color32::from_black_alpha(150);
         for (pos, text, font) in [
             (title_pos, title_text.as_str(), title_font.clone()),
@@ -2951,6 +2969,15 @@ impl App {
             caption_font,
             Color32::from_rgb(196, 192, 212),
         );
+        // Плашка ведёт себя как ссылка: курсор-рука и подсказка при наведении.
+        // Подсказку не показываем, когда на плашке результат демонстрации.
+        let resp = ui.interact(label, ui.id().with("start_plate"), egui::Sense::click());
+        if resp.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
+        if !demo_over {
+            resp.on_hover_text(i18n::tr("Запуск игры"));
+        }
     }
 
     fn paint_panel(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
@@ -3333,7 +3360,11 @@ impl App {
         // высота с запасом снизу — последняя строка не липнет к краю.
         let setup_pad = 12.0;
         let setup_w = w - setup_pad * 2.0;
-        let setup_top = chips_y - 38.0;
+        // Высота по содержимому: в «по ходам» хватает двух строк, в остальных
+        // режимах нужен ряд чипов/вторая строка. Низ карточки держим в 10 px
+        // над кнопками, чтобы она не «висела».
+        let setup_h = if g.twilight_by_moves { 66.0 } else { 88.0 };
+        let setup_top = row_y - 10.0 - setup_h;
         let chips = [
             (10.0, "10 с"),
             (15.0, "15 с"),
@@ -3398,7 +3429,7 @@ impl App {
         // стилем, чтобы блок читался так же, как остальные строки панели.
         let setup_bg = Rect::from_min_size(
             Pos2::new(x, setup_top),
-            Vec2::new(w, 88.0),
+            Vec2::new(w, setup_h),
         );
         rr(
             painter,
@@ -3453,15 +3484,6 @@ impl App {
                 alpha(cur.text_dim, 0.85),
             );
         }
-        text_fit(
-            painter,
-            Pos2::new(x + setup_pad, setup_top + 68.0),
-            "Space — пауза · R — новая партия · H — правила",
-            setup_w,
-            10.5,
-            alpha(cur.text_dim, 0.85),
-        );
-
         // --- взаимодействие ---
         if self.game.is_over() {
             return;
@@ -3472,7 +3494,7 @@ impl App {
         if self.game.pending_promotion.is_some() {
             return;
         }
-        if button(ui, rules_btn, "Правила", false, &cur, 12.0) {
+        if button_resp(ui, rules_btn, "Правила", false, &cur, 12.0, i18n::tr("H — правила")).clicked() {
             self.rules = true;
         }
         if button_gear(ui, settings_btn, "Настройки", false, &cur, 11.5) {
@@ -3486,14 +3508,30 @@ impl App {
         } else {
             "Пауза"
         };
-        if button(ui, play_btn, pause_label, true, &cur, 14.5) {
+        if button_resp(
+            ui,
+            play_btn,
+            pause_label,
+            true,
+            &cur,
+            14.5,
+            i18n::tr("Space — игра/пауза"),
+        ).clicked() {
             if !self.started {
                 self.start_game();
             } else {
                 self.net_set_pause(!self.game.paused);
             }
         }
-        if button(ui, new_btn, "Новая партия", false, &cur, 14.5) {
+        if button_resp(
+            ui,
+            new_btn,
+            "Новая партия",
+            false,
+            &cur,
+            14.5,
+            i18n::tr("R — новая партия"),
+        ).clicked() {
             self.new_game();
         }
         if !self.game.twilight_by_moves && !self.game.auto_phase {
@@ -7034,6 +7072,19 @@ fn button(
     pal: &Palette,
     font: f32,
 ) -> bool {
+    button_resp(ui, rect, label, accent, pal, font, "").clicked()
+}
+
+/// Кнопка с подсказкой при наведении (как у ссылки в браузере).
+fn button_resp(
+    ui: &mut egui::Ui,
+    rect: Rect,
+    label: &str,
+    accent: bool,
+    pal: &Palette,
+    font: f32,
+    tip: &str,
+) -> egui::Response {
     let id = ui.id().with(("button", label, rect.left() as i32, rect.top() as i32));
     let resp = ui.interact(rect, id, Sense::click());
     let hovered = resp.hovered();
@@ -7073,7 +7124,11 @@ fn button(
     if hovered {
         ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
     }
-    resp.clicked()
+    if tip.is_empty() {
+        resp
+    } else {
+        resp.on_hover_text(tip)
+    }
 }
 
 /// Маленькая векторная шестерёнка для кнопки «Настройки».

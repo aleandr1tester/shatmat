@@ -2835,17 +2835,39 @@ impl App {
         let title_font = FontId::proportional(22.0);
         let hint_font = FontId::proportional(12.0);
         let caption_font = FontId::proportional(11.0);
-        let title_text = i18n::tr("ПАРТИЯ ЕЩЁ НЕ НАЧАТА");
-        let hint_text = i18n::tr("Нажмите на поле или «Играть» справа");
         let caption_text = i18n::tr("Демонстрация: компьютер играет сам с собой");
+        // В конце демо-партии плашка на несколько секунд показывает её
+        // результат — иначе концовку демонстрации не с чем соотнести.
+        let demo_over = !self.started && self.demo.is_over();
+        let (title_text, hint_text) = if demo_over {
+            match &self.demo.status {
+                game::Status::Win { side, reason } => (
+                    i18n::trf("ПОБЕДА {side}", &[("side", &side.name_ru().to_uppercase())]),
+                    i18n::tr_owned(reason.clone()),
+                ),
+                game::Status::Draw { reason } => (
+                    i18n::tr("НИЧЬЯ").to_string(),
+                    i18n::tr_owned(reason.clone()),
+                ),
+                _ => (
+                    i18n::tr("ПАРТИЯ ЕЩЁ НЕ НАЧАТА").to_string(),
+                    String::new(),
+                ),
+            }
+        } else {
+            (
+                i18n::tr("ПАРТИЯ ЕЩЁ НЕ НАЧАТА").to_string(),
+                i18n::tr("Нажмите на поле или «Играть» справа").to_string(),
+            )
+        };
         let text_w = |text: &str, font: FontId| {
             painter
                 .layout_no_wrap(text.to_string(), font, Color32::WHITE)
                 .size()
                 .x
         };
-        let widest = text_w(title_text, title_font.clone())
-            .max(text_w(hint_text, hint_font.clone()))
+        let widest = text_w(&title_text, title_font.clone())
+            .max(text_w(&hint_text, hint_font.clone()))
             .max(text_w(caption_text, caption_font.clone()));
         let label = Rect::from_center_size(
             b.center(),
@@ -2879,8 +2901,8 @@ impl App {
         let caption_pos = label.center() + Vec2::new(0.0, 32.0);
         let shadow = Color32::from_black_alpha(150);
         for (pos, text, font) in [
-            (title_pos, title_text, title_font.clone()),
-            (hint_pos, hint_text, hint_font.clone()),
+            (title_pos, title_text.as_str(), title_font.clone()),
+            (hint_pos, hint_text.as_str(), hint_font.clone()),
             (caption_pos, caption_text, caption_font.clone()),
         ] {
             painter.text(
@@ -2894,14 +2916,14 @@ impl App {
         painter.text(
             title_pos,
             Align2::CENTER_CENTER,
-            title_text,
+            title_text.as_str(),
             title_font,
             Color32::from_rgb(246, 243, 252),
         );
         painter.text(
             hint_pos,
             Align2::CENTER_CENTER,
-            hint_text,
+            hint_text.as_str(),
             hint_font,
             Color32::from_rgb(226, 222, 240),
         );
@@ -5597,7 +5619,7 @@ impl App {
         let (title, reason, color) = match &g.status {
             game::Status::Win { side, reason } => (
                 i18n::trf("ПОБЕДА {side}", &[("side", &side.name_ru().to_uppercase())]),
-                reason.clone(),
+                i18n::tr_owned(reason.clone()),
                 pal.accent,
             ),
             game::Status::Draw { reason } => (

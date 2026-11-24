@@ -2760,7 +2760,30 @@ impl App {
             Stroke::new(1.0_f32, Color32::from_white_alpha(28)),
             egui::StrokeKind::Inside,
         );
-        let label = Rect::from_center_size(b.center(), Vec2::new(520.0, 108.0));
+        // Плашка подгоняется под текст: ширина — по самой длинной строке,
+        // поэтому она не «висит» шире содержимого.
+        let title_font = FontId::proportional(22.0);
+        let hint_font = FontId::proportional(12.0);
+        let caption_font = FontId::proportional(11.0);
+        let title_text = i18n::tr("ПАРТИЯ ЕЩЁ НЕ НАЧАТА");
+        let hint_text = i18n::tr("Нажмите на поле или «Играть» справа");
+        let caption_text = i18n::tr("Демонстрация: компьютер играет сам с собой");
+        let text_w = |text: &str, font: FontId| {
+            painter
+                .layout_no_wrap(text.to_string(), font, Color32::WHITE)
+                .size()
+                .x
+        };
+        let widest = text_w(title_text, title_font.clone())
+            .max(text_w(hint_text, hint_font.clone()))
+            .max(text_w(caption_text, caption_font.clone()));
+        let label = Rect::from_center_size(
+            b.center(),
+            Vec2::new(
+                (widest + 72.0).clamp(300.0, b.width() * 0.78),
+                104.0,
+            ),
+        );
         // Полупрозрачная тонированная плашка: доска с демонстрацией видна сквозь неё.
         let pal = Palette::for_phase(if self.started {
             self.game.phase
@@ -2781,16 +2804,10 @@ impl App {
         );
         // Тени под текстом: плашка полупрозрачная, буквы должны читаться
         // и на светлых клетках доски.
-        let title_pos = label.center() + Vec2::new(0.0, -14.0);
-        let hint_pos = label.center() + Vec2::new(0.0, 18.0);
-        let caption_pos = label.center() + Vec2::new(0.0, 40.0);
+        let title_pos = label.center() + Vec2::new(0.0, -20.0);
+        let hint_pos = label.center() + Vec2::new(0.0, 10.0);
+        let caption_pos = label.center() + Vec2::new(0.0, 32.0);
         let shadow = Color32::from_black_alpha(150);
-        let title_font = FontId::proportional(21.0);
-        let hint_font = FontId::proportional(11.5);
-        let caption_font = FontId::proportional(10.5);
-        let title_text = i18n::tr("ПАРТИЯ ЕЩЁ НЕ НАЧАТА");
-        let hint_text = i18n::tr("Нажмите на поле или «Играть» справа");
-        let caption_text = i18n::tr("Демонстрация: компьютер играет сам с собой");
         for (pos, text, font) in [
             (title_pos, title_text, title_font.clone()),
             (hint_pos, hint_text, hint_font.clone()),

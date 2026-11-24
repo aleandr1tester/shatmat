@@ -748,6 +748,10 @@ pub struct App {
     demo_delay: f32,
     /// Повтор финального хода демонстрации после конца партии.
     demo_replay: f32,
+    /// Время начала демо-партии, её начальное зерно и признак «лог записан».
+    demo_start: Option<String>,
+    demo_seed0: u64,
+    demo_logged: bool,
     shot: Option<Shot>,
     frames: u32,
     twilight_sounded: bool,
@@ -921,6 +925,9 @@ impl App {
             demo_end_pause: 0.0,
             demo_delay: 3.0,
             demo_replay: 0.0,
+            demo_start: None,
+            demo_seed0: 0,
+            demo_logged: false,
             shot: shot.map(|path| Shot {
                 path,
                 requested: false,
@@ -953,7 +960,11 @@ impl App {
             guide_demo: None,
             guide_checkers: false,
             guide_damka: false,
-            started: demo.is_some() && demo.as_deref() != Some("lobby"),
+            started: demo.is_some()
+                && !demo
+                    .as_deref()
+                    .map(|d| d.starts_with("lobby"))
+                    .unwrap_or(false),
             // --- Сеть ---
             // Снимок окна сети требует живого сокета: в демо поднимаем сразу.
     net: if demo.as_deref() == Some("net") {
@@ -986,9 +997,21 @@ impl App {
             net_pending_hash: None,
             net_enabled: demo.as_deref() == Some("net"),
         };
+        // Демонстрация: запоминаем стартовое зерно — по нему партия
+        // воспроизводится один в один.
+        app.demo_seed0 = app.demo_seed;
+        app.demo_start = Some(logging::now_string());
         if demo.as_deref() == Some("journal") {
             app.journal_text = app.build_journal_text();
             app.journal = true;
+        }
+        if demo.as_deref() == Some("lobby_end") {
+            // Демо-финал: проверка логов демонстрации и вида законченной партии.
+            app.demo.status = game::Status::Win {
+                side: Side::White,
+                reason: "мат".into(),
+            };
+            app.demo_delay = 0.0;
         }
         if demo.as_deref() == Some("review") {
             app.start_review();
@@ -1245,6 +1268,17 @@ impl App {
         }
         self.demo.tick(dt);
         if self.demo.is_over() {
+            // Отдельный лог демо-партии: разбирать такие партии так же
+            // удобно, как настоящие.
+            if !self.demo_logged {
+                self.demo_logged = true;
+                let code = rulecode::encode(&rulecode::Rules::from_game(&self.demo));
+                let start = self
+                    .demo_start
+                    .clone()
+                    .unwrap_or_else(logging::now_string);
+                logging::write_demo_log(&self.demo, &start, &code, self.demo_seed0);
+            }
             // Концовку показываем подробнее: последний ход проигрывается
             // дважды (цикл 4 с), и только потом начинается новая партия.
             self.demo_end_pause += dt;
@@ -1252,6 +1286,9 @@ impl App {
             if self.demo_end_pause > 8.8 {
                 self.demo = lobby_demo_game();
                 self.demo_seed = lobby_demo_seed();
+                self.demo_seed0 = self.demo_seed;
+                self.demo_start = Some(logging::now_string());
+                self.demo_logged = false;
                 self.demo_wait = 0.5;
                 self.demo_rx = None;
                 self.demo_end_pause = 0.0;

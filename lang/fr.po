@@ -1142,3 +1142,9 @@ msgstr "Le roi peut fuir la prise : {value}"
 
 msgid "Демонстрация: компьютер играет сам с собой"
 msgstr "Démo : l’ordinateur joue contre lui-même"
+
+msgid "демонстрация ИИ (средне)"
+msgstr "démo IA (moyen)"
+
+msgid "Код партии: {code} · зерно: {seed}"
+msgstr "Code de partie : {code} · graine : {seed}"

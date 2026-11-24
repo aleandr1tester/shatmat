@@ -1141,3 +1141,9 @@ msgstr "El rey puede huir de la captura: {value}"
 
 msgid "Демонстрация: компьютер играет сам с собой"
 msgstr "Demostración: el ordenador juega solo"
+
+msgid "демонстрация ИИ (средне)"
+msgstr "demostración de IA (medio)"
+
+msgid "Код партии: {code} · зерно: {seed}"
+msgstr "Código de partida: {code} · semilla: {seed}"

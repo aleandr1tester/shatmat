@@ -1142,3 +1142,9 @@ msgstr "King may flee from capture: {value}"
 
 msgid "Демонстрация: компьютер играет сам с собой"
 msgstr "Demo: the computer plays itself"
+
+msgid "демонстрация ИИ (средне)"
+msgstr "AI demo (medium)"
+
+msgid "Код партии: {code} · зерно: {seed}"
+msgstr "Game code: {code} · seed: {seed}"

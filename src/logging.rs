@@ -217,6 +217,89 @@ pub fn format_game_log(
     s
 }
 
+/// Итог партии одной строкой — как в логе настоящей партии.
+fn result_line(game: &Game) -> String {
+    match &game.status {
+        crate::game::Status::Win { side, reason } => crate::i18n::logf(
+            "победа {side} — {reason}",
+            &[
+                ("side", side.name_log_lower()),
+                ("reason", &crate::i18n::log_owned(reason.clone())),
+            ],
+        ),
+        crate::game::Status::Draw { reason } => crate::i18n::logf(
+            "ничья — {reason}",
+            &[("reason", &crate::i18n::log_owned(reason.clone()))],
+        ),
+        _ => crate::i18n::log("не завершена").to_string(),
+    }
+}
+
+/// Лог демонстрационной партии (ИИ против ИИ): тот же формат плюс код
+/// партии и зерно, по которым её можно воспроизвести.
+pub fn format_demo_log(game: &Game, start: &str, end: &str, code: &str, seed: u64) -> String {
+    let mode = crate::i18n::log("демонстрация ИИ (средне)");
+    let result = result_line(game);
+    let base = format_game_log(game, start, end, mode, &result);
+    let marker = format!("Режим: {mode}\n");
+    let extra = format!(
+        "Режим: {mode}\n{}\n",
+        crate::i18n::logf(
+            "Код партии: {code} · зерно: {seed}",
+            &[
+                ("code", code),
+                ("seed", &format!("{seed:016X}")),
+            ],
+        )
+    );
+    if base.contains(&marker) {
+        base.replacen(&marker, &extra, 1)
+    } else {
+        base
+    }
+}
+
+pub fn demo_logs_dir() -> PathBuf {
+    logs_dir().join("demo")
+}
+
+/// Пишет лог демонстрационной партии в logs/demo и хранит последние 60.
+pub fn write_demo_log(game: &Game, start: &str, code: &str, seed: u64) -> Option<PathBuf> {
+    let dir = demo_logs_dir();
+    if std::fs::create_dir_all(&dir).is_err() {
+        return None;
+    }
+    let end = now_string();
+    let text = format_demo_log(game, start, &end, code, seed);
+    let stamp = end.replace(' ', "-").replace(':', "-");
+    let mut path = dir.join(format!("demo-{stamp}.txt"));
+    let mut n = 2;
+    while path.exists() {
+        path = dir.join(format!("demo-{stamp}-{n}.txt"));
+        n += 1;
+    }
+    std::fs::write(&path, text).ok()?;
+    // Старые демонстрации не копим: держим последние 60 партий.
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        let mut files: Vec<PathBuf> = entries
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| {
+                p.file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| n.starts_with("demo-") && n.ends_with(".txt"))
+                    .unwrap_or(false)
+            })
+            .collect();
+        files.sort();
+        while files.len() > 60 {
+            let old = files.remove(0);
+            let _ = std::fs::remove_file(old);
+        }
+    }
+    Some(path)
+}
+
 pub fn write_game_log(
     game: &Game,
     start: &str,
@@ -267,6 +350,27 @@ mod tests {
         assert!(text.contains("e2-e4"));
         assert!(text.contains("Пешка"));
         assert!(text.contains("шахматы"));
+    }
+
+    #[test]
+    fn demo_log_has_code_seed_and_moves() {
+        let mut g = Game::new(25.0);
+        g.apply(Move {
+            from: (4, 1),
+            to: (4, 3),
+            captured: None,
+        });
+        let text = format_demo_log(
+            &g,
+            "2026-01-01 10:00:00",
+            "2026-01-01 10:01:00",
+            "AB12-CD34",
+            0x0123_4567_89AB_CDEF,
+        );
+        assert!(text.contains("Код партии: AB12-CD34"));
+        assert!(text.contains("0123456789ABCDEF"));
+        assert!(text.contains("демонстрация ИИ"));
+        assert!(text.contains("e2-e4"));
     }
 
     #[test]

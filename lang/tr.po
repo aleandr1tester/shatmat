@@ -1142,3 +1142,9 @@ msgstr "Şah vuruştan kaçabilir: {value}"
 
 msgid "Демонстрация: компьютер играет сам с собой"
 msgstr "Gösterim: bilgisayar kendine karşı oynuyor"
+
+msgid "демонстрация ИИ (средне)"
+msgstr "yapay zekâ gösterimi (orta)"
+
+msgid "Код партии: {code} · зерно: {seed}"
+msgstr "Parti kodu: {code} · tohum: {seed}"

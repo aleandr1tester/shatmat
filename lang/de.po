@@ -1141,3 +1141,9 @@ msgstr "König darf dem Schlag ausweichen: {value}"
 
 msgid "Демонстрация: компьютер играет сам с собой"
 msgstr "Demo: der Computer spielt gegen sich selbst"
+
+msgid "демонстрация ИИ (средне)"
+msgstr "KI-Demo (mittel)"
+
+msgid "Код партии: {code} · зерно: {seed}"
+msgstr "Partiecode: {code} · Startwert: {seed}"

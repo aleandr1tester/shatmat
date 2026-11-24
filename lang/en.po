@@ -51,6 +51,9 @@ msgstr "TWILIGHT"
 msgid "мат"
 msgstr "checkmate"
 
+msgid "мат после сумерек"
+msgstr "checkmate after twilight"
+
 msgid "ПАУЗА"
 msgstr "PAUSED"
 

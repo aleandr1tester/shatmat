@@ -51,6 +51,9 @@ msgstr "ALACAKARANLIK"
 msgid "мат"
 msgstr "mat"
 
+msgid "мат после сумерек"
+msgstr "alacakaranlıktan sonra mat"
+
 msgid "ПАУЗА"
 msgstr "DURAKLATILDI"
 

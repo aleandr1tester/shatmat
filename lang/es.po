@@ -51,6 +51,9 @@ msgstr "CREPÚSCULO"
 msgid "мат"
 msgstr "mate"
 
+msgid "мат после сумерек"
+msgstr "jaque mate tras el crepúsculo"
+
 msgid "ПАУЗА"
 msgstr "PAUSA"
 

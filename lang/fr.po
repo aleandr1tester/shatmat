@@ -51,6 +51,9 @@ msgstr "CRÉPUSCULE"
 msgid "мат"
 msgstr "mat"
 
+msgid "мат после сумерек"
+msgstr "échec et mat après le crépuscule"
+
 msgid "ПАУЗА"
 msgstr "PAUSE"
 

@@ -300,6 +300,9 @@ pub struct Game {
     /// true — фаза ждёт: не тикает таймер (например, ход компьютера).
     pub phase_hold: bool,
     royal_captured: Option<Side>,
+    /// true только на время проверки статуса сразу после смены фазы:
+    /// мат, найденный в этот момент, — следствие сумерек, а не хода.
+    twilight_flip: bool,
     pending: String,
 }
 
@@ -377,6 +380,7 @@ impl Game {
             move_left: DEFAULT_MOVE_SECS,
             phase_hold: false,
             royal_captured: None,
+            twilight_flip: false,
             pending: String::new(),
         }
     }
@@ -1398,7 +1402,9 @@ impl Game {
         }
         if !self.is_over() && self.pending_promotion.is_none() {
             self.resolve_transition_check();
+            self.twilight_flip = true;
             self.refresh_status();
+            self.twilight_flip = false;
             if mass_crowned {
                 self.log.push(
                     crate::i18n::log("— «Дамки: все»: фигуры на последнем ряду стали дамками")
@@ -1666,9 +1672,16 @@ impl Game {
                 let checked = self.in_check(self.turn);
                 if moves.is_empty() {
                     if checked {
+                        // Мат, открывшийся сразу после смены фазы, — следствие
+                        // сумерек: последний ход был в прежней игре.
+                        let reason = if self.twilight_flip {
+                            "мат после сумерек"
+                        } else {
+                            "мат"
+                        };
                         self.status = Status::Win {
                             side: self.turn.other(),
-                            reason: "мат".into(),
+                            reason: reason.into(),
                         };
                     } else {
                         // Пат — не ничья: сумерки переводят бой в шашки.
@@ -2646,6 +2659,55 @@ mod tests {
             "короли вплотную — король съеден: {:?}",
             g.status
         );
+    }
+
+    /// Мат, открывшийся сразу после смены фазы, помечается отдельно:
+    /// последний ход был в прежней игре, и «мат» без пояснения сбивает.
+    #[test]
+    fn mate_right_after_twilight_is_marked() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[7][0] = Some(Piece::new(Side::Black, Kind::King)); // a8
+        g.board[0][0] = Some(Piece::new(Side::White, Kind::Rook)); // a1 — шах по вертикали
+        g.board[6][2] = Some(Piece::new(Side::White, Kind::King)); // c7 — держит b7/b8
+        g.turn = Side::White;
+
+        g.flip_phase();
+        match &g.status {
+            Status::Win { side, reason } => {
+                assert_eq!(*side, Side::White);
+                assert_eq!(reason, "мат после сумерек");
+            }
+            other => panic!("ожидали мат, получили {:?}", other),
+        }
+    }
+
+    /// Мат, найденный обычным ходом, остаётся просто «мат».
+    #[test]
+    fn mate_after_regular_move_is_plain() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Chess;
+        g.board[7][0] = Some(Piece::new(Side::Black, Kind::King)); // a8
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[6][6] = Some(Piece::new(Side::White, Kind::Queen)); // g7
+        g.board[5][1] = Some(Piece::new(Side::White, Kind::Queen)); // b6
+        g.turn = Side::White;
+
+        // Ферзь g7 идёт на b7 — мат, но это следствие хода, а не сумерек.
+        g.apply(Move {
+            from: (6, 6),
+            to: (1, 6),
+            captured: None,
+        });
+        match &g.status {
+            Status::Win { side, reason } => {
+                assert_eq!(*side, Side::White);
+                assert_eq!(reason, "мат");
+            }
+            other => panic!("ожидали мат, получили {:?}", other),
+        }
     }
 
     /// В спокойной позиции сумерки начинаются как обычно.

@@ -51,6 +51,9 @@ msgstr "DÄMMERUNG"
 msgid "мат"
 msgstr "Matt"
 
+msgid "мат после сумерек"
+msgstr "Matt nach der Dämmerung"
+
 msgid "ПАУЗА"
 msgstr "PAUSE"
 

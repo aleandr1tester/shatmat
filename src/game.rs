@@ -448,6 +448,18 @@ impl Game {
             .any(|m| m.captured == Some(enemy))
     }
 
+    /// Два короля стоят вплотную (по вертикали, горизонтали или диагонали):
+    /// в шахматах такая позиция невозможна — они «бьют» друг друга.
+    fn kings_adjacent(&self) -> bool {
+        let (Some(a), Some(b)) = (
+            self.king_sq(Side::White),
+            self.king_sq(Side::Black),
+        ) else {
+            return false;
+        };
+        (a.0 as i32 - b.0 as i32).abs() <= 1 && (a.1 as i32 - b.1 as i32).abs() <= 1
+    }
+
     /// Есть ли в текущем режиме решающая ситуация, которую нельзя обрывать
     /// сменой фазы: в шашках — король под боем (взятие отменилось бы),
     /// в шахматах — шах, который надо отыграть.
@@ -456,7 +468,9 @@ impl Game {
             return false;
         }
         match self.phase {
-            Phase::Checkers => self.king_capture_available(),
+            // Короля можно съесть или короли стоят вплотную: смена фазы
+            // отменила бы взятие либо дала бы невозможную шахматную позицию.
+            Phase::Checkers => self.king_capture_available() || self.kings_adjacent(),
             Phase::Chess => self.in_check(self.turn),
         }
     }
@@ -2530,6 +2544,26 @@ mod tests {
         g.tick(0.01);
         assert_eq!(g.trans, 0.0, "шах надо отыграть");
         assert_eq!(g.phase, Phase::Chess, "фаза не сменилась");
+    }
+
+    /// Короли вплотную: сумерки ждут, иначе в шахматах получился бы «мат»
+    /// из невозможной позиции (так закончилась одна из демо-партий).
+    #[test]
+    fn twilight_waits_while_kings_are_adjacent() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[0][4] = Some(Piece::new(Side::White, Kind::King)); // e1
+        g.board[1][4] = Some(Piece::new(Side::Black, Kind::King)); // e2 — вплотную
+        g.board[7][0] = Some(Piece::new(Side::Black, Kind::Pawn)); // a8
+        g.turn = Side::White;
+        g.twilight_by_moves = true;
+        g.move_twilight_pending = true;
+        g.move_twilight_wait = 0.0;
+        g.move_anim = 1.0;
+        g.tick(0.01);
+        assert_eq!(g.trans, 0.0, "короли рядом — сумерки ждут");
+        assert_eq!(g.phase, Phase::Checkers, "фаза не сменилась");
     }
 
     /// В спокойной позиции сумерки начинаются как обычно.

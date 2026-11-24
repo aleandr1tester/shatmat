@@ -3422,18 +3422,11 @@ impl App {
             alpha(cur.text_dim, 0.9),
         );
         if g.twilight_by_moves {
-            let left = g.full_moves_to_switch();
+            // Сколько ходов осталось — уже показано у часов сверху,
+            // здесь только настройка ритма, без дубля.
             text_fit(
                 painter,
-                Pos2::new(x + setup_pad, setup_top + 30.0),
-                &i18n::trf("смена через {n} х.", &[("n", &left.to_string())]),
-                setup_w,
-                12.5,
-                cur.accent,
-            );
-            text_fit(
-                painter,
-                Pos2::new(x + setup_pad, setup_top + 48.0),
+                Pos2::new(x + setup_pad, setup_top + 40.0),
                 &i18n::trf(
                     "фаза: {n} полных хода, смена после хода каждого",
                     &[("n", &g.phase_moves.to_string())],

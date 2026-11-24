@@ -1153,3 +1153,6 @@ msgstr "keine Schläge"
 
 msgid "Ничья без взятий: {n} полуходов"
 msgstr "Remis nach {n} Halbzügen ohne Schlag"
+
+msgid "Ничья без взятий: {n} полуходов (одинокий король)"
+msgstr "Remis nach {n} Halbzügen ohne Schlag (einsamer König)"

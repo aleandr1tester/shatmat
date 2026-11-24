@@ -1154,3 +1154,6 @@ msgstr "vuruş yok"
 
 msgid "Ничья без взятий: {n} полуходов"
 msgstr "{n} yarım hamle vuruş olmadan: berabere"
+
+msgid "Ничья без взятий: {n} полуходов (одинокий король)"
+msgstr "{n} yarım hamle vuruş olmadan berabere (yalnız şah)"

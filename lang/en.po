@@ -1154,3 +1154,6 @@ msgstr "no captures"
 
 msgid "Ничья без взятий: {n} полуходов"
 msgstr "Draw after {n} plies without captures"
+
+msgid "Ничья без взятий: {n} полуходов (одинокий король)"
+msgstr "Draw after {n} plies without captures (lone king)"

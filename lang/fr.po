@@ -1154,3 +1154,6 @@ msgstr "sans prises"
 
 msgid "Ничья без взятий: {n} полуходов"
 msgstr "Nulle après {n} demi-coups sans prise"
+
+msgid "Ничья без взятий: {n} полуходов (одинокий король)"
+msgstr "Nulle après {n} demi-coups sans prise (roi seul)"

@@ -19,9 +19,9 @@ pub const GRACE_SECS: f32 = 5.0;
 /// Пауза после хода перед появлением сумерек в режиме «по ходам»:
 /// игрок успевает увидеть результат хода.
 pub const MOVE_TWILIGHT_PAUSE: f32 = 2.0;
-/// Ничья, если столько полуходов подряд сыграно без единого взятия:
-/// позиция «мёртвая», и добивать её бессмысленно.
-pub const NO_CAPTURE_DRAW_PLIES: usize = 50;
+/// Ничья в мёртвом эндшпиле, если столько полуходов подряд сыграно
+/// без единого взятия: одинокого короля с одной фигурой не добить.
+pub const NO_CAPTURE_DRAW_PLIES: usize = 10;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Side {
@@ -433,6 +433,32 @@ impl Game {
         } else {
             self.kings_only_plies = self.kings_only_plies.saturating_add(1);
         }
+    }
+
+    /// Мёртвый эндшпиль: у одной стороны только король, у другой —
+    /// король и ровно одна сильная фигура (ферзь, ладья, слон, конь,
+    /// дамка — но не простая пешка/шашка): такую позицию не доиграть.
+    fn lone_king_endgame(&self) -> bool {
+        let mut sides: [Vec<Piece>; 2] = [Vec::new(), Vec::new()];
+        for row in self.board.iter() {
+            for cell in row.iter() {
+                let Some(p) = cell else {
+                    continue;
+                };
+                sides[usize::from(p.side == Side::Black)].push(*p);
+            }
+        }
+        let is_king = |p: &Piece| p.kind == Kind::King;
+        let is_strong = |p: &Piece| {
+            !is_king(p) && (p.crowned || !matches!(p.kind, Kind::Pawn))
+        };
+        let lone = |v: &Vec<Piece>| v.len() == 1 && is_king(&v[0]);
+        let one_strong = |v: &Vec<Piece>| {
+            v.iter().filter(|p| is_king(p)).count() == 1
+                && v.iter().filter(|p| is_strong(p)).count() == 1
+        };
+        (lone(&sides[0]) && one_strong(&sides[1]))
+            || (lone(&sides[1]) && one_strong(&sides[0]))
     }
 
     /// Сколько полуходов подряд сыграно без взятий.
@@ -1536,25 +1562,30 @@ impl Game {
             self.end_turn();
             return;
         }
-        // Два короля не могут зажать друг друга: в шашках они к тому же
-        // стоят на разных диагоналях, а в шахматах микрошагами не загнать
-        // в угол. После пустого полухода каждого — ничья.
-        if self.kings_only() && self.kings_only_plies >= 2 && !self.king_capture_possible() {
-            self.status = Status::Draw {
-                reason: "король против короля".into(),
-            };
-            self.end_turn();
-            return;
-        }
-        // Полсотни полуходов без единого взятия — позиция мёртвая.
-        if self.no_capture_plies() >= NO_CAPTURE_DRAW_PLIES {
-            self.status = Status::Draw {
-                reason: "нет взятий".into(),
-            };
-            self.end_turn();
-            return;
-        }
         let moves = self.all_moves();
+        // Мат важнее любых ничьих: предохранитель не должен «съесть» победу.
+        let mate = self.phase == Phase::Chess && moves.is_empty() && self.in_check(self.turn);
+        if !mate {
+            // Два короля не могут зажать друг друга: в шашках они к тому же
+            // стоят на разных диагоналях, а в шахматах микрошагами не загнать
+            // в угол. После пустого полухода каждого — ничья.
+            if self.kings_only() && self.kings_only_plies >= 2 && !self.king_capture_possible() {
+                self.status = Status::Draw {
+                    reason: "король против короля".into(),
+                };
+                self.end_turn();
+                return;
+            }
+            // Одинокий король против короля и одной фигуры: добить нельзя,
+            // и через 10 полуходов без взятий объявляем ничью.
+            if self.lone_king_endgame() && self.no_capture_plies() >= NO_CAPTURE_DRAW_PLIES {
+                self.status = Status::Draw {
+                    reason: "нет взятий".into(),
+                };
+                self.end_turn();
+                return;
+            }
+        }
         match self.phase {
             Phase::Chess => {
                 let checked = self.in_check(self.turn);
@@ -2426,18 +2457,16 @@ mod tests {
         Game::new(25.0)
     }
 
-    /// Король под боем может уйти вместо обязательного взятия.
+    /// Мёртвый эндшпиль: одинокий король против короля и одной сильной
+    /// фигуры — ничья через 10 полуходов без взятий.
     #[test]
-    /// Полсотни полуходов без единого взятия — позиция мёртвая, ничья.
-    #[test]
-    fn draw_after_long_time_without_captures() {
+    fn draw_in_lone_king_endgame_after_no_captures() {
         let mut g = test_game();
         g.board = [[None; 8]; 8];
         g.phase = Phase::Chess;
         g.board[0][0] = Some(Piece::new(Side::White, Kind::King)); // a1
-        g.board[0][1] = Some(Piece::new(Side::White, Kind::Rook)); // b1
+        g.board[0][7] = Some(Piece::new(Side::White, Kind::Queen)); // h1
         g.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
-        g.board[7][6] = Some(Piece::new(Side::Black, Kind::Rook)); // g8
         g.turn = Side::White;
         let mut sq_w = (0, 0);
         let mut sq_b = (7, 7);
@@ -2461,11 +2490,51 @@ mod tests {
         }
         assert!(
             matches!(g.status, Status::Draw { .. }),
-            "без взятий {NO_CAPTURE_DRAW_PLIES} полуходов — ничья: {:?}",
+            "одинокий король против фигуры: {:?}",
             g.status
         );
     }
 
+    /// Две сильные фигуры у соперника: правило не применяется.
+    #[test]
+    fn lone_king_with_two_pieces_is_not_auto_draw() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Chess;
+        g.board[0][0] = Some(Piece::new(Side::White, Kind::King)); // a1
+        g.board[0][7] = Some(Piece::new(Side::White, Kind::Queen)); // h1
+        g.board[0][6] = Some(Piece::new(Side::White, Kind::Rook)); // g1
+        g.board[7][7] = Some(Piece::new(Side::Black, Kind::King)); // h8
+        g.turn = Side::White;
+        let mut sq_w = (0, 0);
+        let mut sq_b = (7, 7);
+        for _ in 0..NO_CAPTURE_DRAW_PLIES {
+            let (from, to) = if g.turn == Side::White {
+                let to = if sq_w == (0, 0) { (0, 1) } else { (0, 0) };
+                let m = (sq_w, to);
+                sq_w = to;
+                m
+            } else {
+                let to = if sq_b == (7, 7) { (7, 6) } else { (7, 7) };
+                let m = (sq_b, to);
+                sq_b = to;
+                m
+            };
+            g.apply(Move {
+                from,
+                to,
+                captured: None,
+            });
+        }
+        assert!(
+            !matches!(g.status, Status::Draw { .. }),
+            "две сильные фигуры — не мёртвая позиция: {:?}",
+            g.status
+        );
+    }
+
+    /// Король под боем может уйти вместо обязательного взятия.
+    #[test]
     fn king_escape_lets_king_leave_forced_capture() {
         let pos = || {
             let mut g = test_game();

@@ -1153,3 +1153,6 @@ msgstr "sin capturas"
 
 msgid "Ничья без взятий: {n} полуходов"
 msgstr "Tablas tras {n} medias jugadas sin capturas"
+
+msgid "Ничья без взятий: {n} полуходов (одинокий король)"
+msgstr "Tablas tras {n} medias jugadas sin capturas (rey solitario)"

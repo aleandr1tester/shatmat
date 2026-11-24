@@ -1106,3 +1106,12 @@ msgstr "View"
 
 msgid "Сеть"
 msgstr "Network"
+
+msgid "Звуки: {name}"
+msgstr "Sounds: {name}"
+
+msgid "Музыка: {name}"
+msgstr "Music: {name}"
+
+msgid "Встроенная"
+msgstr "Built-in"

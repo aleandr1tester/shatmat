@@ -1105,3 +1105,12 @@ msgstr "Vista"
 
 msgid "Сеть"
 msgstr "Red"
+
+msgid "Звуки: {name}"
+msgstr "Sonidos: {name}"
+
+msgid "Музыка: {name}"
+msgstr "Música: {name}"
+
+msgid "Встроенная"
+msgstr "Integrada"

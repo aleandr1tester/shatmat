@@ -331,6 +331,166 @@ fn load_piece_textures(
     out
 }
 
+/// Папка паков рядом с игрой: `packs/<имя>/{pieces,sounds,music}`.
+fn packs_dir() -> PathBuf {
+    if let Some(dir) = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+    {
+        let p = dir.join("packs");
+        if p.is_dir() {
+            return p;
+        }
+    }
+    PathBuf::from("packs")
+}
+
+/// Пак: папка в packs/ с фигурами, звуками и/или музыкой.
+#[derive(Clone)]
+struct PackInfo {
+    name: String,
+    label: String,
+    dir: PathBuf,
+}
+
+impl PackInfo {
+    fn pieces(&self) -> Option<PathBuf> {
+        let p = self.dir.join("pieces");
+        p.is_dir().then_some(p)
+    }
+    fn sounds(&self) -> Option<PathBuf> {
+        let p = self.dir.join("sounds");
+        p.is_dir().then_some(p)
+    }
+    fn music(&self) -> Option<PathBuf> {
+        let p = self.dir.join("music");
+        p.is_dir().then_some(p)
+    }
+}
+
+fn discover_packs() -> Vec<PackInfo> {
+    let dir = packs_dir();
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut out: Vec<PackInfo> = Vec::new();
+    for e in entries.flatten() {
+        let path = e.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let Some(name) = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string())
+        else {
+            continue;
+        };
+        let info = PackInfo {
+            label: pack_label(&path, &name),
+            name,
+            dir: path,
+        };
+        if info.pieces().is_none() && info.sounds().is_none() && info.music().is_none() {
+            continue;
+        }
+        out.push(info);
+    }
+    out.sort_by(|a, b| a.label.to_lowercase().cmp(&b.label.to_lowercase()));
+    out
+}
+
+/// Подпись пака: `pack.txt` (строки `name.<язык>=…` или `name=…`),
+/// `name.txt` (одна строка), иначе имя папки.
+fn pack_label(dir: &std::path::Path, fallback: &str) -> String {
+    let lang = i18n::current().code().to_string();
+    if let Ok(text) = std::fs::read_to_string(dir.join("pack.txt")) {
+        let mut plain: Option<String> = None;
+        let mut localized: Option<String> = None;
+        for line in text.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if let Some((k, v)) = line.split_once('=') {
+                let k = k.trim();
+                let v = v.trim();
+                if v.is_empty() {
+                    continue;
+                }
+                if k == format!("name.{lang}") {
+                    localized = Some(v.to_string());
+                } else if k == "name" {
+                    plain = Some(v.to_string());
+                }
+            }
+        }
+        if let Some(v) = localized.or(plain) {
+            return v;
+        }
+    }
+    if let Ok(text) = std::fs::read_to_string(dir.join("name.txt")) {
+        if let Some(line) = text.lines().map(|l| l.trim()).find(|l| !l.is_empty()) {
+            return line.to_string();
+        }
+    }
+    fallback.to_string()
+}
+
+/// Выбор пака по категории: `pieces`, `sounds`, `music` из packs/current.txt.
+fn saved_pack(kind: &str) -> Option<String> {
+    let text = std::fs::read_to_string(packs_dir().join("current.txt")).ok()?;
+    for line in text.lines() {
+        if let Some((k, v)) = line.split_once('=') {
+            if k.trim() == kind {
+                let v = v.trim();
+                if !v.is_empty() {
+                    return Some(v.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn save_pack(kind: &str, name: Option<&str>) {
+    let path = packs_dir().join("current.txt");
+    let _ = std::fs::create_dir_all(packs_dir());
+    let mut lines: Vec<String> = Vec::new();
+    if let Ok(text) = std::fs::read_to_string(&path) {
+        for line in text.lines() {
+            if let Some((k, _)) = line.split_once('=') {
+                if k.trim() == kind {
+                    continue;
+                }
+            }
+            if !line.trim().is_empty() {
+                lines.push(line.to_string());
+            }
+        }
+    }
+    if let Some(n) = name {
+        lines.push(format!("{kind}={n}"));
+    }
+    let _ = std::fs::write(&path, lines.join("\n"));
+}
+
+/// Каталог фигур набора: сначала пак, потом старая папка в pieces/.
+fn preset_dir_for(packs: &[PackInfo], preset: Option<&str>) -> PathBuf {
+    if let Some(name) = preset {
+        if let Some(p) = packs.iter().find(|p| p.name == name) {
+            if let Some(dir) = p.pieces() {
+                return dir;
+            }
+        }
+        let legacy = pieces_dir().join(name);
+        if legacy.is_dir() {
+            return legacy;
+        }
+    }
+    pieces_dir()
+}
+
 /// Наборы фигур: подпапки в pieces/, где есть хотя бы король.
 /// Возвращает (папка, подпись). Подпись берётся из name.txt, иначе — имя папки.
 fn available_presets() -> Vec<(String, String)> {
@@ -362,6 +522,18 @@ fn available_presets() -> Vec<(String, String)> {
     out
 }
 
+/// Все доступные наборы фигур: старые папки в pieces/ плюс паки с фигурами.
+fn all_piece_sets(packs: &[PackInfo]) -> Vec<(String, String)> {
+    let mut out = available_presets();
+    for p in packs {
+        if p.pieces().is_some() && !out.iter().any(|(d, _)| *d == p.name) {
+            out.push((p.name.clone(), p.label.clone()));
+        }
+    }
+    out.sort_by(|a, b| a.1.to_lowercase().cmp(&b.1.to_lowercase()));
+    out
+}
+
 /// Выбранный набор запоминается в pieces/current.txt (пусто — встроенный).
 fn saved_preset() -> Option<String> {
     let path = pieces_dir().join("current.txt");
@@ -377,14 +549,6 @@ fn saved_preset() -> Option<String> {
 fn save_preset(name: Option<&str>) {
     let path = pieces_dir().join("current.txt");
     let _ = std::fs::write(path, name.unwrap_or(""));
-}
-
-/// Папка выбранного набора (None — сами files в pieces/ + векторный запас).
-fn preset_dir(preset: Option<&str>) -> std::path::PathBuf {
-    match preset {
-        Some(name) if !name.is_empty() => pieces_dir().join(name),
-        _ => pieces_dir(),
-    }
 }
 
 struct Layout {
@@ -468,9 +632,15 @@ pub struct App {
     icon_tex: PieceTextures,
     /// Пульсация фигур ходящей стороны (по умолчанию включена).
     pulse_on: bool,
-    /// Выбранный набор фигур (папка в pieces/) и список доступных.
+    /// Выбранный набор фигур (папка в pieces/ или пак) и список доступных.
     piece_preset: Option<String>,
     piece_presets: Vec<(String, String)>,
+    /// Паки (фигуры/звуки/музыка) и выбранные наборы звука и музыки.
+    packs: Vec<PackInfo>,
+    sound_pack: Option<String>,
+    music_pack: Option<String>,
+    /// Звук победы играет один раз за партию.
+    win_sound_played: bool,
     mode: Mode,
     difficulty: Difficulty,
     ai_wait: f32,
@@ -575,11 +745,30 @@ impl App {
             demo.as_deref(),
             Some("settings") | Some("settings_times") | Some("settings_auto") | Some("settings_moves")
         );
-        let piece_presets = available_presets();
+        let packs = discover_packs();
+        let piece_presets = all_piece_sets(&packs);
         let piece_preset = saved_preset().filter(|n| piece_presets.iter().any(|(d, _)| d == n));
+        let sound_pack = saved_pack("sounds")
+            .filter(|n| packs.iter().any(|p| p.name == *n && p.sounds().is_some()));
+        let music_pack = saved_pack("music")
+            .filter(|n| packs.iter().any(|p| p.name == *n && p.music().is_some()));
+        if let Some(dir) = sound_pack
+            .as_ref()
+            .and_then(|n| packs.iter().find(|p| p.name == *n))
+            .and_then(|p| p.sounds())
+        {
+            sound::set_sounds_root(Some(dir));
+        }
+        if let Some(dir) = music_pack
+            .as_ref()
+            .and_then(|n| packs.iter().find(|p| p.name == *n))
+            .and_then(|p| p.music())
+        {
+            music::set_music_root(Some(dir));
+        }
         let piece_tex = load_piece_textures(
             &cc.egui_ctx,
-            &preset_dir(piece_preset.as_deref()),
+            &preset_dir_for(&packs, piece_preset.as_deref()),
             piece_preset.as_deref().unwrap_or("builtin"),
             512,
         );
@@ -605,6 +794,10 @@ impl App {
             pulse_on: true,
             piece_preset,
             piece_presets,
+            packs,
+            sound_pack,
+            music_pack,
+            win_sound_played: false,
             // По умолчанию играем против компьютера; демо-сценарии
             // остаются за двумя людьми, чтобы не мешать показам.
             mode: if demo.is_some() {
@@ -652,7 +845,12 @@ impl App {
             guide_damka: false,
             started: demo.is_some(),
             // --- Сеть ---
-            net: None,
+            // Снимок окна сети требует живого сокета: в демо поднимаем сразу.
+    net: if demo.as_deref() == Some("net") {
+        net::Net::new()
+    } else {
+        None
+    },
     net_open_requested: false,
             net_window: demo.as_deref() == Some("net"),
             net_rect: Rect::NOTHING,
@@ -837,6 +1035,7 @@ impl App {
         if self.started {
             return;
         }
+        self.win_sound_played = false;
         self.started = true;
         self.game.paused = false;
         if self.logging_allowed && self.log_enabled && self.game_start.is_none() {
@@ -851,6 +1050,7 @@ impl App {
             return;
         }
         self.finalize_log("прервана (новая партия)");
+        self.win_sound_played = false;
         let smooth = self.game.move_anim_secs;
         let promotion_choice = self.game.promotion_choice;
         let chess_len = self.game.chess_len;
@@ -3007,7 +3207,7 @@ impl App {
         // колонке должны помещаться целиком, без обрезки.
         // Высота — по окну: с группами настроек контент стал выше,
         // фиксированные 660 px обрезали нижние блоки.
-        let card_h = (layout.full.height() - 56.0).clamp(560.0, 930.0);
+        let card_h = (layout.full.height() - 40.0).clamp(560.0, 962.0);
         let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, card_h));
         self.settings_rect = card;
         let pal = Palette::for_phase(self.game.phase);
@@ -3065,7 +3265,7 @@ impl App {
         // левая колонка: звук и музыка
         // Колонки прокручиваются, если содержимое не влезает: сдвиг,
         // обрезка и полупрозрачный скроллбар справа — как в окне сети.
-        let bottom_limit = card.bottom() - 116.0;
+        let bottom_limit = card.bottom() - 104.0;
         let view_h = (bottom_limit - top).max(120.0);
         let max_off = (self.settings_content_h - view_h).max(0.0);
         let wheel = ui.input(|i| i.raw_scroll_delta.y);
@@ -3152,15 +3352,87 @@ impl App {
             music::set_enabled(!music_on);
         }
         ly += 40.0;
-        text_fit(
-            painter,
-            Pos2::new(x, ly),
-            "Фоновая музыка не прерывается звуками ходов.",
-            left_w,
-            11.0,
-            alpha(pal.text_dim, 0.95),
-        );
-        ly += 20.0;
+        ly += 4.0;
+
+        // наборы звука и музыки: одна компактная строка с двумя кнопками-циклами
+        let sound_items: Vec<(Option<String>, String)> = std::iter::once((
+            None,
+            i18n::tr("Встроенные").to_string(),
+        ))
+        .chain(
+            self.packs
+                .iter()
+                .filter(|p| p.sounds().is_some())
+                .map(|p| (Some(p.name.clone()), p.label.clone())),
+        )
+        .collect();
+        let music_items: Vec<(Option<String>, String)> = std::iter::once((
+            None,
+            i18n::tr("Встроенная").to_string(),
+        ))
+        .chain(
+            self.packs
+                .iter()
+                .filter(|p| p.music().is_some())
+                .map(|p| (Some(p.name.clone()), p.label.clone())),
+        )
+        .collect();
+        if sound_items.len() > 1 || music_items.len() > 1 {
+            ly += 4.0;
+            let cw = (left_w - 8.0) * 0.5;
+            let cur_sound = sound_items
+                .iter()
+                .find(|(n, _)| n.as_deref() == self.sound_pack.as_deref())
+                .map(|(_, l)| l.clone())
+                .unwrap_or_else(|| i18n::tr("Встроенные").to_string());
+            let cur_music = music_items
+                .iter()
+                .find(|(n, _)| n.as_deref() == self.music_pack.as_deref())
+                .map(|(_, l)| l.clone())
+                .unwrap_or_else(|| i18n::tr("Встроенная").to_string());
+            let sound_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(cw, 28.0));
+            let music_btn = Rect::from_min_size(
+                Pos2::new(x + cw + 8.0, ly),
+                Vec2::new(cw, 28.0),
+            );
+            let sound_label = i18n::trf("Звуки: {name}", &[("name", &cur_sound)]);
+            if chip(ui, sound_btn, &sound_label, false, &pal)
+                && sound_items.len() > 1
+            {
+                let pos = sound_items
+                    .iter()
+                    .position(|(n, _)| n.as_deref() == self.sound_pack.as_deref())
+                    .unwrap_or(0);
+                let (next_name, _) = &sound_items[(pos + 1) % sound_items.len()];
+                save_pack("sounds", next_name.as_deref());
+                self.sound_pack = next_name.clone();
+                let dir = next_name
+                    .as_ref()
+                    .and_then(|n| self.packs.iter().find(|p| p.name == *n))
+                    .and_then(|p| p.sounds());
+                sound::set_sounds_root(dir);
+            }
+            let music_label = i18n::trf("Музыка: {name}", &[("name", &cur_music)]);
+            if chip(ui, music_btn, &music_label, false, &pal)
+                && music_items.len() > 1
+            {
+                let pos = music_items
+                    .iter()
+                    .position(|(n, _)| n.as_deref() == self.music_pack.as_deref())
+                    .unwrap_or(0);
+                let (next_name, _) = &music_items[(pos + 1) % music_items.len()];
+                save_pack("music", next_name.as_deref());
+                self.music_pack = next_name.clone();
+                let dir = next_name
+                    .as_ref()
+                    .and_then(|n| self.packs.iter().find(|p| p.name == *n))
+                    .and_then(|p| p.music());
+                music::set_music_root(dir);
+            }
+            ly += 34.0;
+        }
+
+        
 
         text(
             painter,
@@ -3206,7 +3478,25 @@ impl App {
         divider(painter, x, ly, left_w, pal.text_dim);
         ly += 16.0;
         group_title(painter, x, ly, "Оформление", pal.accent);
-        ly += 16.0;
+        // Переключатель пульсации — справа на той же строке, места хватает.
+        let pulse_chip = Rect::from_min_size(
+            Pos2::new(x + left_w - 112.0, ly - 5.0),
+            Vec2::new(112.0, 20.0),
+        );
+        if chip(
+            ui,
+            pulse_chip,
+            if self.pulse_on {
+                "Пульсация: да"
+            } else {
+                "Пульсация: нет"
+            },
+            self.pulse_on,
+            &pal,
+        ) {
+            self.pulse_on = !self.pulse_on;
+        }
+        ly += 22.0;
         text(
             painter,
             Pos2::new(x, ly),
@@ -3260,24 +3550,6 @@ impl App {
             9.0,
             alpha(pal.text_dim, 0.75),
         );
-        // Переключатель пульсации живёт в заголовке секции: одной строкой.
-        let pulse_chip = Rect::from_min_size(
-            Pos2::new(x + left_w - 116.0, ly - 6.0),
-            Vec2::new(116.0, 22.0),
-        );
-        if chip(
-            ui,
-            pulse_chip,
-            if self.pulse_on {
-                "Пульсация: да"
-            } else {
-                "Пульсация: нет"
-            },
-            self.pulse_on,
-            &pal,
-        ) {
-            self.pulse_on = !self.pulse_on;
-        }
         ly += 15.0;
         {
             // (папка, подпись): у встроенного папки нет.
@@ -3306,7 +3578,7 @@ impl App {
                     self.piece_preset = folder.clone();
                     self.piece_tex = load_piece_textures(
                         ui.ctx(),
-                        &preset_dir(folder.as_deref()),
+                        &preset_dir_for(&self.packs, folder.as_deref()),
                         folder.as_deref().unwrap_or("builtin"),
                         512,
                     );
@@ -3335,17 +3607,27 @@ impl App {
             15.0,
             pal.accent,
         );
+        // Компактная иконка вместо широкой кнопки: место для кода, подсказка при наведении.
         let copy_btn = Rect::from_min_size(
-            Pos2::new(x + left_w - 120.0, ly + (code_row_h - 28.0) * 0.5),
-            Vec2::new(120.0, 28.0),
+            Pos2::new(x + left_w - 26.0, ly + (code_row_h - 26.0) * 0.5),
+            Vec2::new(26.0, 26.0),
         );
-        if button(ui, copy_btn, "Копировать", false, &pal, 11.5) {
+        let copy_resp = ui.interact(
+            copy_btn,
+            ui.id().with(("copy_code", copy_btn.top() as i32)),
+            Sense::click(),
+        );
+        draw_copy_icon(ui, copy_btn, &pal, copy_resp.hovered());
+        if copy_resp.hovered() {
+            ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+        }
+        if copy_resp.on_hover_text(i18n::tr("Копировать")).clicked() {
             ui.ctx().copy_text(code);
             self.rules_code_msg = i18n::tr("Код скопирован").to_string();
         }
         ly += code_row_h + 8.0;
 
-        let input_w = left_w - 132.0;
+        let input_w = left_w - 120.0;
         let input_rect = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(input_w, 28.0));
         rr(
             painter,
@@ -3361,7 +3643,7 @@ impl App {
             .hint_text("XXXX");
         ui.put(input_rect, code_field);
         let apply_btn = Rect::from_min_size(
-            Pos2::new(x + input_w + 8.0, ly),
+            Pos2::new(x + left_w - 112.0, ly),
             Vec2::new(124.0, 28.0),
         );
         if button(ui, apply_btn, "Применить", false, &pal, 11.5) {
@@ -4319,18 +4601,28 @@ impl App {
                 self.net_code_view = invite.clone();
                 let code_rect = Rect::from_min_size(
                     Pos2::new(card.left() + pad, vy(y)),
-                    Vec2::new(w - 120.0, 30.0),
+                    Vec2::new(w - 36.0, 30.0),
                 );
                 let code_field = egui::TextEdit::singleline(&mut self.net_code_view)
                     .font(FontId::proportional(14.0))
                     .text_color(cur.text)
                     .frame(false);
                 ui.put(code_rect, code_field);
+                // Та же компактная иконка, что в настройках: код + подсказка.
                 let copy = Rect::from_min_size(
-                    Pos2::new(view.right() - 112.0, vy(y) + 1.0),
-                    Vec2::new(112.0, 28.0),
+                    Pos2::new(view.right() - 26.0, vy(y) + 2.0),
+                    Vec2::new(26.0, 26.0),
                 );
-                if button(ui, copy, "Копировать", false, &cur, 11.5) {
+                let copy_resp = ui.interact(
+                    copy,
+                    ui.id().with(("net_copy", copy.top() as i32)),
+                    Sense::click(),
+                );
+                draw_copy_icon(ui, copy, &cur, copy_resp.hovered());
+                if copy_resp.hovered() {
+                    ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+                }
+                if copy_resp.on_hover_text(i18n::tr("Копировать")).clicked() {
                     ui.ctx().copy_text(invite);
                     self.net_status = i18n::tr("Код скопирован").to_string();
                 }
@@ -5627,6 +5919,11 @@ impl eframe::App for App {
                 && self.game.turn == Side::Black
                 && !self.game.is_over();
             self.game.tick(dt);
+        // Фанфара в конце партии — один раз.
+        if self.game.is_over() && !self.win_sound_played {
+            self.win_sound_played = true;
+            sound::win();
+        }
         }
         // сеть: события, отложенные сумерками ходы, ожидание связи
         if self.net_open_requested {
@@ -6442,8 +6739,36 @@ fn time_slider(
     picked
 }
 
+/// Маленькая иконка «копировать»: два наложенных листа.
+fn draw_copy_icon(ui: &mut egui::Ui, rect: Rect, pal: &Palette, hovered: bool) {
+    let painter = ui.painter();
+    let color = if hovered {
+        pal.accent
+    } else {
+        alpha(pal.text, 0.75)
+    };
+    let back = Rect::from_min_size(rect.min + Vec2::new(5.0, 4.0), Vec2::new(10.0, 13.0));
+    let front = Rect::from_min_size(rect.min + Vec2::new(9.0, 8.0), Vec2::new(10.0, 13.0));
+    // Заливаем передний лист фоном, чтобы линии не просвечивали.
+    painter.rect_filled(front, 2.0, pal.frame);
+    painter.rect_stroke(
+        back,
+        2.0,
+        Stroke::new(1.3_f32, color),
+        egui::StrokeKind::Inside,
+    );
+    painter.rect_stroke(
+        front,
+        2.0,
+        Stroke::new(1.3_f32, color),
+        egui::StrokeKind::Inside,
+    );
+}
+
 fn chip(ui: &mut egui::Ui, rect: Rect, label: &str, selected: bool, pal: &Palette) -> bool {
-    let id = ui.id().with(("chip", label, rect.left() as i32));
+    // В ID входит и X, и Y: иначе одинаковые подписи в разных строках
+    // (например, один пак в списках звуков и музыки) конфликтуют.
+    let id = ui.id().with(("chip", label, rect.left() as i32, rect.top() as i32));
     let resp = ui.interact(rect, id, Sense::click());
     let hovered = resp.hovered();
     let (bg, fg, stroke) = if selected {

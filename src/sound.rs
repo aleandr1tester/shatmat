@@ -66,12 +66,16 @@ mod imp {
     const MOVE_FILE: &str = "move";
     const CAPTURE_FILE: &str = "capture";
     const TWILIGHT_FILE: &str = "twilight";
+    const WIN_FILE: &str = "win";
 
     static MOVE_WAV: OnceLock<Vec<u8>> = OnceLock::new();
     static CAPTURE_WAV: OnceLock<Vec<u8>> = OnceLock::new();
     static TWILIGHT_WAV: OnceLock<Vec<u8>> = OnceLock::new();
     static TWILIGHT_LAST: OnceLock<Mutex<Option<(Instant, Duration)>>> = OnceLock::new();
     static FILE_WAVS: OnceLock<Mutex<HashMap<String, Vec<u8>>>> = OnceLock::new();
+    static WIN_WAV: OnceLock<Vec<u8>> = OnceLock::new();
+    /// Каталог звуков выбранного пака (None — стандартная папка sounds).
+    static SOUNDS_ROOT: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
 
     /// Алиас отдельного MCI-канала для сумерек. Он не пересекается с PlaySound,
     /// поэтому звук хода или взятия не обрывает длинную «музыку» перехода.
@@ -86,6 +90,20 @@ mod imp {
         unsafe { mciSendStringW(cmd.as_ptr(), std::ptr::null_mut(), 0, std::ptr::null_mut()) }
     }
 
+    /// Переключить каталог звуков на пак. None — обычная папка sounds.
+    pub fn set_sounds_root(dir: Option<PathBuf>) {
+        let cell = SOUNDS_ROOT.get_or_init(|| Mutex::new(None));
+        if let Ok(mut guard) = cell.lock() {
+            *guard = dir;
+        }
+        // Кэш декодированных файлов привязан к путям — сбрасываем.
+        if let Some(cache) = FILE_WAVS.get() {
+            if let Ok(mut guard) = cache.lock() {
+                guard.clear();
+            }
+        }
+    }
+
     /// Короткий одиночный «тык» — фигуру поставили.
     pub fn piece_move() {
         play(MOVE_FILE, &MOVE_WAV, move_samples);
@@ -94,6 +112,11 @@ mod imp {
     /// Низкий удар при взятии.
     pub fn capture() {
         play(CAPTURE_FILE, &CAPTURE_WAV, capture_samples);
+    }
+
+    /// Короткая фанфара в конце партии.
+    pub fn win() {
+        play(WIN_FILE, &WIN_WAV, win_samples);
     }
 
     /// Долгий шум-волна при сумерках.
@@ -377,6 +400,7 @@ mod imp {
         write_missing(&dir, MOVE_FILE, &move_samples());
         write_missing(&dir, CAPTURE_FILE, &capture_samples());
         write_missing(&dir, TWILIGHT_FILE, &twilight_samples());
+        write_missing(&dir, WIN_FILE, &win_samples());
     }
 
     /// Записывает все стандартные звуки (для сборки релиза).
@@ -385,6 +409,7 @@ mod imp {
         let _ = std::fs::write(dir.join("move.wav"), wav_bytes(&move_samples()));
         let _ = std::fs::write(dir.join("capture.wav"), wav_bytes(&capture_samples()));
         let _ = std::fs::write(dir.join("twilight.wav"), wav_bytes(&twilight_samples()));
+        let _ = std::fs::write(dir.join("win.wav"), wav_bytes(&win_samples()));
     }
 
     fn write_missing(dir: &Path, name: &str, samples: &[i16]) {
@@ -400,6 +425,13 @@ mod imp {
     }
 
     fn sounds_dir() -> PathBuf {
+        if let Some(cell) = SOUNDS_ROOT.get() {
+            if let Ok(guard) = cell.lock() {
+                if let Some(dir) = guard.as_ref() {
+                    return dir.clone();
+                }
+            }
+        }
         if let Some(dir) = std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(|p| p.to_path_buf()))
@@ -499,6 +531,27 @@ mod imp {
                 0.0
             };
             v.push(((thud + click).clamp(-1.0, 1.0) * i16::MAX as f32) as i16);
+        }
+        v
+    }
+
+    /// 0,5 с: два тона вверх — «партия закончена». Файл win.* важнее.
+    fn win_samples() -> Vec<i16> {
+        let dur = 0.5f32;
+        let n = (RATE as f32 * dur) as usize;
+        let mut v = Vec::with_capacity(n);
+        let tau = std::f32::consts::TAU;
+        for i in 0..n {
+            let t = i as f32 / RATE as f32;
+            let p = t / dur;
+            let (f1, f2) = if p < 0.45 {
+                (523.25, 659.25)
+            } else {
+                (783.99, 1046.50)
+            };
+            let env = (1.0 - p).powf(1.2);
+            let tone = ((t * f1 * tau).sin() * 0.34 + (t * f2 * tau).sin() * 0.20) * env;
+            v.push(((tone.clamp(-1.0, 1.0)) * i16::MAX as f32) as i16);
         }
         v
     }
@@ -612,7 +665,7 @@ mod imp {
 }
 
 #[cfg(windows)]
-pub use imp::{capture, piece_move, prepare, twilight, write_defaults};
+pub use imp::{capture, piece_move, prepare, set_sounds_root, twilight, win, write_defaults};
 
 #[cfg(not(windows))]
 pub fn piece_move() {}
@@ -622,6 +675,12 @@ pub fn capture() {}
 
 #[cfg(not(windows))]
 pub fn twilight() {}
+
+#[cfg(not(windows))]
+pub fn win() {}
+
+#[cfg(not(windows))]
+pub fn set_sounds_root(_dir: Option<std::path::PathBuf>) {}
 
 #[cfg(not(windows))]
 pub fn prepare() {}

@@ -25,6 +25,8 @@ mod imp {
     }
 
     static ENABLED: AtomicBool = AtomicBool::new(false);
+    /// Каталог музыки выбранного пака (None — стандартная папка music).
+    static MUSIC_ROOT: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
     static LAST_TICK: OnceLock<Mutex<Instant>> = OnceLock::new();
 
     fn wide(cmd: &str) -> Vec<u16> {
@@ -63,6 +65,13 @@ mod imp {
 
     fn music_dirs() -> Vec<PathBuf> {
         let mut dirs = Vec::new();
+        if let Some(cell) = MUSIC_ROOT.get() {
+            if let Ok(guard) = cell.lock() {
+                if let Some(dir) = guard.as_ref() {
+                    dirs.push(dir.clone());
+                }
+            }
+        }
         if let Some(dir) = std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(|p| p.to_path_buf()))
@@ -82,6 +91,19 @@ mod imp {
 
     pub fn available() -> bool {
         music_path().is_some()
+    }
+
+    /// Переключить музыку на пак. None — обычная папка music.
+    /// Если музыка играет, трек перезапускается из нового каталога.
+    pub fn set_music_root(dir: Option<PathBuf>) {
+        let cell = MUSIC_ROOT.get_or_init(|| Mutex::new(None));
+        if let Ok(mut guard) = cell.lock() {
+            *guard = dir;
+        }
+        if ENABLED.load(Ordering::Relaxed) {
+            set_enabled(false);
+            set_enabled(true);
+        }
     }
 
     pub fn enabled() -> bool {
@@ -133,7 +155,7 @@ mod imp {
 }
 
 #[cfg(windows)]
-pub use imp::{available, enabled, set_enabled, tick};
+pub use imp::{available, enabled, set_enabled, set_music_root, tick};
 
 #[cfg(not(windows))]
 pub fn available() -> bool {

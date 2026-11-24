@@ -1,0 +1,4 @@
+name=Лягушки
+name.en=Frogs
+name.de=Frösche
+version=1

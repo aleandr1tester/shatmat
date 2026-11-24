@@ -1106,3 +1106,12 @@ msgstr "Görünüm"
 
 msgid "Сеть"
 msgstr "Ağ"
+
+msgid "Звуки: {name}"
+msgstr "Sesler: {name}"
+
+msgid "Музыка: {name}"
+msgstr "Müzik: {name}"
+
+msgid "Встроенная"
+msgstr "Yerleşik"

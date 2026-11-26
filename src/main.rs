@@ -1168,6 +1168,38 @@ impl App {
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
         if self.review {
+            // Стрелки листают партию: влево/вверх — назад, вправо/вниз —
+            // вперёд; Home/End — к началу и к концу, Esc — закрыть.
+            let back = ctx.input(|i| {
+                i.key_pressed(egui::Key::ArrowLeft) || i.key_pressed(egui::Key::ArrowUp)
+            });
+            let forward = ctx.input(|i| {
+                i.key_pressed(egui::Key::ArrowRight) || i.key_pressed(egui::Key::ArrowDown)
+            });
+            let home = ctx.input(|i| i.key_pressed(egui::Key::Home));
+            let end = ctx.input(|i| i.key_pressed(egui::Key::End));
+            let esc = ctx.input(|i| i.key_pressed(egui::Key::Escape));
+            let max_ply = self
+                .review_saved
+                .as_ref()
+                .map(|g| g.snapshots.len().saturating_sub(1))
+                .unwrap_or(0);
+            if esc {
+                self.exit_review();
+                return;
+            }
+            if home && self.review_ply > 0 {
+                self.set_review_ply(0);
+            }
+            if end && self.review_ply < max_ply {
+                self.set_review_ply(max_ply);
+            }
+            if back && self.review_ply > 0 {
+                self.set_review_ply(self.review_ply - 1);
+            }
+            if forward && self.review_ply < max_ply {
+                self.set_review_ply(self.review_ply + 1);
+            }
             return;
         }
         if self.guide {

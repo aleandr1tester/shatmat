@@ -327,7 +327,7 @@ fn unpack20(v: u32) -> Rules {
         checkers_moves: if by_moves {
             (((v >> 9) & 0x7) as u8) + 1
         } else {
-            6
+            4
         },
         chess_len: if by_moves {
             20.0

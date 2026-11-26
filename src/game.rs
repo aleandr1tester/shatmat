@@ -372,8 +372,10 @@ impl Game {
             crown_non_pawns: true,
             max_chain: true,
             king_escape: true,
+            // Турнир ИИ (--arena) показал: 6/4 даёт ровный баланс цветов
+            // и примерно равные доли мата и взятого короля.
             chess_moves: 6,
-            checkers_moves: 6,
+            checkers_moves: 4,
             plies_in_phase: 0,
             twilight_by_moves: true,
             move_twilight_pending: false,

@@ -306,7 +306,7 @@ fn lobby_demo_game() -> Game {
     let mut g = Game::new(20.0);
     g.set_twilight_by_moves(true);
     g.set_phase_len(Phase::Chess, 6);
-    g.set_phase_len(Phase::Checkers, 6);
+    g.set_phase_len(Phase::Checkers, 4);
     g.mandatory_capture = true;
     g.crown_non_pawns = true;
     g.max_chain = true;

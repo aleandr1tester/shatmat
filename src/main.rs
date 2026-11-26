@@ -812,6 +812,81 @@ impl Layout {
     }
 }
 
+/// Страница гида «Правила»: заголовок, короткий текст и позиция-пример.
+struct RuleDemo {
+    title: &'static str,
+    text: &'static str,
+    /// (клетка, сторона, фигура, дамка, рисовать как шашку)
+    pieces: &'static [(Square, Side, Kind, bool, bool)],
+    /// Клетки, откуда идёт ход или бой (обводка).
+    sources: &'static [Square],
+    /// Клетки-цели (точки).
+    targets: &'static [Square],
+    /// Клетки со сбитыми фигурами (кружки).
+    victims: &'static [Square],
+}
+
+const RULE_DEMOS: &[RuleDemo] = &[
+    RuleDemo {
+        title: "Смена природы",
+        text: "Партия идёт в двух природах: шахматы и шашки. В панели видно, сколько ходов осталось до смены. После последнего хода доска замирает на паузу — это не зависание: природа меняется. В шашках смена может отложиться на один ход, чтобы доиграть серию взятий.",
+        pieces: &[
+            ((3, 1), Side::White, Kind::Pawn, false, false),
+            ((1, 1), Side::White, Kind::Pawn, false, false),
+            ((4, 6), Side::Black, Kind::Pawn, false, false),
+            ((4, 7), Side::Black, Kind::King, false, false),
+        ],
+        sources: &[],
+        targets: &[],
+        victims: &[],
+    },
+    RuleDemo {
+        title: "Серия взятий",
+        text: "В шашках взятие обязательно, если оно есть. Бить нужно самую длинную серию: одна и та же шашка бьёт несколько фигур подряд, пока может.",
+        pieces: &[
+            ((2, 2), Side::White, Kind::Pawn, false, true),
+            ((1, 3), Side::Black, Kind::Pawn, false, true),
+            ((3, 3), Side::Black, Kind::Pawn, false, true),
+        ],
+        sources: &[(2, 2)],
+        targets: &[(0, 4), (4, 4)],
+        victims: &[(1, 3), (3, 3)],
+    },
+    RuleDemo {
+        title: "Король",
+        text: "В шахматах короля не берут — ему ставят мат. В шашках король уязвим: дамка может взять его, как обычную шашку, и партия сразу кончается.",
+        pieces: &[
+            ((4, 7), Side::Black, Kind::King, false, false),
+            ((4, 2), Side::White, Kind::Pawn, true, true),
+        ],
+        sources: &[(4, 2)],
+        targets: &[],
+        victims: &[(4, 7)],
+    },
+    RuleDemo {
+        title: "Коронация",
+        text: "Шашка, дошедшая до последнего ряда, становится дамкой: она бьёт и ходит по всей диагонали. При смене природы на шашки дамками становятся все фигуры на последнем ряду — настройка «Дамки: все».",
+        pieces: &[
+            ((1, 6), Side::White, Kind::Pawn, false, true),
+            ((6, 1), Side::Black, Kind::Pawn, false, true),
+        ],
+        sources: &[(1, 6)],
+        targets: &[(1, 7)],
+        victims: &[],
+    },
+    RuleDemo {
+        title: "Победа и ничья",
+        text: "Победа: король соперника взят или ему мат. Ничья: остались только короли, или двадцать полуходов без взятий при одиноком короле.",
+        pieces: &[
+            ((4, 0), Side::White, Kind::King, false, false),
+            ((4, 7), Side::Black, Kind::King, false, false),
+        ],
+        sources: &[],
+        targets: &[],
+        victims: &[],
+    },
+];
+
 #[derive(Clone, Copy)]
 struct GuideDemo {
     from: Square,
@@ -917,6 +992,10 @@ pub struct App {
     guide_demo: Option<GuideDemo>,
     guide_checkers: bool,
     guide_damka: bool,
+    /// Гид показывает правила, а не отдельные фигуры.
+    guide_rules: bool,
+    /// Страница правил в гиде.
+    guide_page: usize,
     started: bool,
     /// Сетевой контекст: обнаружение, активный сеанс, события.
     net: Option<net::Net>,
@@ -1108,6 +1187,8 @@ impl App {
             guide_demo: None,
             guide_checkers: false,
             guide_damka: false,
+            guide_rules: false,
+            guide_page: 0,
             started: demo.is_some()
                 && !demo
                     .as_deref()
@@ -6062,9 +6143,11 @@ impl App {
         );
         let pal = Palette::for_phase(self.game.phase);
         let _ = chip(ui, rules_tab, "ПРАВИЛА", true, &pal);
-        if chip(ui, figures_tab, "ФИГУРЫ", false, &pal) {
+        if chip(ui, figures_tab, "ГИД", false, &pal) {
             self.rules = false;
             self.guide = true;
+            self.guide_rules = true;
+            self.guide_page = 0;
             self.guide_kind = Kind::Pawn;
             self.guide_checkers = false;
             self.guide_damka = false;
@@ -6462,7 +6545,10 @@ impl App {
 
     fn paint_guide(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(180));
-        let card = Rect::from_center_size(layout.full.center(), Vec2::new(860.0, 650.0));
+        let card = Rect::from_center_size(
+            layout.full.center(),
+            Vec2::new(860.0, if self.guide_rules { 560.0 } else { 650.0 }),
+        );
         self.guide_rect = card;
         let pal = Palette::for_phase(if self.guide_checkers {
             Phase::Checkers
@@ -6485,7 +6571,11 @@ impl App {
             painter,
             Pos2::new(left_x, card.top() + 20.0),
             Align2::LEFT_TOP,
-            "ФИГУРЫ",
+            if self.guide_rules {
+                "ПРАВИЛА"
+            } else {
+                "ФИГУРЫ"
+            },
             21.0,
             pal.text,
         );
@@ -6493,7 +6583,11 @@ impl App {
             painter,
             Pos2::new(left_x, card.top() + 48.0),
             Align2::LEFT_TOP,
-            "Сначала выберите игру, потом фигуру",
+            if self.guide_rules {
+                "Листайте страницы — на доске показан пример"
+            } else {
+                "Сначала выберите игру, потом фигуру"
+            },
             10.0,
             alpha(pal.text_dim, 0.85),
         );
@@ -6505,6 +6599,29 @@ impl App {
             Pos2::new(close.left() - 92.0, card.top() + 18.0),
             Vec2::new(84.0, 28.0),
         );
+        let section = Rect::from_min_size(
+            Pos2::new(back_rules.left() - 108.0, card.top() + 18.0),
+            Vec2::new(100.0, 28.0),
+        );
+        if chip(
+            ui,
+            section,
+            if self.guide_rules {
+                "Фигуры"
+            } else {
+                "Правила"
+            },
+            self.guide_rules,
+            &pal,
+        ) {
+            self.guide_rules = !self.guide_rules;
+            self.guide_page = 0;
+            self.guide_demo = None;
+        }
+        if self.guide_rules {
+            self.paint_guide_rules(ui, painter, card, &pal);
+            return;
+        }
 
         // Сначала тип игры, затем фигура.
         let mode_w = 190.0;
@@ -6731,6 +6848,137 @@ impl App {
         if button(ui, back_rules, "Правила", false, &pal, 10.5) {
             self.guide = false;
             self.rules = true;
+        }
+    }
+
+    /// Гид: страницы правил с примером на маленькой доске.
+    fn paint_guide_rules(
+        &mut self,
+        ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        card: Rect,
+        pal: &Palette,
+    ) {
+        let pad = 30.0;
+        let left_x = card.left() + pad;
+        let page = &RULE_DEMOS[self.guide_page.min(RULE_DEMOS.len() - 1)];
+        let board = Rect::from_min_size(
+            Pos2::new(left_x, card.top() + 104.0),
+            Vec2::splat(340.0),
+        );
+        self.paint_rule_board(painter, board, pal, page);
+        let right_x = left_x + 372.0;
+        let right_w = card.right() - pad - right_x;
+        text(
+            painter,
+            Pos2::new(right_x, card.top() + 104.0),
+            Align2::LEFT_TOP,
+            i18n::tr(page.title),
+            23.0,
+            pal.text,
+        );
+        wrapped_text(
+            painter,
+            Pos2::new(right_x, card.top() + 146.0),
+            right_w,
+            i18n::tr(page.text),
+            12.0,
+            pal.text,
+        );
+        let last = RULE_DEMOS.len() - 1;
+        text(
+            painter,
+            Pos2::new(right_x, card.bottom() - 96.0),
+            Align2::LEFT_TOP,
+            format!("{} / {}", self.guide_page + 1, RULE_DEMOS.len()),
+            10.5,
+            alpha(pal.text_dim, 0.85),
+        );
+        let bw = (right_w - 10.0) * 0.5;
+        let prev = Rect::from_min_size(
+            Pos2::new(right_x, card.bottom() - 62.0),
+            Vec2::new(bw, 40.0),
+        );
+        let next = Rect::from_min_size(
+            Pos2::new(right_x + bw + 10.0, card.bottom() - 62.0),
+            Vec2::new(bw, 40.0),
+        );
+        if button(ui, prev, "◀ Назад", false, pal, 11.5) && self.guide_page > 0 {
+            self.guide_page -= 1;
+        }
+        if button(ui, next, "Вперёд ▶", false, pal, 11.5) && self.guide_page < last {
+            self.guide_page += 1;
+        }
+    }
+
+    /// Маленькая доска для страницы правил: позиция, обводка источника,
+    /// точки целей и кружки сбитых фигур.
+    fn paint_rule_board(
+        &self,
+        painter: &egui::Painter,
+        rect: Rect,
+        pal: &Palette,
+        page: &RuleDemo,
+    ) {
+        let cell = rect.width() / 8.0;
+        let sq_rect = |sq: Square| {
+            Rect::from_min_size(
+                Pos2::new(
+                    rect.left() + sq.0 as f32 * cell,
+                    rect.top() + sq.1 as f32 * cell,
+                ),
+                Vec2::splat(cell),
+            )
+        };
+        for y in 0..8 {
+            for x in 0..8 {
+                let light = (x + y) % 2 == 0;
+                let fill = if light {
+                    Color32::from_rgb(205, 195, 214)
+                } else {
+                    Color32::from_rgb(84, 100, 142)
+                };
+                painter.rect_filled(sq_rect((x, y)), 0.0, fill);
+            }
+        }
+        for sq in page.sources {
+            painter.rect_stroke(
+                sq_rect(*sq).shrink(1.0),
+                3.0,
+                Stroke::new(2.0_f32, alpha(pal.accent, 0.9)),
+                egui::StrokeKind::Inside,
+            );
+        }
+        for sq in page.targets {
+            let c = sq_rect(*sq).center();
+            painter.circle_filled(c, cell * 0.10, alpha(pal.accent, 0.80));
+            painter.circle_stroke(
+                c,
+                cell * 0.19,
+                Stroke::new(1.0_f32, alpha(pal.accent, 0.35)),
+            );
+        }
+        for sq in page.victims {
+            let c = sq_rect(*sq).center();
+            painter.circle_stroke(
+                c,
+                cell * 0.32,
+                Stroke::new(1.6_f32, alpha(Color32::from_rgb(226, 96, 96), 0.85)),
+            );
+        }
+        for (sq, side, kind, damka, checkers_form) in page.pieces {
+            self.paint_piece(
+                painter,
+                sq_rect(*sq).center(),
+                cell * 0.90,
+                *kind,
+                *damka,
+                *side,
+                pal,
+                1.0,
+                *checkers_form,
+                None,
+            );
         }
     }
 

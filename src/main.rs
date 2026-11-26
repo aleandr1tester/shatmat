@@ -1672,7 +1672,7 @@ impl App {
                         "Соединение установлено: {id} · правила {rules}",
                         &[
                             ("id", &net::display_id(&peer_id)),
-                            ("rules", &rulecode::pretty(&rulecode::encode(&rules))),
+                            ("rules", &rulecode::encode_compact(&rules)),
                         ],
                     );
                     self.net_side = Some(role.side());
@@ -4374,88 +4374,144 @@ impl App {
         }
         ly += 6.0;
 
+        {
         ly += 6.0;
         divider(painter, x, ly, left_w, pal.text_dim);
         ly += 16.0;
-        group_title(painter, x, ly, "Код правил партии", pal.accent);
-        ly += 18.0;
-        // Код правил — один блок из 4 символов: тот же, что третий блок
-        // в сетевом коде приглашения (ID+ID+правила).
-        let code = rulecode::encode_compact(&rulecode::Rules::from_game(&self.game));
-        let code_row_h = 30.0;
-        // Код — по вертикальному центру строки, кнопка — у правого края колонки.
+        group_title(painter, x, ly, "Вид", pal.accent);
+        ly += 16.0;
         text(
             painter,
-            Pos2::new(x, ly + code_row_h * 0.5),
-            Align2::LEFT_CENTER,
-            &code,
-            15.0,
-            pal.accent,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            "ПЛАВНОСТЬ ХОДА",
+            9.0,
+            alpha(pal.text_dim, 0.75),
         );
-        // Компактная иконка вместо широкой кнопки: место для кода, подсказка при наведении.
-        let copy_btn = Rect::from_min_size(
-            Pos2::new(x + left_w - 26.0, ly + (code_row_h - 26.0) * 0.5),
-            Vec2::new(26.0, 26.0),
+        ly += 16.0;
+        let track = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w - 72.0, 6.0));
+        let slider = ui.interact(
+            track.expand2(Vec2::new(0.0, 14.0)),
+            ui.id().with("smooth_slider"),
+            Sense::click_and_drag(),
         );
-        let copy_resp = ui.interact(
-            copy_btn,
-            ui.id().with(("copy_code", copy_btn.top() as i32)),
-            Sense::click(),
-        );
-        draw_copy_icon(ui, copy_btn, &pal, copy_resp.hovered());
-        if copy_resp.hovered() {
-            ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
-        }
-        if copy_resp.on_hover_text(i18n::tr("Копировать")).clicked() {
-            ui.ctx().copy_text(code);
-            self.rules_code_msg = i18n::tr("Код скопирован").to_string();
-        }
-        ly += code_row_h + 8.0;
-
-        let input_w = left_w - 120.0;
-        let input_rect = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(input_w, 28.0));
-        rr(
-            painter,
-            input_rect,
-            8.0,
-            alpha(pal.text, 0.06),
-            Stroke::new(1.0_f32, alpha(pal.text, 0.18)),
-        );
-        let code_field = egui::TextEdit::singleline(&mut self.rules_code_input)
-            .font(FontId::proportional(13.0))
-            .text_color(pal.text)
-            .frame(false)
-            .hint_text("XXXX");
-        ui.put(input_rect, code_field);
-        let apply_btn = Rect::from_min_size(
-            Pos2::new(x + left_w - 112.0, ly),
-            Vec2::new(124.0, 28.0),
-        );
-        if button(ui, apply_btn, "Применить", false, &pal, 11.5) {
-            match rulecode::decode_compact(&self.rules_code_input) {
-                Some(rules) => {
-                    rules.apply(&mut self.game);
-                    self.rules_code_msg = rules.summary();
-                }
-                None => {
-                    self.rules_code_msg = i18n::tr("Неверный код").to_string();
-                }
+        if slider.dragged() || slider.clicked() {
+            if let Some(p) = slider.interact_pointer_pos() {
+                let t = ((p.x - track.left()) / track.width()).clamp(0.0, 1.0);
+                self.game.move_anim_secs = 0.05 + t * 0.55;
             }
         }
+        let frac = ((self.game.move_anim_secs - 0.05) / 0.55).clamp(0.0, 1.0);
+        painter.rect_filled(track, 3.0, alpha(Color32::WHITE, 0.10));
+        painter.rect_filled(
+            Rect::from_min_size(track.min, Vec2::new(track.width() * frac, 6.0)),
+            3.0,
+            pal.accent,
+        );
+        painter.circle_filled(
+            Pos2::new(track.left() + track.width() * frac, track.center().y),
+            8.0,
+            pal.accent,
+        );
+        text(
+            painter,
+            Pos2::new(track.right() + 10.0, track.center().y - 8.0),
+            Align2::LEFT_TOP,
+            format!("{:.2} с", self.game.move_anim_secs),
+            11.5,
+            alpha(pal.text, 0.95),
+        );
         ly += 30.0;
-        if !self.rules_code_msg.is_empty() {
-            text_fit(
-                painter,
-                Pos2::new(x, ly),
-                &self.rules_code_msg,
-                left_w,
-                11.0,
-                alpha(pal.text_dim, 0.95),
-            );
-            ly += 16.0;
+
+        text(
+            painter,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            "МАТ · ТРАЕКТОРИИ",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ly += 15.0;
+        let half = (left_w - 8.0) * 0.5;
+        let mate_chip = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(half, 28.0));
+        if chip(
+            ui,
+            mate_chip,
+            if self.mate_lines {
+                "Атака: да"
+            } else {
+                "Атака: нет"
+            },
+            self.mate_lines,
+            &pal,
+        ) {
+            self.mate_lines = !self.mate_lines;
+        }
+        let escape_chip = Rect::from_min_size(
+            Pos2::new(x + half + 8.0, ly),
+            Vec2::new(half, 28.0),
+        );
+        if chip(
+            ui,
+            escape_chip,
+            if self.mate_escape {
+                "Окружение: да"
+            } else {
+                "Окружение: нет"
+            },
+            self.mate_escape,
+            &pal,
+        ) {
+            self.mate_escape = !self.mate_escape;
+        }
+        ly += 32.0;
+        }
+        {
+        // Сеть: режим «по сети» скрыт, пока не включён здесь. Блок стоит
+        // в левой колонке — рядом с остальными настройками программы.
+        divider(painter, x, ly, left_w, pal.text_dim);
+        ly += 16.0;
+        group_title(painter, x, ly, "Сеть", pal.accent);
+        ly += 18.0;
+        let net_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 40.0));
+        let net_label = if self.net_enabled {
+            "Сетевая игра: включена"
+        } else {
+            "Сетевая игра: выключена"
+        };
+        if button(ui, net_btn, net_label, self.net_enabled, &pal, 12.5) {
+            self.net_enabled = !self.net_enabled;
+            if self.net_enabled {
+                // Сеть поднимается по требованию — здесь же ОС спросит
+                // разрешение на доступ к частным сетям.
+                if !self.net_ensure() {
+                    self.net_enabled = false;
+                    self.net_status = i18n::tr("Сеть недоступна").to_string();
+                }
+            } else {
+                if self.net_active() {
+                    self.net_close("сетевой режим выключен");
+                }
+                if let Some(mut n) = self.net.take() {
+                    n.shutdown();
+                }
+                self.mode = Mode::Hotseat;
+            }
+        }
+        ly += 46.0;
+        text_fit(
+            painter,
+            Pos2::new(x, ly),
+            "Соперники рядом — без сервера. Включите, чтобы появился режим «по сети».",
+            left_w,
+            11.0,
+            alpha(pal.text_dim, 0.95),
+        );
+        ly += 26.0;
         }
 
-        // правая колонка: превращение, время фаз, плавность
+
+        // правая колонка: правила партии и их код для обмена
         let mut ry = top - off;
         group_title(painter, right_x, ry, "Правила партии", pal.accent);
         ry += 17.0;
@@ -4847,138 +4903,89 @@ impl App {
         );
         ry += 15.0;
 
+        {
         ry += 6.0;
         divider(painter, right_x, ry, right_w, pal.text_dim);
         ry += 16.0;
-        group_title(painter, right_x, ry, "Вид", pal.accent);
-        ry += 16.0;
-        text(
-            painter,
-            Pos2::new(right_x, ry),
-            Align2::LEFT_TOP,
-            "ПЛАВНОСТЬ ХОДА",
-            9.0,
-            alpha(pal.text_dim, 0.75),
-        );
-        ry += 16.0;
-        let track = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(right_w - 72.0, 6.0));
-        let slider = ui.interact(
-            track.expand2(Vec2::new(0.0, 14.0)),
-            ui.id().with("smooth_slider"),
-            Sense::click_and_drag(),
-        );
-        if slider.dragged() || slider.clicked() {
-            if let Some(p) = slider.interact_pointer_pos() {
-                let t = ((p.x - track.left()) / track.width()).clamp(0.0, 1.0);
-                self.game.move_anim_secs = 0.05 + t * 0.55;
-            }
-        }
-        let frac = ((self.game.move_anim_secs - 0.05) / 0.55).clamp(0.0, 1.0);
-        painter.rect_filled(track, 3.0, alpha(Color32::WHITE, 0.10));
-        painter.rect_filled(
-            Rect::from_min_size(track.min, Vec2::new(track.width() * frac, 6.0)),
-            3.0,
-            pal.accent,
-        );
-        painter.circle_filled(
-            Pos2::new(track.left() + track.width() * frac, track.center().y),
-            8.0,
-            pal.accent,
-        );
-        text(
-            painter,
-            Pos2::new(track.right() + 10.0, track.center().y - 8.0),
-            Align2::LEFT_TOP,
-            format!("{:.2} с", self.game.move_anim_secs),
-            11.5,
-            alpha(pal.text, 0.95),
-        );
-        ry += 30.0;
-
-        text(
-            painter,
-            Pos2::new(right_x, ry),
-            Align2::LEFT_TOP,
-            "МАТ · ТРАЕКТОРИИ",
-            9.0,
-            alpha(pal.text_dim, 0.75),
-        );
-        ry += 15.0;
-        let half = (right_w - 8.0) * 0.5;
-        let mate_chip = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(half, 28.0));
-        if chip(
-            ui,
-            mate_chip,
-            if self.mate_lines {
-                "Атака: да"
-            } else {
-                "Атака: нет"
-            },
-            self.mate_lines,
-            &pal,
-        ) {
-            self.mate_lines = !self.mate_lines;
-        }
-        let escape_chip = Rect::from_min_size(
-            Pos2::new(right_x + half + 8.0, ry),
-            Vec2::new(half, 28.0),
-        );
-        if chip(
-            ui,
-            escape_chip,
-            if self.mate_escape {
-                "Окружение: да"
-            } else {
-                "Окружение: нет"
-            },
-            self.mate_escape,
-            &pal,
-        ) {
-            self.mate_escape = !self.mate_escape;
-        }
-        ry += 32.0;
-
-        // сеть: режим «по сети» скрыт, пока не включён здесь. Блок живёт
-        // в правой колонке: места больше, подсказка читается целиком.
-        divider(painter, right_x, ry, right_w, pal.text_dim);
-        ry += 16.0;
-        group_title(painter, right_x, ry, "Сеть", pal.accent);
+        group_title(painter, right_x, ry, "Код правил партии", pal.accent);
         ry += 18.0;
-        let net_btn = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(right_w, 40.0));
-        let net_label = if self.net_enabled {
-            "Сетевая игра: включена"
-        } else {
-            "Сетевая игра: выключена"
-        };
-        if button(ui, net_btn, net_label, self.net_enabled, &pal, 12.5) {
-            self.net_enabled = !self.net_enabled;
-            if self.net_enabled {
-                // Сеть поднимается по требованию — здесь же ОС спросит
-                // разрешение на доступ к частным сетям.
-                if !self.net_ensure() {
-                    self.net_enabled = false;
-                    self.net_status = i18n::tr("Сеть недоступна").to_string();
+        // Код правил — один блок из 4 символов: тот же, что третий блок
+        // в сетевом коде приглашения (ID+ID+правила).
+        let code = rulecode::encode_compact(&rulecode::Rules::from_game(&self.game));
+        let code_row_h = 30.0;
+        // Код — по вертикальному центру строки, кнопка — у правого края колонки.
+        text(
+            painter,
+            Pos2::new(right_x, ry + code_row_h * 0.5),
+            Align2::LEFT_CENTER,
+            &code,
+            15.0,
+            pal.accent,
+        );
+        // Компактная иконка вместо широкой кнопки: место для кода, подсказка при наведении.
+        let copy_btn = Rect::from_min_size(
+            Pos2::new(right_x + right_w - 26.0, ry + (code_row_h - 26.0) * 0.5),
+            Vec2::new(26.0, 26.0),
+        );
+        let copy_resp = ui.interact(
+            copy_btn,
+            ui.id().with(("copy_code", copy_btn.top() as i32)),
+            Sense::click(),
+        );
+        draw_copy_icon(ui, copy_btn, &pal, copy_resp.hovered());
+        if copy_resp.hovered() {
+            ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+        }
+        if copy_resp.on_hover_text(i18n::tr("Копировать")).clicked() {
+            ui.ctx().copy_text(code);
+            self.rules_code_msg = i18n::tr("Код скопирован").to_string();
+        }
+        ry += code_row_h + 8.0;
+
+        let input_w = right_w - 120.0;
+        let input_rect = Rect::from_min_size(Pos2::new(right_x, ry), Vec2::new(input_w, 28.0));
+        rr(
+            painter,
+            input_rect,
+            8.0,
+            alpha(pal.text, 0.06),
+            Stroke::new(1.0_f32, alpha(pal.text, 0.18)),
+        );
+        let code_field = egui::TextEdit::singleline(&mut self.rules_code_input)
+            .font(FontId::proportional(13.0))
+            .text_color(pal.text)
+            .frame(false)
+            .hint_text("XXXX");
+        ui.put(input_rect, code_field);
+        let apply_btn = Rect::from_min_size(
+            Pos2::new(right_x + right_w - 112.0, ry),
+            Vec2::new(124.0, 28.0),
+        );
+        if button(ui, apply_btn, "Применить", false, &pal, 11.5) {
+            match rulecode::decode_compact(&self.rules_code_input) {
+                Some(rules) => {
+                    rules.apply(&mut self.game);
+                    self.rules_code_msg = rules.summary();
                 }
-            } else {
-                if self.net_active() {
-                    self.net_close("сетевой режим выключен");
+                None => {
+                    self.rules_code_msg = i18n::tr("Неверный код").to_string();
                 }
-                if let Some(mut n) = self.net.take() {
-                    n.shutdown();
-                }
-                self.mode = Mode::Hotseat;
             }
         }
-        ry += 46.0;
-        text_fit(
-            painter,
-            Pos2::new(right_x, ry),
-            "Соперники рядом — без сервера. Включите, чтобы появился режим «по сети».",
-            right_w,
-            11.0,
-            alpha(pal.text_dim, 0.95),
-        );
-        ry += 26.0;
+        ry += 30.0;
+        if !self.rules_code_msg.is_empty() {
+            text_fit(
+                painter,
+                Pos2::new(right_x, ry),
+                &self.rules_code_msg,
+                right_w,
+                11.0,
+                alpha(pal.text_dim, 0.95),
+            );
+            ry += 16.0;
+        }
+        }
+
 
             columns_end = ly.max(ry);
         });

@@ -1249,3 +1249,6 @@ msgstr "Demo-Partien zeigen"
 
 msgid "ровно"
 msgstr "gleich"
+
+msgid "Демонстрация правил"
+msgstr "Regeln-Demo"

@@ -6556,7 +6556,10 @@ impl App {
 
     fn paint_guide(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(180));
-        let card = Rect::from_center_size(layout.full.center(), Vec2::new(860.0, 650.0));
+        let card = Rect::from_center_size(
+            layout.full.center(),
+            Vec2::new(860.0, if self.guide_rules { 560.0 } else { 650.0 }),
+        );
         self.guide_rect = card;
         let pal = Palette::for_phase(if self.guide_checkers {
             Phase::Checkers
@@ -6580,9 +6583,9 @@ impl App {
             Pos2::new(left_x, card.top() + 20.0),
             Align2::LEFT_TOP,
             if self.guide_rules {
-                "ПРАВИЛА"
+                i18n::tr("Демонстрация правил")
             } else {
-                "ФИГУРЫ"
+                i18n::tr("ФИГУРЫ")
             },
             21.0,
             pal.text,
@@ -6849,7 +6852,7 @@ impl App {
         let left_x = card.left() + pad;
         let page = &RULE_DEMOS[self.guide_page.min(RULE_DEMOS.len() - 1)];
         // Демо-зона — половина ширины окна, как в разборе фигур.
-        let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 250.0);
+        let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 176.0);
         let board = Rect::from_min_size(
             Pos2::new(left_x, card.top() + 124.0),
             Vec2::splat(board_size),
@@ -6874,14 +6877,14 @@ impl App {
             pal.text,
         );
         let last = RULE_DEMOS.len() - 1;
-        // Счётчик страниц — под демонстрацией.
+        // Счётчик страниц — рядом с названием правила.
         text(
             painter,
-            Pos2::new(left_x, board.bottom() + 12.0),
-            Align2::LEFT_TOP,
+            Pos2::new(card.right() - pad, card.top() + 132.0),
+            Align2::RIGHT_TOP,
             format!("{} / {}", self.guide_page + 1, RULE_DEMOS.len()),
-            10.5,
-            alpha(pal.text_dim, 0.85),
+            12.0,
+            alpha(pal.text_dim, 0.9),
         );
         // Кнопки — в правом блоке, сразу под текстом.
         let text_h = wrapped_text(

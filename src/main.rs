@@ -887,6 +887,142 @@ const RULE_DEMOS: &[RuleDemo] = &[
     },
 ];
 
+
+/// Текст правил (LayoutJob), общий для окна правил и раздела гида.
+fn rules_job(width: f32) -> egui::text::LayoutJob {
+    let chess_rules = [
+        "Ходы классические: пешка, конь, слон, ладья, ферзь, король.",
+        "Без рокировки и взятия на проходе — только чистые ходы.",
+        "Пешка на последнем ряду по умолчанию становится ферзём; выбор фигуры — в настройках.",
+        "Шах и мат работают: короля нельзя оставить под боем.",
+        "Пат не ничья: сумерки сразу продолжают бой.",
+    ];
+    let checkers_rules = [
+        "В этом гибриде простые шашки ходят по диагонали вперёд и назад.",
+        "Шашка остаётся на клетках своего цвета.",
+        "Можно подставляться под удар, если обязательного взятия нет.",
+        "Король в шашках выглядит как шашка с меткой, но ходит и бьёт как дамка. Его можно съесть — это сразу поражение.",
+        "Дамки летят по диагонали на любое расстояние.",
+        "Бить обязательно; серия взятий продолжается, пока есть цель.",
+        "Обязательное взятие можно отключить в настройках.",
+        "Иконки на шашках показывают вид фигуры; пешки — без иконок.",
+        "По умолчанию дамкой может стать любая фигура; «Дамки: пешки» — только пешки.",
+        "Шашка на последнем ряду становится дамкой и продолжает серию как дамка.",
+        "Короля можно съесть и победить.",
+        "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию.",
+        "Король под боем может уйти вместо обязательного взятия — настройка «Король уходит».",
+        "Если застряли оба — сумерки сразу выводят в шахматы.",
+    ];
+    let shared = [
+        "Сумерки — это смена игрового режима: игра идёт по правилам шашек, природа фигур и правила меняются вместе с ними.",
+        "Сумерки длятся 1,7 секунды: ходы замирают, фигуры перетекают.",
+        "Переход ждёт, пока игрок завершит серию взятий.",
+        "Смена фаз не начинается, пока в текущем режиме не решена ясная ситуация: в шашках — если можно съесть короля, в шахматах — если не отыгран шах. Сумерки ждут следующий ход.",
+        "Держать сумерки дольше двух ходов подряд нельзя: если смена фаз всё-таки наступила, а короли стоят вплотную, тот, чей ход, забирает чужого короля.",
+        "Победа: мат, съеденный король или истребление фигур.",
+        "Время шахмат и шашек задаётся отдельно в настройках.",
+        "Смена фаз: по времени или по полным ходам — по ходу на каждого.",
+        "Длина фазы задаётся отдельно для шахмат и шашек — от 2 до 8 полных ходов; счётчик виден в панели, обе стороны знают срок.",
+        "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику.",
+        "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы.",
+        "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий.",
+        "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры.",
+        "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт.",
+        "После партии «Просмотр» показывает ходы по шагам с анимацией.",
+        "При мате видны красные линии атак на короля, жёлтые линии фигур, перекрывающих выходы, и список матующих фигур.",
+        "С компьютером вы играете белыми; сложность меняет глубину.",
+    ];
+
+    let draw_rules = [
+        "Король против короля: после пустого полухода каждого — ничья.",
+        "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть.",
+    ];
+
+    let chess_col = Color32::from_rgb(232, 179, 106);
+    let check_col = Color32::from_rgb(111, 217, 229);
+    let shared_col = Color32::from_rgb(150, 142, 162);
+    let draw_col = Color32::from_rgb(178, 166, 208);
+    let body = Color32::from_rgb(214, 208, 222);
+
+    let mut job = egui::text::LayoutJob::default();
+    job.wrap.max_width = width.max(200.0);
+    fn push_line(job: &mut egui::text::LayoutJob, line: &str, size: f32, color: Color32) {
+        job.append(
+            line,
+            0.0,
+            egui::TextFormat {
+                font_id: egui::FontId::proportional(size),
+                color,
+                // Чуть больше воздуха между строками — длинные правила
+                // читаются легче, особенно на испанском и немецком.
+                line_height: Some(size * 1.5),
+                ..Default::default()
+            },
+        );
+    }
+    push_line(
+        &mut job,
+        &i18n::tr_owned("КОГДА ФИГУРЫ — ШАХМАТЫ\n".to_string()),
+        14.5,
+        chess_col,
+    );
+    for line in chess_rules {
+        push_line(
+            &mut job,
+            &format!("• {}\n", i18n::tr_owned(line.to_string())),
+            13.5,
+            body,
+        );
+    }
+    push_line(&mut job, "\n\n", 13.5, body);
+    push_line(
+        &mut job,
+        &i18n::tr_owned("КОГДА ФИГУРЫ — ШАШКИ\n".to_string()),
+        14.5,
+        check_col,
+    );
+    for line in checkers_rules {
+        push_line(
+            &mut job,
+            &format!("• {}\n", i18n::tr_owned(line.to_string())),
+            13.5,
+            body,
+        );
+    }
+    push_line(&mut job, "\n\n", 13.5, body);
+    push_line(
+        &mut job,
+        &i18n::tr_owned("СУМЕРКИ\n".to_string()),
+        14.5,
+        shared_col,
+    );
+    for line in shared {
+        push_line(
+            &mut job,
+            &format!("• {}\n", i18n::tr_owned(line.to_string())),
+            13.5,
+            body,
+        );
+    }
+    push_line(&mut job, "\n\n", 13.5, body);
+    push_line(
+        &mut job,
+        &i18n::tr_owned("НИЧЬИ\n".to_string()),
+        14.5,
+        draw_col,
+    );
+    for line in draw_rules {
+        push_line(
+            &mut job,
+            &format!("• {}\n", i18n::tr_owned(line.to_string())),
+            13.5,
+            body,
+        );
+    }
+
+    job
+}
+
 #[derive(Clone, Copy)]
 struct GuideDemo {
     from: Square,
@@ -994,6 +1130,8 @@ pub struct App {
     guide_damka: bool,
     /// Гид показывает правила, а не отдельные фигуры.
     guide_rules: bool,
+    /// Раздел гида: 0 — правила текстом, 1 — шахматы, 2 — шашки, 3 — демо.
+    guide_section: usize,
     /// Страница правил в гиде.
     guide_page: usize,
     started: bool,
@@ -1188,6 +1326,7 @@ impl App {
             guide_checkers: false,
             guide_damka: false,
             guide_rules: false,
+            guide_section: 0,
             guide_page: 0,
             started: demo.is_some()
                 && !demo
@@ -1365,7 +1504,14 @@ impl App {
             }
         }
         if h && !self.settings && !self.journal {
-            self.rules = !self.rules;
+            if self.guide {
+                self.guide = false;
+            } else {
+                self.guide = true;
+                self.guide_section = 0;
+                self.guide_rules = false;
+                self.guide_demo = None;
+            }
         }
         if space && !self.rules && !self.settings && !self.journal && !self.net_window {
             self.net_set_pause(!self.game.paused);
@@ -4208,7 +4354,10 @@ impl App {
             return;
         }
         if button_resp(ui, rules_btn, "Правила", false, &cur, 12.0, i18n::tr("H — правила")).clicked() {
-            self.rules = true;
+            self.guide = true;
+            self.guide_section = 0;
+            self.guide_rules = false;
+            self.guide_demo = None;
         }
         if button_gear(ui, settings_btn, "Настройки", false, &cur, 11.5) {
             self.settings = true;
@@ -6159,135 +6308,7 @@ impl App {
         }
         y = card.top() + 132.0;
 
-        let chess_rules = [
-            "Ходы классические: пешка, конь, слон, ладья, ферзь, король.",
-            "Без рокировки и взятия на проходе — только чистые ходы.",
-            "Пешка на последнем ряду по умолчанию становится ферзём; выбор фигуры — в настройках.",
-            "Шах и мат работают: короля нельзя оставить под боем.",
-            "Пат не ничья: сумерки сразу продолжают бой.",
-        ];
-        let checkers_rules = [
-            "В этом гибриде простые шашки ходят по диагонали вперёд и назад.",
-            "Шашка остаётся на клетках своего цвета.",
-            "Можно подставляться под удар, если обязательного взятия нет.",
-            "Король в шашках выглядит как шашка с меткой, но ходит и бьёт как дамка. Его можно съесть — это сразу поражение.",
-            "Дамки летят по диагонали на любое расстояние.",
-            "Бить обязательно; серия взятий продолжается, пока есть цель.",
-            "Обязательное взятие можно отключить в настройках.",
-            "Иконки на шашках показывают вид фигуры; пешки — без иконок.",
-            "По умолчанию дамкой может стать любая фигура; «Дамки: пешки» — только пешки.",
-            "Шашка на последнем ряду становится дамкой и продолжает серию как дамка.",
-            "Короля можно съесть и победить.",
-            "Обязательный бой действует для всех шашек, кроме короля: он бьёт только по желанию.",
-            "Король под боем может уйти вместо обязательного взятия — настройка «Король уходит».",
-            "Если застряли оба — сумерки сразу выводят в шахматы.",
-        ];
-        let shared = [
-            "Сумерки — это смена игрового режима: игра идёт по правилам шашек, природа фигур и правила меняются вместе с ними.",
-            "Сумерки длятся 1,7 секунды: ходы замирают, фигуры перетекают.",
-            "Переход ждёт, пока игрок завершит серию взятий.",
-            "Смена фаз не начинается, пока в текущем режиме не решена ясная ситуация: в шашках — если можно съесть короля, в шахматах — если не отыгран шах. Сумерки ждут следующий ход.",
-            "Держать сумерки дольше двух ходов подряд нельзя: если смена фаз всё-таки наступила, а короли стоят вплотную, тот, чей ход, забирает чужого короля.",
-            "Победа: мат, съеденный король или истребление фигур.",
-            "Время шахмат и шашек задаётся отдельно в настройках.",
-            "Смена фаз: по времени или по полным ходам — по ходу на каждого.",
-            "Длина фазы задаётся отдельно для шахмат и шашек — от 2 до 8 полных ходов; счётчик виден в панели, обе стороны знают срок.",
-            "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику.",
-            "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы.",
-            "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий.",
-            "Последние 5 секунд таймер ждёт, пока вы держите фигуру: ход успевает завершиться до смены игры.",
-            "Компьютер думает 2–3 с и подсвечивает, какую фигуру берёт.",
-            "После партии «Просмотр» показывает ходы по шагам с анимацией.",
-            "При мате видны красные линии атак на короля, жёлтые линии фигур, перекрывающих выходы, и список матующих фигур.",
-            "С компьютером вы играете белыми; сложность меняет глубину.",
-        ];
-
-        let draw_rules = [
-            "Король против короля: после пустого полухода каждого — ничья.",
-            "Одинокий король против короля и одной сильной фигуры: после 20 полуходов без взятий — ничья, позицию не доиграть.",
-        ];
-
-        let chess_col = Color32::from_rgb(232, 179, 106);
-        let check_col = Color32::from_rgb(111, 217, 229);
-        let shared_col = Color32::from_rgb(150, 142, 162);
-        let draw_col = Color32::from_rgb(178, 166, 208);
-        let body = Color32::from_rgb(214, 208, 222);
-
-        let mut job = egui::text::LayoutJob::default();
-        job.wrap.max_width = (card.right() - pad - x).max(200.0);
-        fn push_line(job: &mut egui::text::LayoutJob, line: &str, size: f32, color: Color32) {
-            job.append(
-                line,
-                0.0,
-                egui::TextFormat {
-                    font_id: egui::FontId::proportional(size),
-                    color,
-                    // Чуть больше воздуха между строками — длинные правила
-                    // читаются легче, особенно на испанском и немецком.
-                    line_height: Some(size * 1.5),
-                    ..Default::default()
-                },
-            );
-        }
-        push_line(
-            &mut job,
-            &i18n::tr_owned("КОГДА ФИГУРЫ — ШАХМАТЫ\n".to_string()),
-            14.5,
-            chess_col,
-        );
-        for line in chess_rules {
-            push_line(
-                &mut job,
-                &format!("• {}\n", i18n::tr_owned(line.to_string())),
-                13.5,
-                body,
-            );
-        }
-        push_line(&mut job, "\n\n", 13.5, body);
-        push_line(
-            &mut job,
-            &i18n::tr_owned("КОГДА ФИГУРЫ — ШАШКИ\n".to_string()),
-            14.5,
-            check_col,
-        );
-        for line in checkers_rules {
-            push_line(
-                &mut job,
-                &format!("• {}\n", i18n::tr_owned(line.to_string())),
-                13.5,
-                body,
-            );
-        }
-        push_line(&mut job, "\n\n", 13.5, body);
-        push_line(
-            &mut job,
-            &i18n::tr_owned("СУМЕРКИ\n".to_string()),
-            14.5,
-            shared_col,
-        );
-        for line in shared {
-            push_line(
-                &mut job,
-                &format!("• {}\n", i18n::tr_owned(line.to_string())),
-                13.5,
-                body,
-            );
-        }
-        push_line(&mut job, "\n\n", 13.5, body);
-        push_line(
-            &mut job,
-            &i18n::tr_owned("НИЧЬИ\n".to_string()),
-            14.5,
-            draw_col,
-        );
-        for line in draw_rules {
-            push_line(
-                &mut job,
-                &format!("• {}\n", i18n::tr_owned(line.to_string())),
-                13.5,
-                body,
-            );
-        }
+        let job = rules_job((card.right() - pad - x).max(200.0));
 
         let text_rect = Rect::from_min_max(
             Pos2::new(x, y),
@@ -6595,48 +6616,37 @@ impl App {
         cx += widths[2] + gap;
         let demo_chip = Rect::from_min_size(Pos2::new(cx, row_y), Vec2::new(widths[3], 30.0));
 
-        if chip(ui, rules_chip, "ПРАВИЛА", false, &pal) {
-            self.guide = false;
-            self.rules = true;
+        if chip(ui, rules_chip, "ПРАВИЛА", self.guide_section == 0, &pal) {
+            self.guide_section = 0;
+            self.guide_rules = false;
         }
-        if chip(
-            ui,
-            chess_chip,
-            "ШАХМАТЫ",
-            !self.guide_rules && !self.guide_checkers,
-            &pal,
-        ) {
+        if chip(ui, chess_chip, "ШАХМАТЫ", self.guide_section == 1, &pal) {
+            self.guide_section = 1;
             self.guide_rules = false;
             self.guide_checkers = false;
             self.guide_damka = false;
             self.guide_demo = None;
         }
-        if chip(
-            ui,
-            check_chip,
-            "ШАШКИ",
-            !self.guide_rules && self.guide_checkers,
-            &pal,
-        ) {
+        if chip(ui, check_chip, "ШАШКИ", self.guide_section == 2, &pal) {
+            self.guide_section = 2;
             self.guide_rules = false;
             self.guide_checkers = true;
             self.guide_kind = Kind::Pawn;
             self.guide_damka = false;
             self.guide_demo = None;
         }
-        if chip(
-            ui,
-            demo_chip,
-            "Интерактивный гид",
-            self.guide_rules,
-            &pal,
-        ) {
+        if chip(ui, demo_chip, "Интерактивный гид", self.guide_section == 3, &pal) {
+            self.guide_section = 3;
             self.guide_rules = true;
             self.guide_page = 0;
             self.guide_demo = None;
         }
         if button(ui, close, "Закрыть", false, &pal, 10.5) {
             self.guide = false;
+        }
+        if self.guide_section == 0 {
+            self.paint_guide_text(ui, painter, card, &pal);
+            return;
         }
         if self.guide_rules {
             self.paint_guide_rules(ui, painter, card, &pal);
@@ -6822,6 +6832,32 @@ impl App {
                 t: 0.0,
             });
         }
+    }
+
+    /// Раздел «Правила» в гиде: тот же текст, что в окне правил, с прокруткой.
+    fn paint_guide_text(
+        &mut self,
+        ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        card: Rect,
+        _pal: &Palette,
+    ) {
+        let pad = 30.0;
+        let text_rect = Rect::from_min_max(
+            Pos2::new(card.left() + pad, card.top() + 70.0),
+            Pos2::new(card.right() - pad, card.bottom() - pad),
+        );
+        let job = rules_job(text_rect.width());
+        let _ = painter;
+        let _ = ui.scope_builder(egui::UiBuilder::new().max_rect(text_rect), |ui| {
+            egui::ScrollArea::vertical()
+                .id_salt("guide_rules_scroll")
+                .auto_shrink([false, false])
+                .max_height(text_rect.height())
+                .show(ui, |ui| {
+                    ui.add(egui::Label::new(job).selectable(true).wrap());
+                });
+        });
     }
 
     /// Гид: страницы правил с примером на маленькой доске.

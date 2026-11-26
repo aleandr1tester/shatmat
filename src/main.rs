@@ -6558,7 +6558,7 @@ impl App {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(180));
         let card = Rect::from_center_size(
             layout.full.center(),
-            Vec2::new(860.0, if self.guide_rules { 560.0 } else { 650.0 }),
+            Vec2::new(860.0, if self.guide_rules { 560.0 } else { 620.0 }),
         );
         self.guide_rect = card;
         let pal = Palette::for_phase(if self.guide_checkers {
@@ -6703,22 +6703,22 @@ impl App {
         }
 
         // Демонстрация — крупно, на половину ширины окна: так видно фигуру.
-        let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 250.0);
+        let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 220.0);
         let board = Rect::from_min_size(
-            Pos2::new(left_x, card.top() + 176.0),
+            Pos2::new(left_x, card.top() + 202.0),
             Vec2::splat(board_size),
         );
         text(
             painter,
-            Pos2::new(left_x, card.top() + 156.0),
+            Pos2::new(left_x, card.top() + 176.0),
             Align2::LEFT_TOP,
             if self.guide_checkers {
                 "ФИГУРА В ШАШКАХ"
             } else {
                 "ФИГУРА В ШАХМАТАХ"
             },
-            9.0,
-            alpha(pal.text_dim, 0.75),
+            11.5,
+            alpha(pal.text_dim, 0.85),
         );
         self.paint_guide_board(painter, board, &pal);
 
@@ -6727,7 +6727,7 @@ impl App {
         let right_w = card.right() - pad - right_x;
         self.paint_piece(
             painter,
-            Pos2::new(right_x + right_w * 0.5, card.top() + 250.0),
+            Pos2::new(right_x + right_w * 0.5, card.top() + 236.0),
             150.0,
             self.guide_kind,
             self.guide_damka,
@@ -6742,7 +6742,7 @@ impl App {
         } else {
             guide_text(self.guide_kind, false)
         };
-        let mut y = card.top() + 340.0;
+        let mut y = card.top() + 324.0;
         text(
             painter,
             Pos2::new(right_x, y),
@@ -6772,7 +6772,7 @@ impl App {
         );
         y += 18.0;
         let h = wrapped_text(painter, Pos2::new(right_x, y), right_w, move_text, 11.5, pal.text);
-        y += h + 18.0;
+        y += h + 16.0;
         text(
             painter,
             Pos2::new(right_x, y),
@@ -6782,14 +6782,14 @@ impl App {
             pal.accent,
         );
         y += 18.0;
-        let _ = wrapped_text(painter, Pos2::new(right_x, y), right_w, capture_text, 11.5, pal.text);
+        let cap_h = wrapped_text(painter, Pos2::new(right_x, y), right_w, capture_text, 11.5, pal.text);
 
-        // Кнопки демонстрации — под доской.
-        let btn_y = board.bottom() + 14.0;
-        let bw = (board.width() - 10.0) * 0.5;
-        let demo_move = Rect::from_min_size(Pos2::new(board.left(), btn_y), Vec2::new(bw, 38.0));
+        // Кнопки демонстрации — в правой колонке, под текстом.
+        let btn_y = y + cap_h + 20.0;
+        let bw = (right_w - 10.0) * 0.5;
+        let demo_move = Rect::from_min_size(Pos2::new(right_x, btn_y), Vec2::new(bw, 38.0));
         let demo_capture = Rect::from_min_size(
-            Pos2::new(board.left() + bw + 10.0, btn_y),
+            Pos2::new(right_x + bw + 10.0, btn_y),
             Vec2::new(bw, 38.0),
         );
         if button(

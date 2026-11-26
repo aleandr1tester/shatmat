@@ -888,7 +888,9 @@ impl Game {
     // ---------- выбор и ходы ----------
 
     pub fn click(&mut self, sq: Square) {
-        if self.is_locked() {
+        // Пауза перед сменой фаз тоже блокирует ввод: иначе игрок успевает
+        // сделать лишний ход в старой фазе и счётчик перестаёт быть честным.
+        if self.is_locked() || self.twilight_pause() {
             // Ходить во время паузы сумерек и перехода нельзя, но фигуру
             // можно вернуть на место: иначе игрок обязан сделать ход, и
             // фаза удлиняется сверх счётчика.
@@ -2644,7 +2646,7 @@ fn parse_game_state(d: &[u8]) -> Option<GameStateData> {
 mod tests {
     use super::*;
 
-    fn test_game() -> Game {
+        fn test_game() -> Game {
         Game::new(25.0)
     }
 

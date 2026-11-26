@@ -281,8 +281,10 @@ pub struct Game {
     pub max_chain: bool,
     /// Король под боем может уйти вместо обязательного взятия.
     pub king_escape: bool,
-    /// Длина фазы в полных ходах (2–4) для режима «по ходам».
-    pub phase_moves: u8,
+    /// Длина шахматной фазы в полных ходах (1–8), режим «по ходам».
+    pub chess_moves: u8,
+    /// Длина шашечной фазы в полных ходах (1–8), режим «по ходам».
+    pub checkers_moves: u8,
     /// Сколько полуходов сыграно в текущей фазе.
     pub plies_in_phase: u16,
     /// true — фаза меняется после хода случайным образом, а не по времени.
@@ -370,7 +372,8 @@ impl Game {
             crown_non_pawns: true,
             max_chain: true,
             king_escape: true,
-            phase_moves: 3,
+            chess_moves: 6,
+            checkers_moves: 6,
             plies_in_phase: 0,
             twilight_by_moves: true,
             move_twilight_pending: false,
@@ -524,6 +527,39 @@ impl Game {
     /// Король стороны под боем: соперник может взять его следующим ходом.
     pub fn king_under_attack(&self, side: Side) -> bool {
         if self.phase != Phase::Checkers {
+            return false;
+        }
+        let Some(king) = self.king_sq(side) else {
+            return false;
+        };
+        for r in 0..8 {
+            for f in 0..8 {
+                let Some(p) = self.board[r][f] else {
+                    continue;
+                };
+                if p.side != side.other() {
+                    continue;
+                }
+                if can_capture_at(&self.board, (f as i32, r as i32), p, king) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Шахматная фаза и смена уже на следующем ходу: окажется ли король
+    /// под боем сразу после переворота — по шашечной геометрии текущей доски.
+    pub fn king_danger_after_flip(&self, side: Side) -> bool {
+        if self.phase != Phase::Chess || self.is_over() {
+            return false;
+        }
+        let imminent = if self.twilight_by_moves {
+            self.full_moves_to_switch() <= 1
+        } else {
+            self.phase_left <= 12.0
+        };
+        if !imminent {
             return false;
         }
         let Some(king) = self.king_sq(side) else {
@@ -737,7 +773,7 @@ impl Game {
         }
     }
 
-    /// Длина фазы в полных ходах: 2–4. Смена идёт строго после хода каждой
+    /// Длина фазы в полных ходах: 4, 6 или 8. Смена идёт строго после хода каждой
     /// стороны, поэтому чётность полуходов не даёт перевеса.
     /// Завершить ожидающие сумерки сразу, без анимации: нужно перебору,
     /// чтобы видеть позицию уже в новой природе.
@@ -763,8 +799,22 @@ impl Game {
         }
     }
 
-    pub fn set_phase_moves(&mut self, n: u8) {
-        self.phase_moves = n.clamp(2, 4);
+    /// Длина фазы в полных ходах для указанной природы.
+    pub fn phase_len(&self, phase: Phase) -> u8 {
+        match phase {
+            Phase::Chess => self.chess_moves,
+            Phase::Checkers => self.checkers_moves,
+        }
+        .max(1)
+    }
+
+    /// Задаёт длину фазы в полных ходах отдельно для шахмат и шашек (1–8).
+    pub fn set_phase_len(&mut self, phase: Phase, n: u8) {
+        let n = n.clamp(1, 8);
+        match phase {
+            Phase::Chess => self.chess_moves = n,
+            Phase::Checkers => self.checkers_moves = n,
+        }
         self.plies_in_phase = 0;
         self.move_twilight_pending = false;
     }
@@ -774,7 +824,7 @@ impl Game {
         if !self.twilight_by_moves {
             return 0;
         }
-        let total = (self.phase_moves.max(1) as u16) * 2;
+        let total = (self.phase_len(self.phase) as u16) * 2;
         let left = total.saturating_sub(self.plies_in_phase);
         ((left + 1) / 2) as u8
     }
@@ -798,7 +848,7 @@ impl Game {
             return;
         }
         self.plies_in_phase += 1;
-        if self.plies_in_phase >= (self.phase_moves.max(1) as u16) * 2 {
+        if self.plies_in_phase >= (self.phase_len(self.phase) as u16) * 2 {
             self.plies_in_phase = 0;
             self.move_twilight_pending = true;
             self.move_twilight_wait = MOVE_TWILIGHT_PAUSE;
@@ -1227,7 +1277,7 @@ impl Game {
                         self.twilight_hold_secs += MOVE_TWILIGHT_PAUSE;
                         self.move_twilight_pending = false;
                         self.move_twilight_wait = 0.0;
-                        let threshold = (self.phase_moves.max(1) as u16) * 2;
+                        let threshold = (self.phase_len(self.phase) as u16) * 2;
                         self.plies_in_phase = threshold.saturating_sub(1);
                     } else {
                         // Фаза меняется по счёту ходов: обе стороны знают,
@@ -1569,7 +1619,8 @@ impl Game {
             Some(s) => b.push(pack_sq(s)),
         }
         b.push(self.max_chain as u8);
-        b.push(self.phase_moves);
+        b.push(self.chess_moves);
+        b.push(self.checkers_moves);
         b.extend_from_slice(&self.plies_in_phase.to_le_bytes());
         // Добавлено в 0.21.1: старые состояния короче на один байт.
         b.push(self.kings_only_plies);
@@ -1591,7 +1642,8 @@ impl Game {
         self.promotion_choice = st.promotion_choice;
         self.promotion_free = st.promotion_free;
         self.max_chain = st.max_chain;
-        self.phase_moves = st.phase_moves;
+        self.chess_moves = st.chess_moves;
+        self.checkers_moves = st.checkers_moves;
         self.plies_in_phase = st.plies_in_phase;
         self.kings_only_plies = st.kings_only_plies;
         self.passes = st.passes;
@@ -1879,6 +1931,12 @@ impl Game {
                 };
                 if victim.side == p.side {
                     continue;
+                }
+                // Короля дамка (и король) берёт наступлением на его клетку:
+                // на краю доски за королём нет поля приземления, и без этого
+                // правила край был бы для него неприступной крепостью.
+                if victim.kind == Kind::King {
+                    push_move(&mut out, sq, (x, y), Some((x, y)));
                 }
                 let (mut lx, mut ly) = (x + dx, y + dy);
                 while self.inb(lx, ly) && self.empty_i(lx, ly) {
@@ -2188,12 +2246,19 @@ pub(crate) fn can_capture_at(
         return false;
     }
     let (sx, sy) = (df.signum(), dr.signum());
+    let flyer = p.is_damka() || p.kind == Kind::King;
+    // Дамка и король бьют короля и наступлением на его клетку: на краю
+    // доски поля приземления за ним нет, а взять его всё равно нужно.
+    let step_on_king = flyer
+        && at_b(b, tf, tr)
+            .map(|v| v.side != p.side && v.kind == Kind::King)
+            .unwrap_or(false);
     // Поле приземления — сразу за целью, оно должно быть свободным.
     let (lx, ly) = (tf + sx, tr + sy);
-    if !inb(lx, ly) || b[ly as usize][lx as usize].is_some() {
+    if !step_on_king && (!inb(lx, ly) || b[ly as usize][lx as usize].is_some()) {
         return false;
     }
-    if p.is_damka() || p.kind == Kind::King {
+    if flyer {
         let mut x = from.0 + sx;
         let mut y = from.1 + sy;
         while (x, y) != (tf, tr) {
@@ -2247,6 +2312,10 @@ fn captures_on(b: &Board, sq: Square) -> Vec<Move> {
             let Some(v) = at_b(b, x, y) else { continue };
             if v.side == p.side {
                 continue;
+            }
+            // Король берётся и наступлением на его клетку — см. checker_captures_from.
+            if v.kind == Kind::King {
+                push_move(&mut out, sq, (x, y), Some((x, y)));
             }
             let (mut lx, mut ly) = (x + dx, y + dy);
             while inb_b(lx, ly) && empty_b(b, lx, ly) {
@@ -2369,7 +2438,8 @@ struct GameStateData {
     last_move: Option<(Square, Square)>,
     pending_promotion: Option<Square>,
     max_chain: bool,
-    phase_moves: u8,
+    chess_moves: u8,
+    checkers_moves: u8,
     plies_in_phase: u16,
     kings_only_plies: u8,
 }
@@ -2496,10 +2566,11 @@ fn parse_game_state(d: &[u8]) -> Option<GameStateData> {
     };
     let pending_promotion = opt_sq(d, &mut i)?;
     let max_chain = *d.get(i)? != 0;
-    let phase_moves = (*d.get(i + 1)?).clamp(2, 4);
-    let plies_in_phase = u16::from_le_bytes([*d.get(i + 2)?, *d.get(i + 3)?]);
+    let chess_moves = (*d.get(i + 1)?).clamp(1, 8);
+    let checkers_moves = (*d.get(i + 2)?).clamp(1, 8);
+    let plies_in_phase = u16::from_le_bytes([*d.get(i + 3)?, *d.get(i + 4)?]);
     // Байт добавлен в 0.21.1; обрезанные данные по-прежнему отвергаются.
-    let kings_only_plies = *d.get(i + 4)?;
+    let kings_only_plies = *d.get(i + 5)?;
     Some(GameStateData {
         phase,
         turn,
@@ -2531,7 +2602,8 @@ fn parse_game_state(d: &[u8]) -> Option<GameStateData> {
         last_move,
         pending_promotion,
         max_chain,
-        phase_moves,
+        chess_moves,
+        checkers_moves,
         plies_in_phase,
         kings_only_plies,
     })
@@ -2556,7 +2628,8 @@ mod tests {
         g.board[2][2] = Some(Piece::new(Side::White, Kind::Pawn)); // c3 — бьёт короля
         g.turn = Side::White;
         g.twilight_by_moves = true;
-        g.set_phase_moves(3);
+        g.set_phase_len(Phase::Chess, 6);
+        g.set_phase_len(Phase::Checkers, 6);
         g.move_twilight_pending = true;
         g.move_twilight_wait = 0.0;
         g.move_anim = 1.0;
@@ -2617,7 +2690,8 @@ mod tests {
         g.board[7][0] = Some(Piece::new(Side::Black, Kind::Pawn)); // a8
         g.turn = Side::White;
         g.twilight_by_moves = true;
-        g.set_phase_moves(3);
+        g.set_phase_len(Phase::Chess, 6);
+        g.set_phase_len(Phase::Checkers, 6);
         let mut w = (4, 0);
         let mut b = (0, 7);
         for _ in 0..12 {
@@ -2935,18 +3009,19 @@ mod tests {
     fn phase_switches_after_full_moves() {
         let mut g = test_game();
         g.set_twilight_by_moves(true);
-        g.set_phase_moves(2);
+        g.set_phase_len(Phase::Chess, 4);
+        g.set_phase_len(Phase::Checkers, 4);
         let phase = g.phase;
-        // Два полных хода = четыре полухода: только тогда фаза меняется.
-        for _ in 0..3 {
+        // Четыре полных хода = восемь полуходов: только тогда фаза меняется.
+        for _ in 0..7 {
             let mv = g.all_moves()[0];
             g.apply(mv);
         }
-        assert!(!g.move_twilight_pending, "на трёх полуходах смены нет");
+        assert!(!g.move_twilight_pending, "на семи полуходах смены нет");
         let mv = g.all_moves()[0];
         g.apply(mv);
         assert_eq!(g.plies_in_phase, 0, "счётчик сбрасывается");
-        assert!(g.move_twilight_pending, "после двух полных ходов — смена");
+        assert!(g.move_twilight_pending, "после четырёх полных ходов — смена");
         assert_eq!(g.phase, phase, "фаза меняется после перехода сумерек");
     }
 
@@ -2954,14 +3029,15 @@ mod tests {
     fn full_moves_to_switch_counts_down() {
         let mut g = test_game();
         g.set_twilight_by_moves(true);
-        g.set_phase_moves(3);
-        assert_eq!(g.full_moves_to_switch(), 3);
+        g.set_phase_len(Phase::Chess, 6);
+        g.set_phase_len(Phase::Checkers, 6);
+        assert_eq!(g.full_moves_to_switch(), 6);
         let mv = g.all_moves()[0];
         g.apply(mv);
-        assert_eq!(g.full_moves_to_switch(), 3, "после своего хода ещё три");
+        assert_eq!(g.full_moves_to_switch(), 6, "после своего хода ещё шесть");
         let mv = g.all_moves()[0];
         g.apply(mv);
-        assert_eq!(g.full_moves_to_switch(), 2, "после полного хода — два");
+        assert_eq!(g.full_moves_to_switch(), 5, "после полного хода — пять");
     }
 
     #[test]
@@ -4132,4 +4208,57 @@ mod tests {
             }
         }
     }
+
+    /// Дамка берёт короля наступлением на его клетку: на краю доски за
+    /// королём нет поля приземления, иначе край был бы крепостью.
+    #[test]
+    fn damka_takes_king_on_board_edge() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[0][7] = Some(Piece::new(Side::White, Kind::King)); // h1 — край
+        let mut damka = Piece::new(Side::Black, Kind::Rook);
+        damka.crowned = true;
+        g.board[3][4] = Some(damka); // e4 — по диагонали к h1
+        g.turn = Side::Black;
+        let moves = g.all_moves();
+        assert!(
+            moves.iter().any(|m| m.to == (7, 0) && m.captured == Some((7, 0))),
+            "дамка должна взять короля на краю: {moves:?}"
+        );
+    }
+
+    /// Простая шашка край не пробивает: ей нужна клетка за королём.
+    #[test]
+    fn simple_piece_cannot_take_king_on_edge() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Checkers;
+        g.board[0][7] = Some(Piece::new(Side::White, Kind::King)); // h1 — край
+        g.board[1][6] = Some(Piece::new(Side::Black, Kind::Pawn)); // g2
+        g.turn = Side::Black;
+        let moves = g.all_moves();
+        assert!(
+            moves.iter().all(|m| m.captured != Some((7, 0))),
+            "простая шашка не берёт короля на краю: {moves:?}"
+        );
+    }
+
+    /// Перед сменой фаз панель должна предупреждать: король под ударом.
+    #[test]
+    fn chess_phase_warns_about_king_after_flip() {
+        let mut g = test_game();
+        g.board = [[None; 8]; 8];
+        g.phase = Phase::Chess;
+        g.set_twilight_by_moves(true);
+        g.set_phase_len(Phase::Chess, 1);
+        g.board[1][5] = Some(Piece::new(Side::White, Kind::King)); // f2
+        g.board[3][7] = Some(Piece::new(Side::Black, Kind::King)); // h4
+        g.turn = Side::White;
+        assert!(
+            g.king_danger_after_flip(Side::White),
+            "белый король на диагонали чёрного — смена фаз его погубит"
+        );
+    }
+
 }

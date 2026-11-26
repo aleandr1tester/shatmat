@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod ai;
+mod arena;
 mod art;
 mod fonts;
 mod game;
@@ -43,6 +44,13 @@ fn main() -> eframe::Result<()> {
     let mut demo: Option<String> = None;
     let mut write_sounds: Option<PathBuf> = None;
     let mut check_update = false;
+    // Турнир ИИ против ИИ без окна: --arena.
+    let mut arena_mode = false;
+    let mut arena_games = 100usize;
+    let mut arena_chess: Vec<u8> = vec![4, 6, 8];
+    let mut arena_checkers: Vec<u8> = vec![2, 4, 6, 8];
+    let mut arena_difficulty = "medium".to_string();
+    let mut arena_out = PathBuf::from("arena.csv");
     let mut i = 1;
     while i < args.len() {
         if args[i] == "--screenshot" {
@@ -66,7 +74,55 @@ fn main() -> eframe::Result<()> {
         if args[i] == "--check-update" {
             check_update = true;
         }
+        if args[i] == "--arena" {
+            arena_mode = true;
+        }
+        if args[i] == "--games" {
+            if let Some(p) = args.get(i + 1) {
+                arena_games = p.parse().unwrap_or(arena_games);
+                i += 1;
+            }
+        }
+        if args[i] == "--chess" {
+            if let Some(p) = args.get(i + 1) {
+                arena_chess = p.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                i += 1;
+            }
+        }
+        if args[i] == "--checkers" {
+            if let Some(p) = args.get(i + 1) {
+                arena_checkers = p.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                i += 1;
+            }
+        }
+        if args[i] == "--difficulty" {
+            if let Some(p) = args.get(i + 1) {
+                arena_difficulty = p.clone();
+                i += 1;
+            }
+        }
+        if args[i] == "--out" {
+            if let Some(p) = args.get(i + 1) {
+                arena_out = PathBuf::from(p);
+                i += 1;
+            }
+        }
         i += 1;
+    }
+    if arena_mode {
+        let difficulty = match arena_difficulty.as_str() {
+            "easy" => Difficulty::Easy,
+            "hard" => Difficulty::Hard,
+            _ => Difficulty::Medium,
+        };
+        arena::run(&arena::Config {
+            games: arena_games.max(1),
+            chess: arena_chess,
+            checkers: arena_checkers,
+            difficulty,
+            out: arena_out,
+        });
+        return Ok(());
     }
     if check_update {
         // Диагностика проверки обновлений без запуска окна.
@@ -249,7 +305,8 @@ fn kind_file(kind: Kind) -> &'static str {
 fn lobby_demo_game() -> Game {
     let mut g = Game::new(20.0);
     g.set_twilight_by_moves(true);
-    g.set_phase_moves(3);
+    g.set_phase_len(Phase::Chess, 6);
+    g.set_phase_len(Phase::Checkers, 6);
     g.mandatory_capture = true;
     g.crown_non_pawns = true;
     g.max_chain = true;
@@ -2376,19 +2433,21 @@ impl App {
 
                     // Король в шашках: красное пульсирующее кольцо поверх шашки —
                     // его можно взять, и это сразу поражение.
-                    if phase == Phase::Checkers
-                        && piece.kind == Kind::King
-                        && !g.is_over()
-                        && g.trans == 0.0
-                    {
-                        // Тревожное кольцо — только когда короля реально
-                        // бьют следующим ходом; иначе едва заметное.
-                        let a = if g.king_under_attack(piece.side) {
-                            1.0
-                        } else {
-                            0.30
-                        };
-                        art::draw_king_ring(painter, center, size, a, self.time);
+                    if piece.kind == Kind::King && !g.is_over() && g.trans == 0.0 {
+                        if phase == Phase::Checkers {
+                            // Тревожное кольцо — только когда короля реально
+                            // бьют следующим ходом; иначе едва заметное.
+                            let a = if g.king_under_attack(piece.side) {
+                                1.0
+                            } else {
+                                0.30
+                            };
+                            art::draw_king_ring(painter, center, size, a, self.time);
+                        } else if g.king_danger_after_flip(piece.side) {
+                            // Шахматы, но смена фаз вот-вот: король окажется
+                            // под боем — предупреждаем заранее.
+                            art::draw_king_ring(painter, center, size, 0.9, self.time);
+                        }
                     }
                     if let Some((csq, t)) = g.crowned_flash {
                         if csq == sq {
@@ -3425,7 +3484,20 @@ impl App {
             19.0,
             cur.text,
         );
-        if let game::Status::Check(_) = &g.status {
+        let king_danger = if g.phase == Phase::Checkers {
+            g.king_under_attack(g.turn)
+        } else {
+            g.king_danger_after_flip(g.turn)
+        };
+        if king_danger {
+            // Король под боем — важнее любых других подсказок.
+            let label = if g.phase == Phase::Checkers {
+                "КОРОЛЬ ПОД БОЕМ"
+            } else {
+                "КОРОЛЬ ПОД УДАРОМ"
+            };
+            badge(painter, Pos2::new(x + w, y - 2.0), label, cur.danger, true, 11.0);
+        } else if let game::Status::Check(_) = &g.status {
             badge(painter, Pos2::new(x + w, y - 2.0), "ШАХ", cur.danger, true, 11.0);
         } else if g.chain.is_some() {
             if !g.mandatory_capture && !self.settings && !self.rules {
@@ -3680,8 +3752,11 @@ impl App {
                     painter,
                     Pos2::new(x + setup_pad, setup_top + 38.0),
                     &i18n::trf(
-                        "Фаза длится {n} полных хода — по ходу на каждого.",
-                        &[("n", &g.phase_moves.to_string())],
+                        "Полных ходов в фазе: шахматы — {c}, шашки — {s}.",
+                        &[
+                            ("c", &g.chess_moves.to_string()),
+                            ("s", &g.checkers_moves.to_string()),
+                        ],
                     ),
                     setup_w,
                     10.5,
@@ -3965,7 +4040,9 @@ impl App {
         // левая колонка: звук и музыка
         // Колонки прокручиваются, если содержимое не влезает: сдвиг,
         // обрезка и полупрозрачный скроллбар справа — как в окне сети.
-        let bottom_limit = card.bottom() - 104.0;
+        // Низ списка — выше подвала со сводкой и кнопками, иначе
+        // прокручиваемое содержимое рисуется под текстом сводки.
+        let bottom_limit = card.bottom() - 140.0;
         let view_h = (bottom_limit - top).max(120.0);
         let max_off = (self.settings_content_h - view_h).max(0.0);
         let wheel = ui.input(|i| i.raw_scroll_delta.y);
@@ -4448,18 +4525,31 @@ impl App {
                 alpha(pal.text_dim, 0.75),
             );
             ry += 15.0;
-            let fw = (right_w - 16.0) / 3.0;
-            for (k, n) in [2u8, 3, 4].iter().enumerate() {
-                let chip_rect = Rect::from_min_size(
-                    Pos2::new(right_x + (fw + 8.0) * k as f32, ry),
-                    Vec2::new(fw, 28.0),
+            // Длина фазы — отдельно для шахмат и шашек: на короткой фазе
+            // не успеваешь перестроить фигуры под следующий режим.
+            for (phase_label, phase) in [("шахматы", Phase::Chess), ("шашки", Phase::Checkers)] {
+                text_fit(
+                    painter,
+                    Pos2::new(right_x, ry),
+                    phase_label,
+                    right_w,
+                    10.0,
+                    alpha(pal.text, 0.9),
                 );
-                let label = format!("{n}");
-                if chip(ui, chip_rect, &label, self.game.phase_moves == *n, &pal) {
-                    self.game.set_phase_moves(*n);
+                let fw = (right_w - 6.0 * 6.0) / 7.0;
+                let current = self.game.phase_len(phase);
+                for (k, n) in [2u8, 3, 4, 5, 6, 7, 8].iter().enumerate() {
+                    let chip_rect = Rect::from_min_size(
+                        Pos2::new(right_x + (fw + 6.0) * k as f32, ry + 15.0),
+                        Vec2::new(fw, 26.0),
+                    );
+                    let label = format!("{n}");
+                    if chip(ui, chip_rect, &label, current == *n, &pal) {
+                        self.game.set_phase_len(phase, *n);
+                    }
                 }
+                ry += 15.0 + 26.0 + 8.0;
             }
-            ry += 36.0;
             text(
                 painter,
                 Pos2::new(right_x, ry),
@@ -4896,9 +4986,10 @@ impl App {
         };
         let summary = if self.game.twilight_by_moves {
             i18n::trf(
-                "Сейчас: фаза {n} полных хода, время хода {secs} с",
+                "Сейчас: полных ходов в фазе — шахматы {c}, шашки {s}; время хода {secs} с",
                 &[
-                    ("n", &self.game.phase_moves.to_string()),
+                    ("c", &self.game.chess_moves.to_string()),
+                    ("s", &self.game.checkers_moves.to_string()),
                     ("secs", &format!("{:.0}", self.game.move_time_limit)),
                 ],
             )
@@ -5733,7 +5824,7 @@ impl App {
             "Победа: мат, съеденный король или истребление фигур.",
             "Время шахмат и шашек задаётся отдельно в настройках.",
             "Смена фаз: по времени или по полным ходам — по ходу на каждого.",
-            "Длина фазы — 2, 3 или 4 полных хода; счётчик виден в панели, обе стороны знают срок.",
+            "Длина фазы — 4, 6 или 8 полных ходов; счётчик виден в панели, обе стороны знают срок.",
             "В режиме по ходам у каждого хода есть время 10–180 с; по истечении ход переходит противнику.",
             "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы.",
             "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий.",

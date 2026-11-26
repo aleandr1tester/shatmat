@@ -610,7 +610,8 @@ mod tests {
     fn ai_thinking_time_is_acceptable() {
         for (diff, name) in [(Difficulty::Medium, "medium"), (Difficulty::Hard, "hard")] {
             let mut g = Game::new(20.0);
-            g.set_phase_moves(3);
+            g.set_phase_len(Phase::Chess, 6);
+    g.set_phase_len(Phase::Checkers, 6);
             let mut seed = 0x9E37_79B9u64;
             let start = std::time::Instant::now();
             let _ = best_move(&g, diff, &mut seed);

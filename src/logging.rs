@@ -140,9 +140,10 @@ pub fn format_game_log(
     s.push_str(&crate::i18n::logf("Режим: {mode}\n", &[("mode", mode)]));
     if game.twilight_by_moves {
         s.push_str(&crate::i18n::logf(
-            "Смена фаз: по ходам, {n} полных хода, время хода {secs} с\n",
+            "Смена фаз: по ходам, шахматы {c}, шашки {s}, время хода {secs} с\n",
             &[
-                ("n", &game.phase_moves.to_string()),
+                ("c", &game.chess_moves.to_string()),
+                ("s", &game.checkers_moves.to_string()),
                 ("secs", &format!("{:.0}", game.move_time_limit)),
             ],
         ));

@@ -339,8 +339,6 @@ msgstr "Anzeigen: ja"
 msgid "Показывать: нет"
 msgstr "Anzeigen: nein"
 
-msgid "Сейчас: фаза {n} полных хода, время хода {secs} с"
-msgstr "Jetzt: Phase {n} volle Züge, Zugzeit {secs} s"
 
 msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
 msgstr "Aktuell: Autowechsel, 10–{max} s (aktuelle Phase {phase} s)"
@@ -453,9 +451,7 @@ msgstr "Die Zeit für Schach und Damespiel wird getrennt in den Einstellungen fe
 msgid "Смена фаз: по времени или по полным ходам — по ходу на каждого."
 msgstr "Phasenwechsel: nach Zeit oder vollen Zügen — je ein Zug."
 
-msgid "Длина фазы — 2, 3 или 4 полных хода; счётчик виден в панели, обе стороны знают срок."
-msgstr "Phasenlänge: 2, 3 oder 4 volle Züge; der Zähler steht im Panel, beide wissen Bescheid."
-
+msgid "Длина фазы — 4, 6 или 8 полных ходов; счётчик виден в панели, обе стороны знают срок."msgstr "Phasenlänge: 4, 6 oder 8 volle Züge; der Zähler steht im Panel, beide wissen Bescheid."
 msgid "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы."
 msgstr "Im Damespiel zieht der König wie eine Dame, kann aber geschlagen werden — schützen Sie ihn."
 
@@ -1067,8 +1063,6 @@ msgstr "Wechsel in {n} Zügen"
 msgid "длина фазы: {n} полных хода"
 msgstr "Phasenlänge: {n} volle Züge"
 
-msgid "по ходам, фаза {n} полных хода"
-msgstr "nach Zügen, Phase {n} volle Züge"
 
 msgid "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий."
 msgstr "„Kette: Maximum“ — nur die längste Schlagfolge ist erlaubt."
@@ -1211,6 +1205,20 @@ msgstr "ausblenden"
 msgid "показать"
 msgstr "einblenden"
 
-msgid "Фаза длится {n} полных хода — по ходу на каждого."
-msgstr "Die Phase dauert {n} volle Züge — je ein Zug pro Seite."
+msgid "Полных ходов в фазе: шахматы — {c}, шашки — {s}."
+msgstr "Volle Züge pro Phase: Schach — {c}, Damespiel — {s}."
 
+msgid "по ходам, полных ходов в фазе — шахматы {c}, шашки {s}"
+msgstr "nach Zügen, volle Züge pro Phase — Schach {c}, Damespiel {s}"
+
+msgid "Сейчас: полных ходов в фазе — шахматы {c}, шашки {s}; время хода {secs} с"
+msgstr "Jetzt: volle Züge pro Phase — Schach {c}, Damespiel {s}; Zeit pro Zug {secs} s"
+
+msgid "Смена фаз: по ходам, шахматы {c}, шашки {s}, время хода {secs} с"
+msgstr "Phasenwechsel: nach Zügen, Schach {c}, Damespiel {s}, Zeit pro Zug {secs} s"
+
+msgid "КОРОЛЬ ПОД БОЕМ"
+msgstr "KÖNIG IN GEFAHR"
+
+msgid "КОРОЛЬ ПОД УДАРОМ"
+msgstr "KÖNIG GEFÄHRDET"

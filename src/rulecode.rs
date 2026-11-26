@@ -39,8 +39,10 @@ pub struct Rules {
     pub max_chain: bool,
     /// Король под боем может уйти вместо обязательного взятия.
     pub king_escape: bool,
-    /// Длина фазы в полных ходах (2–4) для режима «по ходам».
-    pub phase_moves: u8,
+    /// Длина шахматной фазы в полных ходах (1–8), режим «по ходам».
+    pub chess_moves: u8,
+    /// Длина шашечной фазы в полных ходах (1–8), режим «по ходам».
+    pub checkers_moves: u8,
 }
 
 impl Rules {
@@ -58,7 +60,8 @@ impl Rules {
             crown_non_pawns: game.crown_non_pawns,
             max_chain: game.max_chain,
             king_escape: game.king_escape,
-            phase_moves: game.phase_moves,
+            chess_moves: game.chess_moves,
+            checkers_moves: game.checkers_moves,
         }
     }
 
@@ -76,15 +79,19 @@ impl Rules {
         game.crown_non_pawns = self.crown_non_pawns;
         game.max_chain = self.max_chain;
         game.king_escape = self.king_escape;
-        game.set_phase_moves(self.phase_moves);
+        game.set_phase_len(Phase::Chess, self.chess_moves);
+        game.set_phase_len(Phase::Checkers, self.checkers_moves);
     }
 
     /// Краткое описание правил для сообщения «применено».
     pub fn summary(&self) -> String {
         let mode = if self.twilight_by_moves {
             crate::i18n::trf(
-                "по ходам, фаза {n} полных хода",
-                &[("n", &self.phase_moves.to_string())],
+                "по ходам, полных ходов в фазе — шахматы {c}, шашки {s}",
+                &[
+                    ("c", &self.chess_moves.to_string()),
+                    ("s", &self.checkers_moves.to_string()),
+                ],
             )
         } else if self.auto_phase {
             crate::i18n::trf(
@@ -119,7 +126,10 @@ fn pack(r: &Rules) -> u32 {
     v |= (r.mandatory_capture as u32) << 3; // 3
     v |= (r.crown_non_pawns as u32) << 4; // 4
     v |= (r.max_chain as u32) << 5; // 5
-    v |= ((r.phase_moves.clamp(2, 4) - 2) as u32) << 6; // 6..7
+    let cm = (r.chess_moves.clamp(1, 8) - 1) as u32; // 0..7
+    v |= (cm & 0x3) << 6; // 6..7: младшие биты длины шахматной фазы
+    v |= (cm >> 2) << 27; // 27: старший бит
+    v |= ((r.checkers_moves.clamp(1, 8) - 1) as u32) << 28; // 28..30: шашечная фаза
     v |= chess << 8; // 8..11
     v |= checkers << 12; // 12..15
     v |= auto_max << 16; // 16..19
@@ -138,7 +148,8 @@ fn unpack(v: u32) -> Rules {
         mandatory_capture: (v >> 3) & 1 != 0,
         crown_non_pawns: (v >> 4) & 1 != 0,
         max_chain: (v >> 5) & 1 != 0,
-        phase_moves: (((v >> 6) & 0x3) as u8).min(2) + 2,
+        chess_moves: ((((v >> 6) & 0x3) | (((v >> 27) & 1) << 2)) as u8) + 1,
+        checkers_moves: (((v >> 28) & 0x7) as u8) + 1,
         chess_len: ((((v >> 8) & 0xF) as f32) * 5.0) + 5.0,
         checkers_len: ((((v >> 12) & 0xF) as f32) * 5.0) + 5.0,
         auto_max: ((((v >> 16) & 0xF) as f32) * 5.0) + 10.0,
@@ -281,10 +292,11 @@ fn pack20(r: &Rules) -> u32 {
     // Бит 17 свободен в обоих режимах (по ходам: 13..19, по времени: 17..19).
     v |= (r.king_escape as u32) << 17;
     if r.twilight_by_moves {
-        v |= ((r.phase_moves.clamp(2, 4) - 2) as u32) << 6; // 6..7
+        v |= ((r.chess_moves.clamp(1, 8) - 1) as u32) << 6; // 6..8
+        v |= ((r.checkers_moves.clamp(1, 8) - 1) as u32) << 9; // 9..11
         let mtl =
             ((r.move_time_limit.round().clamp(10.0, 180.0) - 10.0) / 10.0) as u32; // 0..17
-        v |= mtl << 8; // 8..12
+        v |= mtl << 12; // 12..16
     } else {
         let chess = ((r.chess_len.round().clamp(5.0, 60.0) - 5.0) / 5.0) as u32;
         let checkers = ((r.checkers_len.round().clamp(5.0, 60.0) - 5.0) / 5.0) as u32;
@@ -307,10 +319,15 @@ fn unpack20(v: u32) -> Rules {
         crown_non_pawns: (v >> 4) & 1 != 0,
         max_chain: (v >> 5) & 1 != 0,
         king_escape: (v >> 17) & 1 != 0,
-        phase_moves: if by_moves {
-            (((v >> 6) & 0x3) as u8).min(2) + 2
+        chess_moves: if by_moves {
+            (((v >> 6) & 0x7) as u8) + 1
         } else {
-            3
+            6
+        },
+        checkers_moves: if by_moves {
+            (((v >> 9) & 0x7) as u8) + 1
+        } else {
+            6
         },
         chess_len: if by_moves {
             20.0
@@ -328,7 +345,7 @@ fn unpack20(v: u32) -> Rules {
             ((((v >> 14) & 0x7) as f32) * 10.0) + 10.0
         },
         move_time_limit: if by_moves {
-            ((((v >> 8) & 0x1F) as f32) * 10.0) + 10.0
+            ((((v >> 12) & 0x1F) as f32) * 10.0) + 10.0
         } else {
             60.0
         },
@@ -430,13 +447,15 @@ mod tests {
             crown_non_pawns: true,
                 max_chain: true,
                 king_escape: true,
-                phase_moves: 3,
+                chess_moves: 6,
+                checkers_moves: 6,
         };
         let code = encode_compact(&r);
         assert_eq!(code.chars().count(), 4, "компактный код — 4 символа");
         let back = decode_compact(&code).expect("компактный код декодируется");
         assert_eq!(back.move_time_limit, 60.0);
-        assert_eq!(back.phase_moves, 3);
+        assert_eq!(back.chess_moves, 6);
+        assert_eq!(back.checkers_moves, 6);
         assert!(back.max_chain);
         assert!(back.mandatory_capture && back.crown_non_pawns);
         // «По времени, случайно»: восстанавливается максимум случайности.
@@ -452,7 +471,8 @@ mod tests {
             crown_non_pawns: false,
                 max_chain: true,
                 king_escape: true,
-                phase_moves: 3,
+                chess_moves: 6,
+                checkers_moves: 6,
         };
         let back2 = decode_compact(&encode_compact(&r2)).unwrap();
         assert_eq!(back2.auto_max, 30.0);
@@ -477,13 +497,16 @@ mod tests {
             crown_non_pawns: true,
             max_chain: false,
             king_escape: true,
-            phase_moves: 4,
+            chess_moves: 4,
+                checkers_moves: 4,
         };
         let short = decode_compact(&encode_compact(&r)).expect("компактный код");
-        assert_eq!(short.phase_moves, 4);
+        assert_eq!(short.chess_moves, 4);
+        assert_eq!(short.checkers_moves, 4);
         assert!(!short.max_chain, "«цепочка: любая» едет в компактном коде");
         let full = decode(&encode(&r)).expect("код рукопожатия");
-        assert_eq!(full.phase_moves, 4);
+        assert_eq!(full.chess_moves, 4);
+        assert_eq!(full.checkers_moves, 4);
         assert!(!full.max_chain);
     }
 
@@ -502,7 +525,8 @@ mod tests {
                 crown_non_pawns: false,
                 max_chain: true,
                 king_escape: true,
-                phase_moves: 3,
+                chess_moves: 6,
+                checkers_moves: 6,
             },
             Rules {
                 twilight_by_moves: true,
@@ -516,7 +540,8 @@ mod tests {
                 crown_non_pawns: true,
                 max_chain: true,
                 king_escape: true,
-                phase_moves: 3,
+                chess_moves: 6,
+                checkers_moves: 6,
             },
             Rules {
                 twilight_by_moves: false,
@@ -530,7 +555,8 @@ mod tests {
                 crown_non_pawns: true,
                 max_chain: true,
                 king_escape: true,
-                phase_moves: 3,
+                chess_moves: 6,
+                checkers_moves: 6,
             },
         ];
         for r in variants {

@@ -339,8 +339,6 @@ msgstr "Mostrar: sí"
 msgid "Показывать: нет"
 msgstr "Mostrar: no"
 
-msgid "Сейчас: фаза {n} полных хода, время хода {secs} с"
-msgstr "Ahora: fase {n} jugadas completas, tiempo de jugada {secs} s"
 
 msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
 msgstr "Ahora: cambio automático, 10–{max} s (fase actual {phase} s)"
@@ -453,9 +451,7 @@ msgstr "El tiempo del ajedrez y el de las damas se configuran por separado en lo
 msgid "Смена фаз: по времени или по полным ходам — по ходу на каждого."
 msgstr "Cambio de fase: por tiempo o jugadas completas — un movimiento cada uno."
 
-msgid "Длина фазы — 2, 3 или 4 полных хода; счётчик виден в панели, обе стороны знают срок."
-msgstr "La fase dura 2, 3 o 4 jugadas completas; el contador está en el panel y ambos lo saben."
-
+msgid "Длина фазы — 4, 6 или 8 полных ходов; счётчик виден в панели, обе стороны знают срок."msgstr "La fase dura 4, 6 u 8 jugadas completas; el contador está en el panel y ambos lo saben."
 msgid "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы."
 msgstr "En damas el rey se mueve como dama pero puede ser capturado: protéjalo."
 
@@ -1067,8 +1063,6 @@ msgstr "cambio en {n} jugadas"
 msgid "длина фазы: {n} полных хода"
 msgstr "duración de la fase: {n} jugadas completas"
 
-msgid "по ходам, фаза {n} полных хода"
-msgstr "por jugadas, fase {n} jugadas completas"
 
 msgid "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий."
 msgstr "«Cadena: máxima» — solo se permite la serie de capturas más larga."
@@ -1211,6 +1205,20 @@ msgstr "ocultar"
 msgid "показать"
 msgstr "mostrar"
 
-msgid "Фаза длится {n} полных хода — по ходу на каждого."
-msgstr "La fase dura {n} jugadas completas — una por cada lado."
+msgid "Полных ходов в фазе: шахматы — {c}, шашки — {s}."
+msgstr "Jugadas completas por fase: ajedrez — {c}, damas — {s}."
 
+msgid "по ходам, полных ходов в фазе — шахматы {c}, шашки {s}"
+msgstr "por jugadas, jugadas completas por fase — ajedrez {c}, damas {s}"
+
+msgid "Сейчас: полных ходов в фазе — шахматы {c}, шашки {s}; время хода {secs} с"
+msgstr "Ahora: jugadas completas por fase — ajedrez {c}, damas {s}; tiempo por jugada {secs} s"
+
+msgid "Смена фаз: по ходам, шахматы {c}, шашки {s}, время хода {secs} с"
+msgstr "Cambio de fase: por jugadas, ajedrez {c}, damas {s}, tiempo por jugada {secs} s"
+
+msgid "КОРОЛЬ ПОД БОЕМ"
+msgstr "REY EN PELIGRO"
+
+msgid "КОРОЛЬ ПОД УДАРОМ"
+msgstr "REY EN RIESGO"

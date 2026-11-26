@@ -339,8 +339,6 @@ msgstr "Göster: evet"
 msgid "Показывать: нет"
 msgstr "Göster: hayır"
 
-msgid "Сейчас: фаза {n} полных хода, время хода {secs} с"
-msgstr "Şu an: faz {n} tam hamle, hamle süresi {secs} sn"
 
 msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
 msgstr "Şu an: otomatik değişim, 10–{max} s (geçerli faz {phase} s)"
@@ -453,9 +451,7 @@ msgstr "Satranç ve dama süreleri ayarlarda ayrı ayrı belirlenir."
 msgid "Смена фаз: по времени или по полным ходам — по ходу на каждого."
 msgstr "Faz değişimi: süreye veya tam hamlelere göre — herkese bir hamle."
 
-msgid "Длина фазы — 2, 3 или 4 полных хода; счётчик виден в панели, обе стороны знают срок."
-msgstr "Faz 2, 3 veya 4 tam hamle sürer; sayaç panelde ve her iki taraf da bilir."
-
+msgid "Длина фазы — 4, 6 или 8 полных ходов; счётчик виден в панели, обе стороны знают срок."msgstr "Faz 4, 6 veya 8 tam hamle sürer; sayaç panelde ve her iki taraf da bilir."
 msgid "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы."
 msgstr "Damada şah kral gibi hareket eder ama alınabilir — onu koruyun."
 
@@ -1068,8 +1064,6 @@ msgstr "değişim {n} hamlede"
 msgid "длина фазы: {n} полных хода"
 msgstr "faz uzunluğu: {n} tam hamle"
 
-msgid "по ходам, фаза {n} полных хода"
-msgstr "hamleye göre, faz {n} tam hamle"
 
 msgid "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий."
 msgstr "“Zincir: en uzun” — yalnızca en uzun vuruş dizisine izin verilir."
@@ -1212,6 +1206,20 @@ msgstr "gizle"
 msgid "показать"
 msgstr "göster"
 
-msgid "Фаза длится {n} полных хода — по ходу на каждого."
-msgstr "Faz {n} tam hamle sürer — her taraf bir hamle."
+msgid "Полных ходов в фазе: шахматы — {c}, шашки — {s}."
+msgstr "Faz başına tam hamle: satranç — {c}, dama — {s}."
 
+msgid "по ходам, полных ходов в фазе — шахматы {c}, шашки {s}"
+msgstr "hamle ile, faz başına tam hamle — satranç {c}, dama {s}"
+
+msgid "Сейчас: полных ходов в фазе — шахматы {c}, шашки {s}; время хода {secs} с"
+msgstr "Şu an: faz başına tam hamle — satranç {c}, dama {s}; hamle süresi {secs} sn"
+
+msgid "Смена фаз: по ходам, шахматы {c}, шашки {s}, время хода {secs} с"
+msgstr "Faz değişimi: hamle ile, satranç {c}, dama {s}, hamle süresi {secs} sn"
+
+msgid "КОРОЛЬ ПОД БОЕМ"
+msgstr "ŞAH TEHLİKEDE"
+
+msgid "КОРОЛЬ ПОД УДАРОМ"
+msgstr "ŞAH RİSKTE"

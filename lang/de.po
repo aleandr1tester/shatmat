@@ -1238,8 +1238,8 @@ msgstr "Noch keine Logs"
 msgid "Выберите партию — откроется просмотр с доской и ходами."
 msgstr "Wähle eine Partie — sie öffnet sich zur Durchsicht mit Brett und Zügen."
 
-msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал: {m}"
-msgstr "Züge {n} · Schach {c}, Damespiel {k} · Schläge {cc}/{ck} · Phasenwechsel {f} · Material: {m}"
+msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f}"
+msgstr "Züge {n} · Schach {c}, Damespiel {k} · Schläge {cc}/{ck} · Phasenwechsel {f}"
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
 msgstr "Zug {full} · Halbzug {ply} von {total}"

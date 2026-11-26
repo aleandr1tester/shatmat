@@ -2294,19 +2294,8 @@ impl App {
             }
             prev = Some(r.phase);
         }
-        let diff = view.material_diff();
-        let material = if diff == 0 {
-            i18n::tr("ровно").to_string()
-        } else {
-            let side = if diff > 0 {
-                i18n::tr("белые")
-            } else {
-                i18n::tr("чёрные")
-            };
-            format!("{} у {}", diff.abs(), side)
-        };
         self.review_stats = i18n::trf(
-            "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал: {m}",
+            "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f}",
             &[
                 ("n", &view.history.len().to_string()),
                 ("c", &chess_plies.to_string()),
@@ -2314,7 +2303,6 @@ impl App {
                 ("cc", &caps_chess.to_string()),
                 ("ck", &caps_check.to_string()),
                 ("f", &flips.to_string()),
-                ("m", &material),
             ],
         );
         let (lines, switches, phases) = Self::build_review_lines(&view);
@@ -3395,7 +3383,10 @@ impl App {
         }
         if checkers_form {
             let show_icon = self.show_checker_icons && kind != Kind::Pawn;
-            let royal = kind == Kind::King && !show_icon;
+            let is_king = kind == Kind::King;
+            // Король отмечается красным кругом, а не короной дамки.
+            let damka_mark = damka && !is_king;
+            let royal = is_king && !show_icon;
             // Иконка-силуэт фигуры: маска из того же SVG — сплошная заливка,
             // ровно по центру шашки, меньше диаметра, без артефактов.
             let draw_icon = |painter: &egui::Painter| {
@@ -3419,22 +3410,22 @@ impl App {
                     art::draw_checker_icon(painter, center, size, kind, side, a);
                 }
             };
-            if let Some(art) = self.piece_tex.checker_art(side, damka, royal) {
+            if let Some(art) = self.piece_tex.checker_art(side, damka_mark, royal) {
                 let rect = Rect::from_center_size(center, Vec2::splat(size));
                 let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
                 painter.image(art.color.id(), rect, uv, alpha(Color32::WHITE, a));
             } else {
-                // Корона и точка рисуются отдельно, поверх иконки фигуры.
-                draw_checker(painter, center, size, false, false, side, pal, a);
+                // Корона и метка рисуются отдельно, поверх иконки фигуры.
+                draw_checker(painter, center, size, damka_mark, false, side, pal, a);
             }
             // Иконка фигуры — вписывается в круг дамки.
             draw_icon(painter);
             // Корона дамки — поверх фигуры.
-            if damka && !self.piece_tex.has_damka(side) {
+            if damka_mark && !self.piece_tex.has_damka(side) {
                 art::draw_damka_crown(painter, center, size, side, a);
             }
-            if royal && !self.piece_tex.has_royal(side) {
-                art::draw_royal_dot(painter, center, size, side, a);
+            if is_king && !self.piece_tex.has_royal(side) {
+                art::draw_king_circle(painter, center, size, side, a);
             }
             return;
         } else {

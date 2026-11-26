@@ -806,6 +806,17 @@ pub fn draw_king_ring(painter: &Painter, center: Pos2, size: f32, a: f32, t: f32
     );
 }
 
+/// Красное кольцо шашки-короля: такое же, как у дамки, но без короны —
+/// корона дамки и метка короля не дублируются.
+pub fn draw_king_circle(painter: &Painter, center: Pos2, size: f32, side: Side, a: f32) {
+    let mark = checker_mark_color(side);
+    painter.circle_stroke(
+        center,
+        0.205 * size,
+        Stroke::new((size * 0.022).max(1.3), alpha(mark, a * 0.9)),
+    );
+}
+
 pub fn draw_damka_crown(painter: &Painter, center: Pos2, size: f32, side: Side, a: f32) {
     let mark = checker_mark_color(side);
     painter.circle_stroke(

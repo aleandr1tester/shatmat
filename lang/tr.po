@@ -1239,11 +1239,14 @@ msgstr "Henüz günlük yok"
 msgid "Выберите партию — откроется просмотр с доской и ходами."
 msgstr "Bir parti seçin — tahta ve hamlelerle açılır."
 
-msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}"
-msgstr "hamle {n} · satranç {c}, dama {k} · alınan {cc}/{ck} · faz değişimi {f} · materyal {m}"
+msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал: {m}"
+msgstr "hamle {n} · satranç {c}, dama {k} · alınan {cc}/{ck} · faz değişimi {f} · materyal: {m}"
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
 msgstr "Hamle {full} · yarım hamle {ply}/{total}"
 
 msgid "показывать демо-партии"
 msgstr "demo partileri göster"
+
+msgid "ровно"
+msgstr "eşit"

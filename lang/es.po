@@ -1238,11 +1238,14 @@ msgstr "Aún no hay registros"
 msgid "Выберите партию — откроется просмотр с доской и ходами."
 msgstr "Elige una partida — se abrirá con tablero y jugadas."
 
-msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}"
-msgstr "jugadas {n} · ajedrez {c}, damas {k} · capturas {cc}/{ck} · cambios {f} · material {m}"
+msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал: {m}"
+msgstr "jugadas {n} · ajedrez {c}, damas {k} · capturas {cc}/{ck} · cambios {f} · material: {m}"
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
 msgstr "Jugada {full} · medio movimiento {ply} de {total}"
 
 msgid "показывать демо-партии"
 msgstr "mostrar partidas demo"
+
+msgid "ровно"
+msgstr "igualado"

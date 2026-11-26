@@ -1185,11 +1185,19 @@ impl App {
         if self.review {
             // Стрелки листают партию: влево/вверх — назад, вправо/вниз —
             // вперёд; Home/End — к началу и к концу, Esc — закрыть.
+            // Стрелки и WASD: влево/вверх (A, W) — назад,
+            // вправо/вниз (D, S) — вперёд.
             let back = ctx.input(|i| {
-                i.key_pressed(egui::Key::ArrowLeft) || i.key_pressed(egui::Key::ArrowUp)
+                i.key_pressed(egui::Key::ArrowLeft)
+                    || i.key_pressed(egui::Key::ArrowUp)
+                    || i.key_pressed(egui::Key::A)
+                    || i.key_pressed(egui::Key::W)
             });
             let forward = ctx.input(|i| {
-                i.key_pressed(egui::Key::ArrowRight) || i.key_pressed(egui::Key::ArrowDown)
+                i.key_pressed(egui::Key::ArrowRight)
+                    || i.key_pressed(egui::Key::ArrowDown)
+                    || i.key_pressed(egui::Key::D)
+                    || i.key_pressed(egui::Key::S)
             });
             let home = ctx.input(|i| i.key_pressed(egui::Key::Home));
             let end = ctx.input(|i| i.key_pressed(egui::Key::End));
@@ -1984,8 +1992,18 @@ impl App {
             prev = Some(r.phase);
         }
         let diff = view.material_diff();
+        let material = if diff == 0 {
+            i18n::tr("ровно").to_string()
+        } else {
+            let side = if diff > 0 {
+                i18n::tr("белые")
+            } else {
+                i18n::tr("чёрные")
+            };
+            format!("{} у {}", diff.abs(), side)
+        };
         self.review_stats = i18n::trf(
-            "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}",
+            "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал: {m}",
             &[
                 ("n", &view.history.len().to_string()),
                 ("c", &chess_plies.to_string()),
@@ -1993,7 +2011,7 @@ impl App {
                 ("cc", &caps_chess.to_string()),
                 ("ck", &caps_check.to_string()),
                 ("f", &flips.to_string()),
-                ("m", &format!("{:+}", diff)),
+                ("m", &material),
             ],
         );
         let (lines, switches, phases) = Self::build_review_lines(&view);
@@ -7060,9 +7078,9 @@ impl eframe::App for App {
             self.game.move_anim = (self.game.move_anim
                 + dt / self.game.move_anim_secs.max(0.03))
             .min(1.0);
-            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-                self.exit_review();
-            }
+            // Клавиши (стрелки, Home/End, Esc) обрабатываются здесь же:
+            // до общего handle_keys управление в просмотре не доходило.
+            self.handle_keys(ctx);
             ctx.request_repaint();
             let layout = Layout::new(ctx);
             self.draw(ctx, &layout);

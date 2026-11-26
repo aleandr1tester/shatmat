@@ -1239,11 +1239,14 @@ msgstr "No logs yet"
 msgid "Выберите партию — откроется просмотр с доской и ходами."
 msgstr "Pick a game — it opens in review with the board and moves."
 
-msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}"
-msgstr "moves {n} · chess {c}, checkers {k} · captures {cc}/{ck} · flips {f} · material {m}"
+msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал: {m}"
+msgstr "moves {n} · chess {c}, checkers {k} · captures {cc}/{ck} · flips {f} · material: {m}"
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
 msgstr "Move {full} · half-move {ply} of {total}"
 
 msgid "показывать демо-партии"
 msgstr "show demo games"
+
+msgid "ровно"
+msgstr "even"

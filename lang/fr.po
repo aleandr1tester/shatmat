@@ -1239,11 +1239,14 @@ msgstr "Pas encore de journaux"
 msgid "Выберите партию — откроется просмотр с доской и ходами."
 msgstr "Choisissez une partie — elle s'ouvre avec le plateau et les coups."
 
-msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}"
-msgstr "coups {n} · échecs {c}, dames {k} · prises {cc}/{ck} · changements {f} · matériel {m}"
+msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал: {m}"
+msgstr "coups {n} · échecs {c}, dames {k} · prises {cc}/{ck} · changements {f} · matériel : {m}"
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
 msgstr "Coup {full} · demi-coup {ply} sur {total}"
 
 msgid "показывать демо-партии"
 msgstr "afficher les démos"
+
+msgid "ровно"
+msgstr "égal"

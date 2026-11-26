@@ -494,7 +494,9 @@ impl Game {
             // Короля можно съесть или короли стоят вплотную: смена фазы
             // отменила бы взятие либо дала бы невозможную шахматную позицию.
             Phase::Checkers => self.king_capture_available() || self.kings_adjacent(),
-            Phase::Chess => self.in_check(self.turn),
+            // Отложка нужна только в шашках (серия взятий); в шахматах
+            // ход блокируется по счётчику.
+            Phase::Chess => false,
         }
     }
 
@@ -2668,8 +2670,10 @@ mod tests {
     }
 
     /// Сумерки не сменяют фазу, пока в шахматах не отыгран шах.
+    /// В шахматах отложки нет: по счётчику фаза меняется даже под шахом.
+    /// Отложка нужна только в шашках — чтобы доиграть серию взятий.
     #[test]
-    fn twilight_waits_while_in_check() {
+    fn chess_twilight_does_not_wait_in_check() {
         let mut g = test_game();
         g.board = [[None; 8]; 8];
         g.phase = Phase::Chess;
@@ -2682,8 +2686,7 @@ mod tests {
         g.move_twilight_wait = 0.0;
         g.move_anim = 1.0;
         g.tick(0.01);
-        assert_eq!(g.trans, 0.0, "шах надо отыграть");
-        assert_eq!(g.phase, Phase::Chess, "фаза не сменилась");
+        assert!(g.trans > 0.0, "шахматная фаза меняется без отложки");
     }
 
     /// Короли вплотную: сумерки ждут, иначе в шахматах получился бы «мат»

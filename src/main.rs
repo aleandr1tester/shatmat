@@ -901,6 +901,10 @@ pub struct App {
     review_return: Option<Game>,
     /// Сводка по открытому логу: ходы, взятия, смены фаз.
     review_stats: String,
+    /// Список ходов для панели просмотра («1. e2-e4», «1... e7-e5»).
+    review_lines: Vec<String>,
+    /// Заголовок панели в просмотре: итог партии или название лога.
+    review_result: String,
     guide: bool,
     guide_kind: Kind,
     guide_rect: Rect,
@@ -1087,6 +1091,8 @@ impl App {
             logs_rect: Rect::NOTHING,
             review_return: None,
             review_stats: String::new(),
+            review_lines: Vec::new(),
+            review_result: String::new(),
             guide: false,
             guide_kind: Kind::Pawn,
             guide_rect: Rect::NOTHING,
@@ -1890,6 +1896,15 @@ impl App {
         view.trans = 0.0;
         view.paused = false;
         view.pending_promotion = None;
+        self.review_lines = Self::build_review_lines(&saved);
+        self.review_result = match &saved.status {
+            game::Status::Win { side, reason } => i18n::trf(
+                "ПОБЕДА {side}",
+                &[("side", &side.name_ru().to_uppercase())],
+            ),
+            game::Status::Draw { .. } => i18n::tr("НИЧЬЯ").to_string(),
+            _ => i18n::tr("ПРОСМОТР ПАРТИИ").to_string(),
+        };
         self.review_saved = Some(saved);
         self.review_stats.clear();
         self.review = true;
@@ -1969,6 +1984,8 @@ impl App {
                 ("m", &format!("{:+}", diff)),
             ],
         );
+        self.review_lines = Self::build_review_lines(&view);
+        self.review_result = i18n::tr("ПРОСМОТР ЛОГА").to_string();
         self.review_saved = Some(view.clone());
         self.review = true;
         self.game = view;
@@ -2000,6 +2017,37 @@ impl App {
         self.game.paused = false;
         self.game.pending_promotion = None;
         self.review_ply = ply;
+    }
+
+    /// Максимальный полуход в просмотре.
+    fn review_max(&self) -> usize {
+        self.review_saved
+            .as_ref()
+            .map(|g| g.snapshots.len().saturating_sub(1))
+            .unwrap_or(0)
+    }
+
+    /// Короткие строки ходов для панели: «1. e2-e4», «1... e7-e5».
+    fn build_review_lines(saved: &Game) -> Vec<String> {
+        let mut out = Vec::with_capacity(saved.history.len() + 1);
+        out.push(i18n::tr("0. Начальная позиция").to_string());
+        let mut full_move = 0usize;
+        for r in &saved.history {
+            let sep = if r.captured.is_some() { "x" } else { "-" };
+            let mv = format!(
+                "{}{}{}",
+                game::sq_name(r.from),
+                sep,
+                game::sq_name(r.to)
+            );
+            if r.side == Side::White {
+                full_move += 1;
+                out.push(format!("{full_move}. {mv}"));
+            } else {
+                out.push(format!("{full_move}... {mv}"));
+            }
+        }
+        out
     }
 
     fn review_labels(&self) -> Vec<String> {
@@ -2141,26 +2189,22 @@ impl App {
                 if !self.started && !self.review {
                     self.paint_start_frost(ui, &painter, layout);
                 }
-                if self.review {
-                    self.paint_review(ui, &painter, layout);
-                } else {
-                    self.paint_panel(ui, &painter, layout);
-                    self.paint_promotion(ui, &painter, layout);
-                    if self.settings {
-                        self.paint_settings(ui, &painter, layout);
-                    }
-                    if self.rules && !self.settings {
-                        self.paint_rules(ui, ctx, &painter, layout);
-                    }
-                    if self.net_window {
-                        self.paint_net(ui, &painter, layout);
-                    }
-                    if self.journal {
-                        self.paint_journal(ui, &painter, layout);
-                    }
-                    if self.logs_window {
-                        self.paint_logs(ui, &painter, layout);
-                    }
+                self.paint_panel(ui, &painter, layout);
+                self.paint_promotion(ui, &painter, layout);
+                if self.settings {
+                    self.paint_settings(ui, &painter, layout);
+                }
+                if self.rules && !self.settings {
+                    self.paint_rules(ui, ctx, &painter, layout);
+                }
+                if self.net_window {
+                    self.paint_net(ui, &painter, layout);
+                }
+                if self.journal {
+                    self.paint_journal(ui, &painter, layout);
+                }
+                if self.logs_window {
+                    self.paint_logs(ui, &painter, layout);
                 }
                 if self.guide {
                     self.paint_guide(ui, &painter, layout);
@@ -3246,6 +3290,11 @@ impl App {
             0.0,
             alpha(cur.accent, 0.35),
         );
+
+        if self.review {
+            self.paint_panel_review(ui, painter, layout);
+            return;
+        }
 
         let p = rect.shrink(22.0);
         let x = p.left();
@@ -6693,120 +6742,144 @@ impl App {
         );
     }
 
-    fn paint_review(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
-        let pal = Palette::for_phase(self.game.phase);
-        let card = layout.panel.shrink2(Vec2::new(10.0, 16.0));
-        rr(
-            painter,
-            card,
-            20.0,
-            alpha(Color32::from_rgb(20, 18, 27), 0.97),
-            Stroke::new(1.0_f32, alpha(pal.accent, 0.40)),
-        );
-        let pad = 16.0;
-        let x = card.left() + pad;
-        let w = card.width() - pad * 2.0;
+    /// Панель в просмотре: тот же сайдбар, но вместо ходов партии —
+    /// кликабельный список с навигацией по полуходам.
+    fn paint_panel_review(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
+        let g = &self.game;
+        let pal = Palette::for_phase(g.phase);
+        let cur = pal;
+        let rect = layout.panel;
+        let p = rect.shrink(22.0);
+        let x = p.left();
+        let w = p.width();
+        let mut y = p.top();
+
         text(
             painter,
-            Pos2::new(x, card.top() + 14.0),
-            Align2::LEFT_TOP,
-            "ПРОСМОТР ПАРТИИ",
+            Pos2::new(p.right(), p.top()),
+            Align2::RIGHT_TOP,
+            format!("v{VERSION}"),
+            10.5,
+            alpha(cur.text_dim, 0.55),
+        );
+        text_fit(
+            painter,
+            Pos2::new(x, y),
+            &self.review_result,
+            w - 60.0,
             15.0,
-            pal.text,
+            cur.accent,
         );
+        y += 24.0;
+        let total = self.review_max();
         text(
             painter,
-            Pos2::new(x, card.top() + 38.0),
+            Pos2::new(x, y),
             Align2::LEFT_TOP,
             i18n::trf(
                 "Ход {n} из {total}",
                 &[
                     ("n", &self.review_ply.to_string()),
-                    ("total", &self.review_labels().len().saturating_sub(1).to_string()),
+                    ("total", &total.to_string()),
                 ],
             ),
-            10.0,
-            alpha(pal.text_dim, 0.8),
+            10.5,
+            alpha(cur.text_dim, 0.85),
         );
-        let close = Rect::from_min_size(
-            Pos2::new(card.right() - pad - 74.0, card.top() + 12.0),
-            Vec2::new(74.0, 28.0),
-        );
-
-        let prev = Rect::from_min_size(
-            Pos2::new(x, card.bottom() - 44.0),
-            Vec2::new((w - 8.0) * 0.5, 34.0),
-        );
-        let next = Rect::from_min_size(
-            Pos2::new(x + (w - 8.0) * 0.5 + 8.0, card.bottom() - 44.0),
-            Vec2::new((w - 8.0) * 0.5, 34.0),
-        );
-        let mut list_top = card.top() + 62.0;
+        y += 16.0;
         if !self.review_stats.is_empty() {
             text_fit(
                 painter,
-                Pos2::new(x, card.top() + 52.0),
+                Pos2::new(x, y),
                 &self.review_stats,
                 w,
                 9.5,
-                alpha(pal.accent, 0.85),
+                alpha(cur.accent, 0.85),
             );
-            list_top = card.top() + 70.0;
+            y += 14.0;
         }
-        let list_rect = Rect::from_min_max(
-            Pos2::new(x, list_top),
-            Pos2::new(card.right() - pad, prev.top() - 10.0),
+        y += 4.0;
+        divider(painter, x, y, w, cur.text_dim);
+        y += 10.0;
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            "ХОДЫ",
+            9.5,
+            alpha(cur.text_dim, 0.85),
         );
-        let labels = self.review_labels();
+        y += 18.0;
+
+        // Кнопки — внизу панели, как у обычной партии.
+        let second_y = p.bottom() - 46.0;
+        let first_y = second_y - 46.0;
+        let gap = 8.0;
+        let half = (w - gap) * 0.5;
+        let back_btn = Rect::from_min_size(Pos2::new(x, first_y), Vec2::new(half, 36.0));
+        let fwd_btn = Rect::from_min_size(Pos2::new(x + half + gap, first_y), Vec2::new(half, 36.0));
+        let start_btn = Rect::from_min_size(Pos2::new(x, second_y), Vec2::new(half, 46.0));
+        let close_btn = Rect::from_min_size(Pos2::new(x + half + gap, second_y), Vec2::new(half, 46.0));
+
+        let list_rect = Rect::from_min_max(
+            Pos2::new(x, y),
+            Pos2::new(p.right(), first_y - 10.0),
+        );
+        let labels = self.review_lines.clone();
         let current = self.review_ply;
         let mut clicked = None;
-        let _ = ui.scope_builder(
-            egui::UiBuilder::new().max_rect(list_rect),
-            |ui| {
-                egui::ScrollArea::vertical()
-                    .id_salt("review_scroll")
-                    .auto_shrink([false, false])
-                    .max_height(list_rect.height())
-                    .show(ui, |ui| {
-                        ui.set_width(w);
-                        for (i, label) in labels.iter().enumerate() {
-                            let selected = i == current;
-                            let resp = ui.add(
-                                egui::Button::new(
-                                    egui::RichText::new(if selected {
-                                        format!("▶ {label}")
-                                    } else {
-                                        format!("   {label}")
-                                    })
-                                    .size(10.0)
-                                    .color(if selected { pal.accent } else { pal.text }),
-                                )
-                                .frame(false)
-                                .min_size(Vec2::new(w, 21.0)),
-                            );
-                            if resp.clicked() {
-                                clicked = Some(i);
-                            }
+        let _ = ui.scope_builder(egui::UiBuilder::new().max_rect(list_rect), |ui| {
+            egui::ScrollArea::vertical()
+                .id_salt("review_scroll")
+                .auto_shrink([false, false])
+                .max_height(list_rect.height())
+                .show(ui, |ui| {
+                    ui.set_width(w);
+                    for (i, label) in labels.iter().enumerate() {
+                        let selected = i == current;
+                        let resp = ui.add(
+                            egui::Button::new(
+                                egui::RichText::new(if selected {
+                                    format!("▶ {label}")
+                                } else {
+                                    label.clone()
+                                })
+                                .size(11.0)
+                                .color(if selected {
+                                    cur.accent
+                                } else {
+                                    alpha(cur.text, 0.92)
+                                }),
+                            )
+                            .frame(false)
+                            .fill(if selected {
+                                alpha(cur.accent, 0.10)
+                            } else {
+                                Color32::TRANSPARENT
+                            }),
+                        );
+                        if resp.clicked() {
+                            clicked = Some(i);
                         }
-                    });
-            },
-        );
-        if button(ui, close, "Закрыть", false, &pal, 10.5) {
+                    }
+                });
+        });
+        if let Some(i) = clicked {
+            self.set_review_ply(i);
+        }
+        if button(ui, back_btn, "◀ Назад", false, &cur, 12.0) && self.review_ply > 0 {
+            self.set_review_ply(self.review_ply - 1);
+        }
+        if button(ui, fwd_btn, "Вперёд ▶", false, &cur, 12.0) && self.review_ply < total {
+            self.set_review_ply(self.review_ply + 1);
+        }
+        if button(ui, start_btn, "К началу", false, &cur, 12.5) {
+            self.set_review_ply(0);
+        }
+        if button(ui, close_btn, "Закрыть", true, &cur, 12.5) {
             self.exit_review();
         }
-        if button(ui, prev, "◀ Назад", false, &pal, 12.0) {
-            self.set_review_ply(self.review_ply.saturating_sub(1));
-        }
-        if button(ui, next, "Вперёд ▶", false, &pal, 12.0) {
-            let max = labels.len().saturating_sub(1);
-            self.set_review_ply((self.review_ply + 1).min(max));
-        }
-        if let Some(ply) = clicked {
-            self.set_review_ply(ply);
-        }
     }
-
-    // ------------------------- скриншот -------------------------
 
     fn handle_shot(&mut self, ctx: &egui::Context) {
         let Some(shot) = &mut self.shot else {

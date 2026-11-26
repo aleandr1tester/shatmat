@@ -50,6 +50,7 @@ fn main() -> eframe::Result<()> {
     let mut arena_chess: Vec<u8> = vec![4, 6, 8];
     let mut arena_checkers: Vec<u8> = vec![2, 4, 6, 8];
     let mut arena_difficulty = "medium".to_string();
+    let mut arena_holds = 2u8;
     let mut arena_out = PathBuf::from("arena.csv");
     let mut i = 1;
     while i < args.len() {
@@ -95,6 +96,12 @@ fn main() -> eframe::Result<()> {
                 i += 1;
             }
         }
+        if args[i] == "--holds" {
+            if let Some(p) = args.get(i + 1) {
+                arena_holds = p.parse().unwrap_or(arena_holds);
+                i += 1;
+            }
+        }
         if args[i] == "--difficulty" {
             if let Some(p) = args.get(i + 1) {
                 arena_difficulty = p.clone();
@@ -120,6 +127,7 @@ fn main() -> eframe::Result<()> {
             chess: arena_chess,
             checkers: arena_checkers,
             difficulty,
+            holds: arena_holds,
             out: arena_out,
         });
         return Ok(());

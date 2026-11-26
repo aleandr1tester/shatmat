@@ -20,6 +20,8 @@ pub struct Config {
     /// Длины шашечных фаз в полных ходах.
     pub checkers: Vec<u8>,
     pub difficulty: Difficulty,
+    /// Сколько отложек смены фаз разрешено (0–2).
+    pub holds: u8,
     pub out: PathBuf,
 }
 
@@ -42,7 +44,7 @@ struct Row {
 }
 
 /// Одна партия ИИ против ИИ с заданными длинами фаз.
-fn play(chess: u8, checkers: u8, difficulty: Difficulty, seed0: u64) -> Row {
+fn play(chess: u8, checkers: u8, difficulty: Difficulty, holds: u8, seed0: u64) -> Row {
     let mut g = Game::new(60.0);
     g.set_twilight_by_moves(true);
     g.set_phase_len(Phase::Chess, chess);
@@ -53,6 +55,7 @@ fn play(chess: u8, checkers: u8, difficulty: Difficulty, seed0: u64) -> Row {
     g.max_chain = true;
     g.king_escape = true;
     g.promotion_choice = false;
+    g.hold_max = holds;
 
     let mut seed = seed0 | 1;
     let mut plies = 0usize;
@@ -151,7 +154,7 @@ pub fn run(cfg: &Config) {
     for &chess in &cfg.chess {
         for &checkers in &cfg.checkers {
             for index in 0..cfg.games {
-                rows.push(play(chess, checkers, cfg.difficulty, seed_for(index)));
+                rows.push(play(chess, checkers, cfg.difficulty, cfg.holds, seed_for(index)));
             }
             eprint!(
                 "\rсыграно: шахматы {} / шашки {} — {} партий",
@@ -162,7 +165,7 @@ pub fn run(cfg: &Config) {
     eprintln!();
 
     let mut csv = String::from(
-        "chess_moves,checkers_moves,seed,result,winner,plies,caps_chess,caps_checkers,flips,last_flip_material,winner_behind,flip_decided,plies_chess,plies_checkers\n",
+        "holds,chess_moves,checkers_moves,seed,result,winner,plies,caps_chess,caps_checkers,flips,last_flip_material,winner_behind,flip_decided,plies_chess,plies_checkers\n",
     );
     for r in &rows {
         let winner = match r.winner {
@@ -171,7 +174,8 @@ pub fn run(cfg: &Config) {
             None => "",
         };
         csv.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            cfg.holds,
             r.chess,
             r.checkers,
             r.seed,

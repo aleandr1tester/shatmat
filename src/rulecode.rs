@@ -510,6 +510,31 @@ mod tests {
         assert!(!full.max_chain);
     }
 
+    /// Код вмещает любые допустимые длины фаз — 1..8 для шахмат и шашек.
+    #[test]
+    fn code_carries_any_phase_lengths() {
+        for chess in 1..=8u8 {
+            for checkers in 1..=8u8 {
+                let mut r = default_rules();
+                r.twilight_by_moves = true;
+                r.chess_moves = chess;
+                r.checkers_moves = checkers;
+                let full = decode(&encode(&r)).expect("код рукопожатия");
+                assert_eq!(
+                    (full.chess_moves, full.checkers_moves),
+                    (chess, checkers),
+                    "полный код: {chess}/{checkers}"
+                );
+                let short = decode_compact(&encode_compact(&r)).expect("компактный код");
+                assert_eq!(
+                    (short.chess_moves, short.checkers_moves),
+                    (chess, checkers),
+                    "компактный код: {chess}/{checkers}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn code_roundtrip_all_variants() {
         let variants = [

@@ -294,6 +294,9 @@ pub struct Game {
     /// Сколько ещё ждать перед решением о сумерках после хода.
     pub move_twilight_wait: f32,
     /// Сколько уже копится удержание сумерек (сбрасывается при смене фазы).
+    /// Сколько раз подряд разрешено отложить смену фаз в решающий
+    /// момент (турнир ИИ показывает, сколько пользы от каждой отложки).
+    pub hold_max: u8,
     twilight_hold_secs: f32,
     /// Время на один ход в режиме «по ходам» (10–180 с).
     pub move_time_limit: f32,
@@ -381,6 +384,7 @@ impl Game {
             move_twilight_pending: false,
             move_twilight_wait: 0.0,
             twilight_hold_secs: 0.0,
+            hold_max: 2,
             move_time_limit: DEFAULT_MOVE_SECS,
             move_left: DEFAULT_MOVE_SECS,
             phase_hold: false,
@@ -1270,7 +1274,9 @@ impl Game {
                 // Пауза после хода: игрок видит результат до смены игры.
                 self.move_twilight_wait -= dt;
                 if self.move_twilight_wait <= 0.0 {
-                    let may_hold = self.twilight_hold_secs < TWILIGHT_HOLD_MAX;
+                    let may_hold = self.hold_max > 0
+                        && self.twilight_hold_secs
+                            < MOVE_TWILIGHT_PAUSE * self.hold_max as f32;
                     if self.twilight_should_wait() && may_hold {
                         // Решающий момент: король под боем или шах. Смена
                         // фазы сейчас отменила бы сам смысл хода — ждём,

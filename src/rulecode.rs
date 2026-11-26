@@ -184,8 +184,21 @@ pub fn encode(r: &Rules) -> String {
     format!("{}-{}", &s[..4], &s[4..])
 }
 
+/// Красивый вид сетевого кода: `XXXX+XXXX`. В отличие от игрового
+/// (4 символа) плюс сразу показывает, что это код рукопожатия.
+pub fn pretty(code: &str) -> String {
+    let chars: Vec<char> = code.chars().filter(|c| *c != '-' && *c != '+' && *c != ' ').collect();
+    if chars.len() == 8 {
+        let head: String = chars[..4].iter().collect();
+        let tail: String = chars[4..].iter().collect();
+        format!("{head}+{tail}")
+    } else {
+        code.to_string()
+    }
+}
+
 /// Нормализует введённый код: верхний регистр, O→0, I→1, L→1,
-/// дефисы и пробелы удаляются. Возвращает None, если остались посторонние
+/// дефисы, плюсы и пробелы удаляются. Возвращает None, если остались посторонние
 /// символы или длина не 8.
 fn normalize(input: &str) -> Option<[u8; 8]> {
     let mut out = [0u8; 8];
@@ -198,7 +211,7 @@ fn normalize(input: &str) -> Option<[u8; 8]> {
             other => other,
         };
         match up {
-            '-' | ' ' => continue,
+            '-' | '+' | ' ' => continue,
             '0'..='9' | 'A'..='Z' => {
                 if n >= 8 {
                     return None;
@@ -377,7 +390,7 @@ pub fn decode_compact(input: &str) -> Option<Rules> {
             other => other,
         };
         match up {
-            '-' | ' ' => continue,
+            '-' | '+' | ' ' => continue,
             '0'..='9' | 'A'..='Z' => {
                 if n >= 4 {
                     return None;
@@ -533,6 +546,17 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Сетевой код показывается через плюс и разбирается обратно.
+    #[test]
+    fn network_code_is_shown_with_plus() {
+        let r = default_rules();
+        let code = encode(&r);
+        let shown = pretty(&code);
+        assert_eq!(shown.chars().count(), 9, "XXXX+XXXX");
+        assert_eq!(shown.chars().filter(|c| *c == '+').count(), 1);
+        assert_eq!(decode(&shown).expect("код с плюсом"), r);
     }
 
     #[test]

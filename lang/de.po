@@ -1225,3 +1225,6 @@ msgstr "KÖNIG GEFÄHRDET"
 
 msgid "Длина фазы задаётся отдельно для шахмат и шашек — от 2 до 8 полных ходов; счётчик виден в панели, обе стороны знают срок."
 msgstr "Die Phasenlänge wird für Schach und Damespiel getrennt eingestellt — 2 bis 8 volle Züge; der Zähler steht im Panel, beide wissen Bescheid."
+
+msgid "Код правил партии"
+msgstr "Code der Partieregeln"

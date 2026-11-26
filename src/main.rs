@@ -1364,7 +1364,7 @@ impl App {
             // удобно, как настоящие.
             if !self.demo_logged {
                 self.demo_logged = true;
-                let code = rulecode::encode(&rulecode::Rules::from_game(&self.demo));
+                let code = rulecode::pretty(&rulecode::encode(&rulecode::Rules::from_game(&self.demo)));
                 let start = self
                     .demo_start
                     .clone()
@@ -1672,7 +1672,7 @@ impl App {
                         "Соединение установлено: {id} · правила {rules}",
                         &[
                             ("id", &net::display_id(&peer_id)),
-                            ("rules", &rulecode::encode(&rules)),
+                            ("rules", &rulecode::pretty(&rulecode::encode(&rules))),
                         ],
                     );
                     self.net_side = Some(role.side());
@@ -4377,7 +4377,7 @@ impl App {
         ly += 6.0;
         divider(painter, x, ly, left_w, pal.text_dim);
         ly += 16.0;
-        group_title(painter, x, ly, "Правила", pal.accent);
+        group_title(painter, x, ly, "Код правил партии", pal.accent);
         ly += 18.0;
         // Код правил — один блок из 4 символов: тот же, что третий блок
         // в сетевом коде приглашения (ID+ID+правила).
@@ -7267,7 +7267,7 @@ fn normalize_code(raw: &str) -> Option<String> {
             other => other,
         };
         match up {
-            '-' | ' ' | '_' => continue,
+            '-' | '+' | ' ' | '_' => continue,
             '0'..='9' | 'A'..='Z' => out.push(up),
             _ => return None,
         }

@@ -1225,3 +1225,6 @@ msgstr "REY EN RIESGO"
 
 msgid "Длина фазы задаётся отдельно для шахмат и шашек — от 2 до 8 полных ходов; счётчик виден в панели, обе стороны знают срок."
 msgstr "La duración de la fase se ajusta por separado para ajedrez y damas — de 2 a 8 jugadas completas; el contador está en el panel y ambos lo saben."
+
+msgid "Код правил партии"
+msgstr "Código de reglas de la partida"

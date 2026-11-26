@@ -6558,7 +6558,7 @@ impl App {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(180));
         let card = Rect::from_center_size(
             layout.full.center(),
-            Vec2::new(860.0, if self.guide_rules { 560.0 } else { 620.0 }),
+            Vec2::new(860.0, if self.guide_rules { 540.0 } else { 570.0 }),
         );
         self.guide_rect = card;
         let pal = Palette::for_phase(if self.guide_checkers {
@@ -6578,80 +6578,68 @@ impl App {
         let right_x = left_x + 300.0;
         let right_w = card.right() - pad - right_x;
 
-        text(
-            painter,
-            Pos2::new(left_x, card.top() + 20.0),
-            Align2::LEFT_TOP,
-            if self.guide_rules {
-                i18n::tr("Демонстрация правил")
-            } else {
-                i18n::tr("ФИГУРЫ")
-            },
-            21.0,
-            pal.text,
-        );
-        text(
-            painter,
-            Pos2::new(left_x, card.top() + 48.0),
-            Align2::LEFT_TOP,
-            if self.guide_rules {
-                "Листайте страницы — на доске показан пример"
-            } else {
-                "Сначала выберите игру, потом фигуру"
-            },
-            10.0,
-            alpha(pal.text_dim, 0.85),
-        );
+        // Одна строка разделов: правила, шахматы, шашки, гид.
+        let row_y = card.top() + 24.0;
         let close = Rect::from_min_size(
-            Pos2::new(card.right() - pad - 82.0, card.top() + 18.0),
-            Vec2::new(82.0, 28.0),
+            Pos2::new(card.right() - pad - 82.0, row_y),
+            Vec2::new(82.0, 30.0),
         );
-        let back_rules = Rect::from_min_size(
-            Pos2::new(close.left() - 92.0, card.top() + 18.0),
-            Vec2::new(84.0, 28.0),
-        );
-        if self.guide_rules {
-            // Из правил возвращаемся к разбору фигур — одна кнопка.
-            if chip(ui, back_rules, "Фигуры", true, &pal) {
-                self.guide_rules = false;
-                self.guide_page = 0;
-                self.guide_demo = None;
-            }
-            self.paint_guide_rules(ui, painter, card, &pal);
-            return;
-        }
+        let gap = 8.0;
+        let widths = [150.0, 160.0, 140.0, 210.0];
+        let mut cx = left_x;
+        let rules_chip = Rect::from_min_size(Pos2::new(cx, row_y), Vec2::new(widths[0], 30.0));
+        cx += widths[0] + gap;
+        let chess_chip = Rect::from_min_size(Pos2::new(cx, row_y), Vec2::new(widths[1], 30.0));
+        cx += widths[1] + gap;
+        let check_chip = Rect::from_min_size(Pos2::new(cx, row_y), Vec2::new(widths[2], 30.0));
+        cx += widths[2] + gap;
+        let demo_chip = Rect::from_min_size(Pos2::new(cx, row_y), Vec2::new(widths[3], 30.0));
 
-        // Сначала тип игры, затем фигура.
-        let mode_w = 190.0;
-        let mode_y = card.top() + 78.0;
-        let chess_mode = Rect::from_min_size(
-            Pos2::new(left_x, mode_y),
-            Vec2::new(mode_w, 34.0),
-        );
-        let check_mode = Rect::from_min_size(
-            Pos2::new(left_x + mode_w + 10.0, mode_y),
-            Vec2::new(mode_w, 34.0),
-        );
-        if chip(ui, chess_mode, "ШАХМАТЫ", !self.guide_checkers, &pal) {
+        if chip(ui, rules_chip, "ПРАВИЛА", false, &pal) {
+            self.guide = false;
+            self.rules = true;
+        }
+        if chip(
+            ui,
+            chess_chip,
+            "ШАХМАТЫ",
+            !self.guide_rules && !self.guide_checkers,
+            &pal,
+        ) {
+            self.guide_rules = false;
             self.guide_checkers = false;
             self.guide_damka = false;
             self.guide_demo = None;
         }
-        let guide_chip = Rect::from_min_size(
-            Pos2::new(left_x + (mode_w + 10.0) * 2.0, mode_y),
-            Vec2::new(210.0, 34.0),
-        );
-        if chip(ui, guide_chip, "Интерактивный гид", false, &pal) {
-            self.guide_rules = true;
-            self.guide_page = 0;
-            self.guide_demo = None;
-        }
-        if chip(ui, check_mode, "ШАШКИ", self.guide_checkers, &pal) {
+        if chip(
+            ui,
+            check_chip,
+            "ШАШКИ",
+            !self.guide_rules && self.guide_checkers,
+            &pal,
+        ) {
+            self.guide_rules = false;
             self.guide_checkers = true;
             self.guide_kind = Kind::Pawn;
             self.guide_damka = false;
             self.guide_demo = None;
         }
+        if chip(
+            ui,
+            demo_chip,
+            "Интерактивный гид",
+            self.guide_rules,
+            &pal,
+        ) {
+            self.guide_rules = true;
+            self.guide_page = 0;
+            self.guide_demo = None;
+        }
+        if self.guide_rules {
+            self.paint_guide_rules(ui, painter, card, &pal);
+            return;
+        }
+
 
         let tab_gap = 8.0;
         if self.guide_checkers {
@@ -6663,7 +6651,7 @@ impl App {
             let tab_w = (card.width() - pad * 2.0 - tab_gap * 2.0) / 3.0;
             for (i, (label, kind, damka)) in options.iter().enumerate() {
                 let r = Rect::from_min_size(
-                    Pos2::new(left_x + i as f32 * (tab_w + tab_gap), card.top() + 124.0),
+                    Pos2::new(left_x + i as f32 * (tab_w + tab_gap), card.top() + 72.0),
                     Vec2::new(tab_w, 30.0),
                 );
                 let selected = self.guide_kind == *kind && self.guide_damka == *damka;
@@ -6685,7 +6673,7 @@ impl App {
             let tab_w = (card.width() - pad * 2.0 - tab_gap * 5.0) / 6.0;
             for (i, kind) in kinds.iter().enumerate() {
                 let r = Rect::from_min_size(
-                    Pos2::new(left_x + i as f32 * (tab_w + tab_gap), card.top() + 124.0),
+                    Pos2::new(left_x + i as f32 * (tab_w + tab_gap), card.top() + 72.0),
                     Vec2::new(tab_w, 30.0),
                 );
                 if chip(
@@ -6703,14 +6691,14 @@ impl App {
         }
 
         // Демонстрация — крупно, на половину ширины окна: так видно фигуру.
-        let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 220.0);
+        let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 180.0);
         let board = Rect::from_min_size(
-            Pos2::new(left_x, card.top() + 202.0),
+            Pos2::new(left_x, card.top() + 150.0),
             Vec2::splat(board_size),
         );
         text(
             painter,
-            Pos2::new(left_x, card.top() + 176.0),
+            Pos2::new(left_x, card.top() + 124.0),
             Align2::LEFT_TOP,
             if self.guide_checkers {
                 "ФИГУРА В ШАШКАХ"
@@ -6727,7 +6715,7 @@ impl App {
         let right_w = card.right() - pad - right_x;
         self.paint_piece(
             painter,
-            Pos2::new(right_x + right_w * 0.5, card.top() + 236.0),
+            Pos2::new(right_x + right_w * 0.5, card.top() + 196.0),
             150.0,
             self.guide_kind,
             self.guide_damka,
@@ -6742,7 +6730,7 @@ impl App {
         } else {
             guide_text(self.guide_kind, false)
         };
-        let mut y = card.top() + 324.0;
+        let mut y = card.top() + 286.0;
         text(
             painter,
             Pos2::new(right_x, y),
@@ -6834,10 +6822,6 @@ impl App {
         if button(ui, close, "Закрыть", false, &pal, 10.5) {
             self.guide = false;
         }
-        if button(ui, back_rules, "Правила", false, &pal, 10.5) {
-            self.guide = false;
-            self.rules = true;
-        }
     }
 
     /// Гид: страницы правил с примером на маленькой доске.
@@ -6852,7 +6836,7 @@ impl App {
         let left_x = card.left() + pad;
         let page = &RULE_DEMOS[self.guide_page.min(RULE_DEMOS.len() - 1)];
         // Демо-зона — половина ширины окна, как в разборе фигур.
-        let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 176.0);
+        let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 150.0);
         let board = Rect::from_min_size(
             Pos2::new(left_x, card.top() + 124.0),
             Vec2::splat(board_size),

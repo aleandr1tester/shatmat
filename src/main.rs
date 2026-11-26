@@ -6141,12 +6141,16 @@ impl App {
             Pos2::new(card.right() - pad - 150.0, card.bottom() - pad - 42.0),
             Vec2::new(150.0, 42.0),
         );
+        let open_guide = Rect::from_min_size(
+            Pos2::new(close.left() - 200.0, card.bottom() - pad - 42.0),
+            Vec2::new(190.0, 42.0),
+        );
         let pal = Palette::for_phase(self.game.phase);
         let _ = chip(ui, rules_tab, "ПРАВИЛА", true, &pal);
-        if chip(ui, figures_tab, "ГИД", false, &pal) {
+        if chip(ui, figures_tab, "ФИГУРЫ", false, &pal) {
             self.rules = false;
             self.guide = true;
-            self.guide_rules = true;
+            self.guide_rules = false;
             self.guide_page = 0;
             self.guide_kind = Kind::Pawn;
             self.guide_checkers = false;
@@ -6302,6 +6306,13 @@ impl App {
             },
         );
 
+        if button(ui, open_guide, "Интерактивный гид", false, &pal, 12.0) {
+            self.rules = false;
+            self.guide = true;
+            self.guide_rules = true;
+            self.guide_page = 0;
+            self.guide_demo = None;
+        }
         if button(ui, close, "Понятно", true, &pal, 14.0) {
             self.rules = false;
         }

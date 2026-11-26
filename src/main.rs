@@ -1496,6 +1496,7 @@ impl App {
             || self.game.paused
             || self.game.is_over()
             || self.game.trans > 0.0
+            || self.game.twilight_pause()
             || self.game.pending_promotion.is_some()
         {
             return;
@@ -2282,7 +2283,7 @@ impl App {
             .input(|i| i.pointer.hover_pos())
             .and_then(|p| layout.square_at(p));
         if let Some(h) = hover_sq {
-            if !g.is_locked() && !self.rules {
+            if !g.is_locked() && !g.twilight_pause() && !self.rules {
                 let target = g.legal.iter().any(|mv| mv.to == h);
                 let own = g
                     .piece_at(h)

@@ -598,6 +598,13 @@ impl Game {
         self.is_over() || self.trans > 0.0 || self.paused || self.pending_promotion.is_some()
     }
 
+    /// Пауза сумерек не блокирует движок, но блокирует ввод: иначе быстрый
+    /// игрок успевает сделать лишний ход в старой фазе, и счётчик
+    /// «смена через N ходов» перестаёт быть правдой.
+    pub fn twilight_pause(&self) -> bool {
+        self.move_twilight_pending && self.trans == 0.0 && !self.is_over()
+    }
+
     pub fn twilight_pending(&self) -> bool {
         self.trans == 0.0 && self.phase_left <= 0.0 && !self.is_over()
     }

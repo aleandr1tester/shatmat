@@ -887,6 +887,12 @@ impl Game {
 
     pub fn click(&mut self, sq: Square) {
         if self.is_locked() {
+            // Ходить во время паузы сумерек и перехода нельзя, но фигуру
+            // можно вернуть на место: иначе игрок обязан сделать ход, и
+            // фаза удлиняется сверх счётчика.
+            if !self.is_over() && self.pending_promotion.is_none() {
+                self.deselect();
+            }
             return;
         }
         if self.chain.is_some() {
@@ -896,6 +902,11 @@ impl Game {
             return;
         }
         if let Some(sel) = self.selected {
+            // Повторный клик по взятой фигуре — вернуть её на место.
+            if sel == sq {
+                self.deselect();
+                return;
+            }
             if let Some(mv) = self.legal.iter().find(|m| m.to == sq && m.from == sel).copied() {
                 self.apply(mv);
                 return;

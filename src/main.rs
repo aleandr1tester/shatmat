@@ -6800,16 +6800,18 @@ impl App {
         y += 24.0;
         let total = self.review_max();
         let full_move = (self.review_ply + 1) / 2;
+        let total_full = (total + 1) / 2;
         text(
             painter,
             Pos2::new(x, y),
             Align2::LEFT_TOP,
             i18n::trf(
-                "Ход {full} · полуход {ply} из {total}",
+                "Ход {full} из {full_total} · полуход {ply} из {ply_total}",
                 &[
                     ("full", &full_move.to_string()),
+                    ("full_total", &total_full.to_string()),
                     ("ply", &self.review_ply.to_string()),
-                    ("total", &total.to_string()),
+                    ("ply_total", &total.to_string()),
                 ],
             ),
             10.5,

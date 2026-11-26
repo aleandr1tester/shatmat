@@ -1242,5 +1242,5 @@ msgstr "Pick a game — it opens in review with the board and moves."
 msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}"
 msgstr "moves {n} · chess {c}, checkers {k} · captures {cc}/{ck} · flips {f} · material {m}"
 
-msgid "Ход {full} · полуход {ply} из {total}"
+msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
 msgstr "Move {full} · half-move {ply} of {total}"

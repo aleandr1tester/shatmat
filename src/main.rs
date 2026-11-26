@@ -901,8 +901,10 @@ pub struct App {
     review_return: Option<Game>,
     /// Сводка по открытому логу: ходы, взятия, смены фаз.
     review_stats: String,
-    /// Список ходов для панели просмотра («1. e2-e4», «1... e7-e5»).
+    /// Список ходов для панели просмотра («1.1 e2-e4 · шахматы»).
     review_lines: Vec<String>,
+    /// Какие строки — первые ходы новой природы (для подсветки).
+    review_switch: Vec<bool>,
     /// Заголовок панели в просмотре: итог партии или название лога.
     review_result: String,
     guide: bool,
@@ -1092,6 +1094,7 @@ impl App {
             review_return: None,
             review_stats: String::new(),
             review_lines: Vec::new(),
+            review_switch: Vec::new(),
             review_result: String::new(),
             guide: false,
             guide_kind: Kind::Pawn,
@@ -1896,7 +1899,9 @@ impl App {
         view.trans = 0.0;
         view.paused = false;
         view.pending_promotion = None;
-        self.review_lines = Self::build_review_lines(&saved);
+        let (lines, switches) = Self::build_review_lines(&saved);
+        self.review_lines = lines;
+        self.review_switch = switches;
         self.review_result = match &saved.status {
             game::Status::Win { side, reason } => i18n::trf(
                 "ПОБЕДА {side}",
@@ -1984,7 +1989,9 @@ impl App {
                 ("m", &format!("{:+}", diff)),
             ],
         );
-        self.review_lines = Self::build_review_lines(&view);
+        let (lines, switches) = Self::build_review_lines(&view);
+        self.review_lines = lines;
+        self.review_switch = switches;
         self.review_result = i18n::tr("ПРОСМОТР ЛОГА").to_string();
         self.review_saved = Some(view.clone());
         self.review = true;
@@ -2031,9 +2038,11 @@ impl App {
     /// различать ход и полуход, и природа хода — как в файле лога:
     /// «1.1 e2-e4 · шахматы», «7.4 h2-g3 · шашки». Ход, сменивший природу,
     /// помечается стрелкой.
-    fn build_review_lines(saved: &Game) -> Vec<String> {
+    fn build_review_lines(saved: &Game) -> (Vec<String>, Vec<bool>) {
         let mut out = Vec::with_capacity(saved.history.len() + 1);
+        let mut switches = Vec::with_capacity(saved.history.len() + 1);
         out.push(i18n::tr("0. Начальная позиция").to_string());
+        switches.push(false);
         let mut full_move = 0usize;
         let mut prev_phase: Option<Phase> = None;
         for (i, r) in saved.history.iter().enumerate() {
@@ -2048,20 +2057,24 @@ impl App {
                 full_move += 1;
             }
             let ply = i + 1;
+            let switched = prev_phase.is_some() && prev_phase != Some(r.phase);
             let phase = if r.phase == Phase::Checkers {
                 i18n::tr("шашки")
             } else {
                 i18n::tr("шахматы")
             };
-            let turn = if prev_phase.is_some() && prev_phase != Some(r.phase) {
-                "» "
+            // Первый ход новой природы — заглавными: так видно смену
+            // без символов, которых может не быть в шрифте.
+            let phase = if switched {
+                phase.to_uppercase()
             } else {
-                ""
+                phase.to_string()
             };
-            out.push(format!("{turn}{ply}.{full_move} {mv} · {phase}"));
+            out.push(format!("{ply}.{full_move} {mv} · {phase}"));
+            switches.push(switched);
             prev_phase = Some(r.phase);
         }
-        out
+        (out, switches)
     }
 
     fn review_labels(&self) -> Vec<String> {
@@ -6853,6 +6866,11 @@ impl App {
                     ui.set_width(w);
                     for (i, label) in labels.iter().enumerate() {
                         let selected = i == current;
+                        let switched = self
+                            .review_switch
+                            .get(i)
+                            .copied()
+                            .unwrap_or(false);
                         let resp = ui.add(
                             egui::Button::new(
                                 egui::RichText::new(if selected {
@@ -6862,6 +6880,8 @@ impl App {
                                 })
                                 .size(11.0)
                                 .color(if selected {
+                                    cur.accent
+                                } else if switched {
                                     cur.accent
                                 } else {
                                     alpha(cur.text, 0.92)

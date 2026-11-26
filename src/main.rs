@@ -2003,6 +2003,12 @@ impl App {
         self.game = view;
         self.review_ply = 0;
         self.logs_window = false;
+        // Лог открывается в просмотре — окна настроек и журнала больше
+        // не нужны, иначе они закрывают область разбора.
+        self.settings = false;
+        self.rules = false;
+        self.journal = false;
+        self.net_window = false;
         self.ai_preview = None;
         self.set_review_ply(0);
     }

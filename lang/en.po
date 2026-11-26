@@ -1223,3 +1223,6 @@ msgstr "KING IN DANGER"
 
 msgid "КОРОЛЬ ПОД УДАРОМ"
 msgstr "KING AT RISK"
+
+msgid "Длина фазы задаётся отдельно для шахмат и шашек — от 2 до 8 полных ходов; счётчик виден в панели, обе стороны знают срок."
+msgstr "Phase length is set separately for chess and checkers — 2 to 8 full moves; the counter is in the panel and both sides know it."

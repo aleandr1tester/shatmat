@@ -1223,3 +1223,6 @@ msgstr "ROI EN DANGER"
 
 msgid "КОРОЛЬ ПОД УДАРОМ"
 msgstr "ROI MENACÉ"
+
+msgid "Длина фазы задаётся отдельно для шахмат и шашек — от 2 до 8 полных ходов; счётчик виден в панели, обе стороны знают срок."
+msgstr "La durée de la phase se règle séparément pour les échecs et les dames — de 2 à 8 coups complets ; le compteur est visible et les deux le savent."

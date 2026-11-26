@@ -33,6 +33,9 @@ struct Row {
     caps_chess: u32,
     caps_checkers: u32,
     flips: u32,
+    /// Сколько полуходов реально прошло в шахматной и шашечной фазах.
+    plies_chess: usize,
+    plies_checkers: usize,
     last_flip_material: i32,
     winner_behind: bool,
     flip_decided: bool,
@@ -53,6 +56,8 @@ fn play(chess: u8, checkers: u8, difficulty: Difficulty, seed0: u64) -> Row {
 
     let mut seed = seed0 | 1;
     let mut plies = 0usize;
+    let mut plies_chess = 0usize;
+    let mut plies_checkers = 0usize;
     let mut caps_chess = 0u32;
     let mut caps_checkers = 0u32;
     let mut flips = 0u32;
@@ -84,6 +89,11 @@ fn play(chess: u8, checkers: u8, difficulty: Difficulty, seed0: u64) -> Row {
         let captured = mv.captured.is_some();
         g.apply(mv);
         plies += 1;
+        if phase == Phase::Chess {
+            plies_chess += 1;
+        } else {
+            plies_checkers += 1;
+        }
         if captured {
             if phase == Phase::Chess {
                 caps_chess += 1;
@@ -120,20 +130,19 @@ fn play(chess: u8, checkers: u8, difficulty: Difficulty, seed0: u64) -> Row {
         caps_chess,
         caps_checkers,
         flips,
+        plies_chess,
+        plies_checkers,
         last_flip_material,
         winner_behind,
         flip_decided,
     }
 }
 
-fn seed_for(index: usize, chess: u8, checkers: u8) -> u64 {
+/// Сид зависит только от номера партии: все комбинации играют одни и те же
+/// «открытия», поэтому сравнение получается парным.
+fn seed_for(index: usize) -> u64 {
     const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
-    GOLDEN
-        .wrapping_mul(index as u64 + 1)
-        .wrapping_add((chess as u64) << 24)
-        .wrapping_add((checkers as u64) << 16)
-        .rotate_left(17)
-        | 1
+    GOLDEN.wrapping_mul(index as u64 + 1).rotate_left(17) | 1
 }
 
 /// Играет сетку партий, пишет CSV и печатает сводку.
@@ -142,7 +151,7 @@ pub fn run(cfg: &Config) {
     for &chess in &cfg.chess {
         for &checkers in &cfg.checkers {
             for index in 0..cfg.games {
-                rows.push(play(chess, checkers, cfg.difficulty, seed_for(index, chess, checkers)));
+                rows.push(play(chess, checkers, cfg.difficulty, seed_for(index)));
             }
             eprint!(
                 "\rсыграно: шахматы {} / шашки {} — {} партий",
@@ -153,7 +162,7 @@ pub fn run(cfg: &Config) {
     eprintln!();
 
     let mut csv = String::from(
-        "chess_moves,checkers_moves,seed,result,winner,plies,caps_chess,caps_checkers,flips,last_flip_material,winner_behind,flip_decided\n",
+        "chess_moves,checkers_moves,seed,result,winner,plies,caps_chess,caps_checkers,flips,last_flip_material,winner_behind,flip_decided,plies_chess,plies_checkers\n",
     );
     for r in &rows {
         let winner = match r.winner {
@@ -162,7 +171,7 @@ pub fn run(cfg: &Config) {
             None => "",
         };
         csv.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
             r.chess,
             r.checkers,
             r.seed,
@@ -175,6 +184,8 @@ pub fn run(cfg: &Config) {
             r.last_flip_material,
             r.winner_behind as u8,
             r.flip_decided as u8,
+            r.plies_chess,
+            r.plies_checkers,
         ));
     }
     if let Ok(mut f) = std::fs::File::create(&cfg.out) {

@@ -1223,3 +1223,6 @@ msgstr "ŞAH TEHLİKEDE"
 
 msgid "КОРОЛЬ ПОД УДАРОМ"
 msgstr "ŞAH RİSKTE"
+
+msgid "Длина фазы задаётся отдельно для шахмат и шашек — от 2 до 8 полных ходов; счётчик виден в панели, обе стороны знают срок."
+msgstr "Faz süresi satranç ve dama için ayrı ayarlanır — 2 ile 8 tam hamle; sayaç panelde ve her iki taraf da bilir."

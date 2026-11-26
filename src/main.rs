@@ -2065,7 +2065,7 @@ impl App {
                 self.paint_background(ctx, &painter, layout);
                 self.paint_header(&painter, layout);
                 self.paint_board(ctx, &painter, layout);
-                if !self.started {
+                if !self.started && !self.review {
                     self.paint_start_frost(ui, &painter, layout);
                 }
                 if self.review {
@@ -2099,7 +2099,7 @@ impl App {
 
     fn paint_background(&self, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
         // Фон подстраивается под то, что на доске: до старта — под демонстрацию.
-        let (phase, trans) = if self.started {
+        let (phase, trans) = if self.started || self.review {
             (self.game.phase, self.game.trans)
         } else {
             (self.demo.phase, self.demo.trans)
@@ -2217,7 +2217,12 @@ impl App {
 
     fn paint_board(&mut self, ctx: &egui::Context, painter: &egui::Painter, layout: &Layout) {
         // До старта на доске идёт демонстрационная партия ИИ против ИИ.
-        let g = if self.started { &self.game } else { &self.demo };
+        // В просмотре показываем разбираемую партию, а не демонстрацию.
+        let g = if self.started || self.review {
+            &self.game
+        } else {
+            &self.demo
+        };
         let phase = g.phase;
         let pal = Palette::for_phase(phase);
         let next = Palette::for_phase(phase.other());

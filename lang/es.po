@@ -1228,3 +1228,12 @@ msgstr "La duración de la fase se ajusta por separado para ajedrez y damas — 
 
 msgid "Код правил партии"
 msgstr "Código de reglas de la partida"
+
+msgid "Открыть логи"
+msgstr "Abrir registros"
+
+msgid "Логов пока нет"
+msgstr "Aún no hay registros"
+
+msgid "Выберите партию — откроется просмотр с доской и ходами."
+msgstr "Elige una partida — se abrirá con tablero y jugadas."

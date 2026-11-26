@@ -1229,3 +1229,12 @@ msgstr "Phase length is set separately for chess and checkers — 2 to 8 full mo
 
 msgid "Код правил партии"
 msgstr "Game rules code"
+
+msgid "Открыть логи"
+msgstr "Open logs"
+
+msgid "Логов пока нет"
+msgstr "No logs yet"
+
+msgid "Выберите партию — откроется просмотр с доской и ходами."
+msgstr "Pick a game — it opens in review with the board and moves."

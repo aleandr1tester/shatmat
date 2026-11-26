@@ -1229,3 +1229,12 @@ msgstr "Faz süresi satranç ve dama için ayrı ayarlanır — 2 ile 8 tam haml
 
 msgid "Код правил партии"
 msgstr "Parti kuralları kodu"
+
+msgid "Открыть логи"
+msgstr "Günlükleri aç"
+
+msgid "Логов пока нет"
+msgstr "Henüz günlük yok"
+
+msgid "Выберите партию — откроется просмотр с доской и ходами."
+msgstr "Bir parti seçin — tahta ve hamlelerle açılır."

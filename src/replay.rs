@@ -177,6 +177,96 @@ fn check(path: &Path) -> Result<Outcome, String> {
     Ok(Outcome::Ok)
 }
 
+/// Загружает партию из лога для просмотра: возвращает доску с историей
+/// (снимки на каждый полуход), чтобы листать её как обычный разбор.
+pub fn load_game(path: &Path) -> Option<Game> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let logged = parse(&text).ok()?;
+    let (chess_moves, checkers_moves) = logged.lengths?;
+    let mut g = Game::new(60.0);
+    g.set_twilight_by_moves(true);
+    g.set_phase_len(Phase::Chess, chess_moves);
+    g.set_phase_len(Phase::Checkers, checkers_moves);
+    g.set_move_time_limit(logged.move_time);
+    g.mandatory_capture = logged.mandatory_capture;
+    g.crown_non_pawns = logged.crown_non_pawns;
+    g.king_escape = logged.king_escape;
+
+    for (idx, mv) in logged.moves.iter().enumerate() {
+        if g.pending_promotion.is_some() {
+            g.choose_promotion(Kind::Queen);
+        }
+        if g.phase != mv.phase {
+            return None;
+        }
+        let legal = g
+            .moves_for(mv.from)
+            .into_iter()
+            .find(|m| m.to == mv.to && m.captured.is_some() == mv.capture);
+        let legal = legal?;
+        g.apply(legal);
+        // Фаза для следующего хода: переворачиваем только когда лог этого
+        // ждёт. Так ход, сделанный игроком во время паузы, попадает
+        // в старую фазу — как было в настоящей партии.
+        if let Some(next) = logged.moves.get(idx + 1) {
+            if next.phase != g.phase {
+                settle(&mut g);
+            }
+        }
+    }
+    g.move_twilight_pending = false;
+    g.trans = 0.0;
+    g.status = Status::Playing;
+    Some(g)
+}
+
+/// Список логов из папки `logs`: (путь, подпись). Свежие сверху.
+pub fn list_logs() -> Vec<(PathBuf, String)> {
+    let dir = crate::logging::logs_dir();
+    let mut items: Vec<(PathBuf, String)> = Vec::new();
+    let Ok(rd) = std::fs::read_dir(&dir) else {
+        return items;
+    };
+    for entry in rd.flatten() {
+        let p = entry.path();
+        if !p.extension().map(|e| e == "txt").unwrap_or(false) {
+            continue;
+        }
+        let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if name.to_uppercase().starts_with("README") {
+            continue;
+        }
+        items.push((p.clone(), log_caption(&p)));
+    }
+    items.sort_by(|a, b| b.0.cmp(&a.0));
+    items
+}
+
+/// Короткая строка для списка логов: результат партии из заголовка.
+pub fn log_caption(path: &Path) -> String {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .trim_end_matches(".txt")
+        .to_string();
+    let text = std::fs::read_to_string(path).unwrap_or_default();
+    let mut result = String::new();
+    let mut mode = String::new();
+    for line in text.lines().take(20) {
+        if let Some(r) = line.strip_prefix("Результат: ") {
+            result = r.trim().to_string();
+        } else if let Some(m) = line.strip_prefix("Режим: ") {
+            mode = m.trim().to_string();
+        }
+    }
+    if result.is_empty() {
+        name
+    } else {
+        format!("{name} · {mode} · {result}")
+    }
+}
+
 /// Прокрутить переходы сумерек, чтобы следующий ход делался в новой фазе.
 fn settle(g: &mut Game) {
     let mut guard = 0;

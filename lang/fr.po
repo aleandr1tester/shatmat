@@ -1229,3 +1229,12 @@ msgstr "La durée de la phase se règle séparément pour les échecs et les dam
 
 msgid "Код правил партии"
 msgstr "Code des règles de la partie"
+
+msgid "Открыть логи"
+msgstr "Ouvrir les journaux"
+
+msgid "Логов пока нет"
+msgstr "Pas encore de journaux"
+
+msgid "Выберите партию — откроется просмотр с доской и ходами."
+msgstr "Choisissez une partie — elle s'ouvre avec le plateau et les coups."

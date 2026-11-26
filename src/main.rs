@@ -892,6 +892,13 @@ pub struct App {
     review: bool,
     review_saved: Option<Game>,
     review_ply: usize,
+    /// Окно «Логи партий»: список файлов из папки logs.
+    logs_window: bool,
+    logs_list: Vec<(PathBuf, String)>,
+    logs_scroll: f32,
+    logs_rect: Rect,
+    /// Партия, к которой вернуться после просмотра чужого лога.
+    review_return: Option<Game>,
     guide: bool,
     guide_kind: Kind,
     guide_rect: Rect,
@@ -1072,6 +1079,11 @@ impl App {
             review: false,
             review_saved: None,
             review_ply: 0,
+            logs_window: false,
+            logs_list: Vec::new(),
+            logs_scroll: 0.0,
+            logs_rect: Rect::NOTHING,
+            review_return: None,
             guide: false,
             guide_kind: Kind::Pawn,
             guide_rect: Rect::NOTHING,
@@ -1855,11 +1867,42 @@ impl App {
     }
 
     fn exit_review(&mut self) {
-        if let Some(saved) = self.review_saved.take() {
-            self.game = saved;
+        self.review_saved.take();
+        if let Some(back) = self.review_return.take() {
+            // Просматривали чужой лог — возвращаемся к своей партии.
+            self.game = back;
         }
         self.review = false;
         self.review_ply = 0;
+    }
+
+    /// Открыть список логов из папки logs.
+    fn open_logs(&mut self) {
+        self.logs_list = replay::list_logs();
+        self.logs_window = true;
+        self.logs_scroll = 0.0;
+    }
+
+    /// Открыть лог в режиме просмотра — как разбор своей партии.
+    fn open_log_file(&mut self, path: PathBuf) {
+        let Some(mut view) = replay::load_game(&path) else {
+            return;
+        };
+        if self.review {
+            self.exit_review();
+        }
+        self.review_return = Some(self.game.clone());
+        view.status = game::Status::Playing;
+        view.selected = None;
+        view.trans = 0.0;
+        view.paused = false;
+        self.review_saved = Some(view.clone());
+        self.review = true;
+        self.game = view;
+        self.review_ply = 0;
+        self.logs_window = false;
+        self.ai_preview = None;
+        self.set_review_ply(0);
     }
 
     fn set_review_ply(&mut self, ply: usize) {
@@ -1954,6 +1997,12 @@ impl App {
             }
             return;
         }
+        if self.logs_window {
+            if !self.logs_rect.contains(pos) {
+                self.logs_window = false;
+            }
+            return;
+        }
         if self.settings {
             if !self.settings_rect.contains(pos) {
                 self.settings = false;
@@ -2035,6 +2084,9 @@ impl App {
                     }
                     if self.journal {
                         self.paint_journal(ui, &painter, layout);
+                    }
+                    if self.logs_window {
+                        self.paint_logs(ui, &painter, layout);
                     }
                 }
                 if self.guide {
@@ -4289,6 +4341,11 @@ impl App {
             alpha(pal.text_dim, 0.95),
         );
         ly += 20.0;
+        let open_logs_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 32.0));
+        if button(ui, open_logs_btn, "Открыть логи", false, &pal, 11.5) {
+            self.open_logs();
+        }
+        ly += 38.0;
 
         ly += 6.0;
         divider(painter, x, ly, left_w, pal.text_dim);
@@ -6078,6 +6135,118 @@ impl App {
     }
 
     // ------------------------- результат -------------------------
+
+    fn paint_logs(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
+        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(170));
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, 580.0));
+        self.logs_rect = card;
+        let pal = Palette::for_phase(self.game.phase);
+        rr(
+            painter,
+            card,
+            24.0,
+            Color32::from_rgb(22, 20, 30),
+            Stroke::new(1.0_f32, alpha(pal.accent, 0.40)),
+        );
+        let pad = 26.0;
+        text(
+            painter,
+            Pos2::new(card.left() + pad, card.top() + 20.0),
+            Align2::LEFT_TOP,
+            "ЛОГИ ПАРТИЙ",
+            19.0,
+            pal.text,
+        );
+        text_fit(
+            painter,
+            Pos2::new(card.left() + pad, card.top() + 48.0),
+            "Выберите партию — откроется просмотр с доской и ходами.",
+            card.width() - pad * 2.0,
+            11.0,
+            alpha(pal.text_dim, 0.9),
+        );
+        let list_top = card.top() + 76.0;
+        let list_bottom = card.bottom() - 72.0;
+        let track = Rect::from_min_max(
+            Pos2::new(card.left() + pad, list_top),
+            Pos2::new(card.right() - pad - 8.0, list_bottom),
+        );
+        let row_h = 34.0;
+        let content_h = self.logs_list.len() as f32 * row_h;
+        let max_off = (content_h - track.height()).max(0.0);
+        if let Some(m) = ui.input(|i| i.pointer.latest_pos()) {
+            if track.contains(m) && max_off > 0.5 {
+                let wheel = ui.input(|i| i.raw_scroll_delta.y);
+                self.logs_scroll = (self.logs_scroll - wheel * 0.5).clamp(0.0, max_off);
+            }
+        }
+        self.logs_scroll = self.logs_scroll.clamp(0.0, max_off);
+        let clip = painter.with_clip_rect(track);
+        if self.logs_list.is_empty() {
+            clip.text(
+                track.center(),
+                Align2::CENTER_CENTER,
+                i18n::tr("Логов пока нет"),
+                FontId::proportional(13.0),
+                alpha(pal.text_dim, 0.9),
+            );
+        }
+        let mut open: Option<PathBuf> = None;
+        for (i, (path, caption)) in self.logs_list.iter().enumerate() {
+            let y = list_top - self.logs_scroll + i as f32 * row_h;
+            let row = Rect::from_min_size(
+                Pos2::new(track.left(), y),
+                Vec2::new(track.width(), row_h - 4.0),
+            );
+            if row.bottom() < list_top || row.top() > list_bottom {
+                continue;
+            }
+            let resp = ui.interact(row, ui.id().with(("log_row", i)), Sense::click());
+            if resp.hovered() {
+                clip.rect_filled(row, 8.0, alpha(pal.accent, 0.10));
+                ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+            }
+            clip.text(
+                Pos2::new(row.left() + 10.0, row.center().y),
+                Align2::LEFT_CENTER,
+                caption,
+                FontId::proportional(11.5),
+                alpha(pal.text, 0.95),
+            );
+            if resp.clicked() {
+                open = Some(path.clone());
+            }
+        }
+        if max_off > 0.5 {
+            let bar = Rect::from_min_max(
+                Pos2::new(card.right() - pad - 4.0, list_top),
+                Pos2::new(card.right() - pad, list_bottom),
+            );
+            painter.rect_filled(bar, 3.0, alpha(Color32::WHITE, 0.08));
+            let thumb_h =
+                (track.height() / content_h * bar.height()).clamp(28.0, bar.height());
+            let thumb_y =
+                bar.top() + self.logs_scroll / max_off * (bar.height() - thumb_h).max(0.0);
+            painter.rect_filled(
+                Rect::from_min_size(
+                    Pos2::new(bar.left(), thumb_y),
+                    Vec2::new(bar.width(), thumb_h),
+                ),
+                3.0,
+                alpha(pal.accent, 0.55),
+            );
+        }
+        let close = Rect::from_min_size(
+            Pos2::new(card.right() - pad - 150.0, card.bottom() - 54.0),
+            Vec2::new(150.0, 38.0),
+        );
+        if button(ui, close, "Закрыть", false, &pal, 12.5) {
+            self.logs_window = false;
+        }
+        if let Some(p) = open {
+            self.open_log_file(p);
+        }
+    }
 
     fn paint_guide(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(180));

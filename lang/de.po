@@ -1228,3 +1228,12 @@ msgstr "Die Phasenlänge wird für Schach und Damespiel getrennt eingestellt —
 
 msgid "Код правил партии"
 msgstr "Code der Partieregeln"
+
+msgid "Открыть логи"
+msgstr "Logs öffnen"
+
+msgid "Логов пока нет"
+msgstr "Noch keine Logs"
+
+msgid "Выберите партию — откроется просмотр с доской и ходами."
+msgstr "Wähle eine Partie — sie öffnet sich zur Durchsicht mit Brett und Zügen."

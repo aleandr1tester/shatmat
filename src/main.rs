@@ -907,6 +907,8 @@ pub struct App {
     review_switch: Vec<bool>,
     /// Природа каждой строки списка (None — начальная позиция).
     review_phases: Vec<Option<Phase>>,
+    /// Показывать в окне логов ещё и демонстрационные партии.
+    logs_demo: bool,
     /// Заголовок панели в просмотре: итог партии или название лога.
     review_result: String,
     guide: bool,
@@ -1098,6 +1100,7 @@ impl App {
             review_lines: Vec::new(),
             review_switch: Vec::new(),
             review_phases: Vec::new(),
+            logs_demo: false,
             review_result: String::new(),
             guide: false,
             guide_kind: Kind::Pawn,
@@ -1938,7 +1941,7 @@ impl App {
 
     /// Открыть список логов из папки logs.
     fn open_logs(&mut self) {
-        self.logs_list = replay::list_logs();
+        self.logs_list = replay::list_logs(self.logs_demo);
         self.logs_window = true;
         self.logs_scroll = 0.0;
     }
@@ -6391,6 +6394,41 @@ impl App {
                 3.0,
                 alpha(pal.accent, 0.55),
             );
+        }
+        // Галка «показывать демо-партии» слева от кнопки закрытия.
+        let check = Rect::from_min_size(
+            Pos2::new(card.left() + pad, card.bottom() - 46.0),
+            Vec2::new(18.0, 18.0),
+        );
+        let check_hit = ui.interact(
+            check.expand2(Vec2::new(4.0, 6.0)),
+            ui.id().with("logs_demo_check"),
+            Sense::click(),
+        );
+        painter.rect_stroke(
+            check,
+            4.0,
+            Stroke::new(1.2_f32, alpha(pal.text_dim, 0.75)),
+            egui::StrokeKind::Inside,
+        );
+        if self.logs_demo {
+            painter.rect_filled(check.shrink(4.0), 2.0, pal.accent);
+        }
+        if check_hit.hovered() {
+            ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+        }
+        text(
+            painter,
+            Pos2::new(check.right() + 10.0, check.center().y),
+            Align2::LEFT_CENTER,
+            i18n::tr("показывать демо-партии"),
+            11.5,
+            alpha(pal.text, 0.92),
+        );
+        if check_hit.clicked() {
+            self.logs_demo = !self.logs_demo;
+            self.logs_list = replay::list_logs(self.logs_demo);
+            self.logs_scroll = 0.0;
         }
         let close = Rect::from_min_size(
             Pos2::new(card.right() - pad - 150.0, card.bottom() - 54.0),

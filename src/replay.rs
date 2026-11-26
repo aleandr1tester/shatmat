@@ -292,11 +292,20 @@ fn checker_victim(g: &Game, from: Square, to: Square, side: Side) -> Option<Squa
     None
 }
 
-/// Список логов из папки `logs`: (путь, подпись). Свежие сверху.
-pub fn list_logs() -> Vec<(PathBuf, String)> {
-    let dir = crate::logging::logs_dir();
+/// Список логов: (путь, подпись). Свежие сверху; при `demo` — ещё и
+/// демонстрационные партии из `logs/demo`.
+pub fn list_logs(demo: bool) -> Vec<(PathBuf, String)> {
+    let mut items = list_dir(&crate::logging::logs_dir());
+    if demo {
+        items.extend(list_dir(&crate::logging::demo_logs_dir()));
+    }
+    items.sort_by(|a, b| b.0.cmp(&a.0));
+    items
+}
+
+fn list_dir(dir: &Path) -> Vec<(PathBuf, String)> {
     let mut items: Vec<(PathBuf, String)> = Vec::new();
-    let Ok(rd) = std::fs::read_dir(&dir) else {
+    let Ok(rd) = std::fs::read_dir(dir) else {
         return items;
     };
     for entry in rd.flatten() {
@@ -310,7 +319,6 @@ pub fn list_logs() -> Vec<(PathBuf, String)> {
         }
         items.push((p.clone(), log_caption(&p)));
     }
-    items.sort_by(|a, b| b.0.cmp(&a.0));
     items
 }
 

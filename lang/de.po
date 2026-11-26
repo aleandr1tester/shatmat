@@ -1243,3 +1243,6 @@ msgstr "Züge {n} · Schach {c}, Damespiel {k} · Schläge {cc}/{ck} · Phasenwe
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
 msgstr "Zug {full} · Halbzug {ply} von {total}"
+
+msgid "показывать демо-партии"
+msgstr "Demo-Partien zeigen"

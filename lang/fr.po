@@ -1244,3 +1244,6 @@ msgstr "coups {n} · échecs {c}, dames {k} · prises {cc}/{ck} · changements {
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
 msgstr "Coup {full} · demi-coup {ply} sur {total}"
+
+msgid "показывать демо-партии"
+msgstr "afficher les démos"

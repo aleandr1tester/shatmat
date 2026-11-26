@@ -1244,3 +1244,6 @@ msgstr "hamle {n} · satranç {c}, dama {k} · alınan {cc}/{ck} · faz değişi
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
 msgstr "Hamle {full} · yarım hamle {ply}/{total}"
+
+msgid "показывать демо-партии"
+msgstr "demo partileri göster"

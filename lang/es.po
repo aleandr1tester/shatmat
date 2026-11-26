@@ -1243,3 +1243,6 @@ msgstr "jugadas {n} · ajedrez {c}, damas {k} · capturas {cc}/{ck} · cambios {
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
 msgstr "Jugada {full} · medio movimiento {ply} de {total}"
+
+msgid "показывать демо-партии"
+msgstr "mostrar partidas demo"

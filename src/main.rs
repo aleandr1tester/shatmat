@@ -905,6 +905,8 @@ pub struct App {
     review_lines: Vec<String>,
     /// Какие строки — первые ходы новой природы (для подсветки).
     review_switch: Vec<bool>,
+    /// Природа каждой строки списка (None — начальная позиция).
+    review_phases: Vec<Option<Phase>>,
     /// Заголовок панели в просмотре: итог партии или название лога.
     review_result: String,
     guide: bool,
@@ -1095,6 +1097,7 @@ impl App {
             review_stats: String::new(),
             review_lines: Vec::new(),
             review_switch: Vec::new(),
+            review_phases: Vec::new(),
             review_result: String::new(),
             guide: false,
             guide_kind: Kind::Pawn,
@@ -1899,9 +1902,10 @@ impl App {
         view.trans = 0.0;
         view.paused = false;
         view.pending_promotion = None;
-        let (lines, switches) = Self::build_review_lines(&saved);
+        let (lines, switches, phases) = Self::build_review_lines(&saved);
         self.review_lines = lines;
         self.review_switch = switches;
+        self.review_phases = phases;
         self.review_result = match &saved.status {
             game::Status::Win { side, reason } => i18n::trf(
                 "ПОБЕДА {side}",
@@ -1989,9 +1993,10 @@ impl App {
                 ("m", &format!("{:+}", diff)),
             ],
         );
-        let (lines, switches) = Self::build_review_lines(&view);
+        let (lines, switches, phases) = Self::build_review_lines(&view);
         self.review_lines = lines;
         self.review_switch = switches;
+        self.review_phases = phases;
         self.review_result = i18n::tr("ПРОСМОТР ЛОГА").to_string();
         self.review_saved = Some(view.clone());
         self.review = true;
@@ -2038,11 +2043,13 @@ impl App {
     /// различать ход и полуход, и природа хода — как в файле лога:
     /// «1.1 e2-e4 · шахматы», «7.4 h2-g3 · шашки». Ход, сменивший природу,
     /// помечается стрелкой.
-    fn build_review_lines(saved: &Game) -> (Vec<String>, Vec<bool>) {
+    fn build_review_lines(saved: &Game) -> (Vec<String>, Vec<bool>, Vec<Option<Phase>>) {
         let mut out = Vec::with_capacity(saved.history.len() + 1);
         let mut switches = Vec::with_capacity(saved.history.len() + 1);
+        let mut phases = Vec::with_capacity(saved.history.len() + 1);
         out.push(i18n::tr("0. Начальная позиция").to_string());
         switches.push(false);
+        phases.push(None);
         let mut full_move = 0usize;
         let mut prev_phase: Option<Phase> = None;
         for (i, r) in saved.history.iter().enumerate() {
@@ -2058,23 +2065,12 @@ impl App {
             }
             let ply = i + 1;
             let switched = prev_phase.is_some() && prev_phase != Some(r.phase);
-            let phase = if r.phase == Phase::Checkers {
-                i18n::tr("шашки")
-            } else {
-                i18n::tr("шахматы")
-            };
-            // Первый ход новой природы — заглавными: так видно смену
-            // без символов, которых может не быть в шрифте.
-            let phase = if switched {
-                phase.to_uppercase()
-            } else {
-                phase.to_string()
-            };
-            out.push(format!("{ply}.{full_move} {mv} · {phase}"));
+            out.push(format!("{ply}.{full_move} {mv}"));
             switches.push(switched);
+            phases.push(Some(r.phase));
             prev_phase = Some(r.phase);
         }
-        (out, switches)
+        (out, switches, phases)
     }
 
     fn review_labels(&self) -> Vec<String> {
@@ -6873,28 +6869,65 @@ impl App {
                             .get(i)
                             .copied()
                             .unwrap_or(false);
-                        let resp = ui.add(
-                            egui::Button::new(
-                                egui::RichText::new(if selected {
-                                    format!("▶ {label}")
-                                } else {
-                                    label.clone()
-                                })
-                                .size(11.0)
-                                .color(if selected {
-                                    cur.accent
-                                } else if switched {
+                        let font = FontId::proportional(11.0);
+                        let mut job = egui::text::LayoutJob::default();
+                        let text = if selected {
+                            format!("▶ {label}")
+                        } else {
+                            label.clone()
+                        };
+                        job.append(
+                            &text,
+                            0.0,
+                            egui::TextFormat {
+                                font_id: font.clone(),
+                                color: if selected || switched {
                                     cur.accent
                                 } else {
                                     alpha(cur.text, 0.92)
-                                }),
-                            )
-                            .frame(false)
-                            .fill(if selected {
-                                alpha(cur.accent, 0.10)
+                                },
+                                ..Default::default()
+                            },
+                        );
+                        if let Some(ph) = self.review_phases.get(i).copied().flatten() {
+                            let ph_pal = Palette::for_phase(ph);
+                            job.append(
+                                " · ",
+                                0.0,
+                                egui::TextFormat {
+                                    font_id: font.clone(),
+                                    color: alpha(cur.text_dim, 0.8),
+                                    ..Default::default()
+                                },
+                            );
+                            let word = if ph == Phase::Checkers {
+                                i18n::tr("шашки")
                             } else {
-                                Color32::TRANSPARENT
-                            }),
+                                i18n::tr("шахматы")
+                            };
+                            let word = if switched {
+                                word.to_uppercase()
+                            } else {
+                                word.to_string()
+                            };
+                            job.append(
+                                &word,
+                                0.0,
+                                egui::TextFormat {
+                                    font_id: font.clone(),
+                                    color: ph_pal.accent,
+                                    ..Default::default()
+                                },
+                            );
+                        }
+                        let resp = ui.add(
+                            egui::Button::new(job)
+                                .frame(false)
+                                .fill(if selected {
+                                    alpha(cur.accent, 0.10)
+                                } else {
+                                    Color32::TRANSPARENT
+                                }),
                         );
                         if resp.clicked() {
                             clicked = Some(i);

@@ -812,6 +812,17 @@ impl Layout {
     }
 }
 
+/// Что показывает кнопка «Показать» на странице правил.
+#[derive(Clone, Copy)]
+enum RuleAction {
+    /// Анимации нет.
+    None,
+    /// Ход или взятие: откуда, куда, кого сбивает.
+    Move(Square, Square, Option<Square>),
+    /// Смена природы: фигуры превращаются на ходу.
+    Flip,
+}
+
 /// Страница гида «Правила»: заголовок, короткий текст и позиция-пример.
 struct RuleDemo {
     title: &'static str,
@@ -824,6 +835,8 @@ struct RuleDemo {
     targets: &'static [Square],
     /// Клетки со сбитыми фигурами (кружки).
     victims: &'static [Square],
+    /// Что показывает кнопка «Показать».
+    action: RuleAction,
 }
 
 const RULE_DEMOS: &[RuleDemo] = &[
@@ -839,6 +852,7 @@ const RULE_DEMOS: &[RuleDemo] = &[
         sources: &[],
         targets: &[],
         victims: &[],
+        action: RuleAction::Flip,
     },
     RuleDemo {
         title: "Серия взятий",
@@ -851,6 +865,7 @@ const RULE_DEMOS: &[RuleDemo] = &[
         sources: &[(2, 2)],
         targets: &[(0, 4), (4, 4)],
         victims: &[(1, 3), (3, 3)],
+        action: RuleAction::Move((2, 2), (0, 4), Some((1, 3))),
     },
     RuleDemo {
         title: "Король",
@@ -862,6 +877,7 @@ const RULE_DEMOS: &[RuleDemo] = &[
         sources: &[(4, 2)],
         targets: &[],
         victims: &[(4, 7)],
+        action: RuleAction::Move((4, 2), (4, 7), Some((4, 7))),
     },
     RuleDemo {
         title: "Коронация",
@@ -873,6 +889,7 @@ const RULE_DEMOS: &[RuleDemo] = &[
         sources: &[(1, 6)],
         targets: &[(1, 7)],
         victims: &[],
+        action: RuleAction::Move((1, 6), (1, 7), None),
     },
     RuleDemo {
         title: "Победа и ничья",
@@ -884,6 +901,7 @@ const RULE_DEMOS: &[RuleDemo] = &[
         sources: &[],
         targets: &[],
         victims: &[],
+        action: RuleAction::None,
     },
 ];
 
@@ -1132,6 +1150,10 @@ pub struct App {
     guide_rules: bool,
     /// Раздел гида: 0 — правила текстом, 1 — шахматы, 2 — шашки, 3 — демо.
     guide_section: usize,
+    /// Прогресс демонстрации на странице правил (0..1).
+    rule_t: f32,
+    /// Демонстрация сейчас проигрывается.
+    rule_playing: bool,
     /// Страница правил в гиде.
     guide_page: usize,
     started: bool,
@@ -1327,6 +1349,8 @@ impl App {
             guide_damka: false,
             guide_rules: false,
             guide_section: 0,
+            rule_t: 0.0,
+            rule_playing: false,
             guide_page: 0,
             started: demo.is_some()
                 && !demo
@@ -6885,7 +6909,7 @@ impl App {
             9.0,
             alpha(pal.text_dim, 0.75),
         );
-        self.paint_rule_board(painter, board, pal, page);
+        self.paint_rule_board(painter, board, pal, page, self.rule_t);
         let right_x = board.right() + 26.0;
         let right_w = card.right() - pad - right_x;
         text(
@@ -6896,6 +6920,7 @@ impl App {
             23.0,
             pal.text,
         );
+        // Кнопка показа демонстрации — под текстом.
         let last = RULE_DEMOS.len() - 1;
         // Счётчик страниц — рядом с названием правила.
         text(
@@ -6915,7 +6940,18 @@ impl App {
             12.0,
             pal.text,
         );
-        let btn_y = (card.top() + 166.0 + text_h + 22.0).min(card.bottom() - 62.0);
+        let mut btn_y = (card.top() + 166.0 + text_h + 22.0).min(card.bottom() - 62.0);
+        if !matches!(page.action, RuleAction::None) {
+            let play = Rect::from_min_size(
+                Pos2::new(right_x, btn_y),
+                Vec2::new(right_w, 38.0),
+            );
+            if button(ui, play, "Показать", self.rule_playing, pal, 11.5) {
+                self.rule_t = 0.0;
+                self.rule_playing = true;
+            }
+            btn_y += 48.0;
+        }
         let bw = (right_w - 10.0) * 0.5;
         let prev = Rect::from_min_size(
             Pos2::new(right_x, btn_y),
@@ -6941,6 +6977,7 @@ impl App {
         rect: Rect,
         pal: &Palette,
         page: &RuleDemo,
+        t: f32,
     ) {
         let cell = rect.width() / 8.0;
         let sq_rect = |sq: Square| {
@@ -6980,15 +7017,54 @@ impl App {
                 Stroke::new(1.0_f32, alpha(pal.accent, 0.35)),
             );
         }
+        let (move_from, move_to, move_victim) = match page.action {
+            RuleAction::Move(from, to, victim) => (Some(from), Some(to), victim),
+            _ => (None, None, None),
+        };
+        let moving = t > 0.0 && t < 1.0;
+        // Сбитая фигура гаснет по мере движения.
         for sq in page.victims {
-            let c = sq_rect(*sq).center();
-            painter.circle_stroke(
-                c,
-                cell * 0.32,
-                Stroke::new(1.6_f32, alpha(Color32::from_rgb(226, 96, 96), 0.85)),
-            );
+            let fade = if move_victim == Some(*sq) {
+                (1.0 - t).clamp(0.0, 1.0)
+            } else {
+                1.0
+            };
+            if fade > 0.02 {
+                let c = sq_rect(*sq).center();
+                painter.circle_stroke(
+                    c,
+                    cell * 0.32,
+                    Stroke::new(1.6_f32, alpha(Color32::from_rgb(226, 96, 96), 0.85 * fade)),
+                );
+            }
         }
+        let ease = |x: f32| {
+            let x = x.clamp(0.0, 1.0);
+            x * x * (3.0 - 2.0 * x)
+        };
         for (sq, side, kind, damka, checkers_form) in page.pieces {
+            // Фигура, которая едет в демо, рисуется отдельно.
+            if moving && move_from == Some(*sq) {
+                continue;
+            }
+            if !moving && t >= 1.0 && move_from == Some(*sq) {
+                continue;
+            }
+            if let Some(v) = move_victim {
+                if v == *sq && t >= 1.0 {
+                    continue;
+                }
+            }
+            // Смена природы: формы перетекают на середине демонстрации.
+            let form = if matches!(page.action, RuleAction::Flip) {
+                if t > 0.5 {
+                    !*checkers_form
+                } else {
+                    *checkers_form
+                }
+            } else {
+                *checkers_form
+            };
             self.paint_piece(
                 painter,
                 sq_rect(*sq).center(),
@@ -6998,9 +7074,33 @@ impl App {
                 *side,
                 pal,
                 1.0,
-                *checkers_form,
+                form,
                 None,
             );
+        }
+        if let (Some(from), Some(to)) = (move_from, move_to) {
+            if t > 0.0 {
+                let (f, r) = (ease(t), ease(t));
+                let a = sq_rect(from).center();
+                let b = sq_rect(to).center();
+                let pos = Pos2::new(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * r);
+                if let Some((_, side, kind, damka, checkers_form)) =
+                    page.pieces.iter().find(|p| p.0 == from)
+                {
+                    self.paint_piece(
+                        painter,
+                        pos,
+                        cell * 1.02,
+                        *kind,
+                        *damka,
+                        *side,
+                        pal,
+                        1.0,
+                        *checkers_form,
+                        None,
+                    );
+                }
+            }
         }
     }
 
@@ -7360,6 +7460,13 @@ impl eframe::App for App {
         if self.guide {
             if let Some(demo) = &mut self.guide_demo {
                 demo.t = (demo.t + dt / 1.1).min(1.0);
+            }
+            if self.rule_playing {
+                self.rule_t = self.rule_t + dt / 1.2;
+                if self.rule_t >= 1.0 {
+                    self.rule_t = 1.0;
+                    self.rule_playing = false;
+                }
             }
             if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
                 self.guide = false;

@@ -1237,3 +1237,6 @@ msgstr "Aún no hay registros"
 
 msgid "Выберите партию — откроется просмотр с доской и ходами."
 msgstr "Elige una partida — se abrirá con tablero y jugadas."
+
+msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}"
+msgstr "jugadas {n} · ajedrez {c}, damas {k} · capturas {cc}/{ck} · cambios {f} · material {m}"

@@ -899,6 +899,8 @@ pub struct App {
     logs_rect: Rect,
     /// Партия, к которой вернуться после просмотра чужого лога.
     review_return: Option<Game>,
+    /// Сводка по открытому логу: ходы, взятия, смены фаз.
+    review_stats: String,
     guide: bool,
     guide_kind: Kind,
     guide_rect: Rect,
@@ -1084,6 +1086,7 @@ impl App {
             logs_scroll: 0.0,
             logs_rect: Rect::NOTHING,
             review_return: None,
+            review_stats: String::new(),
             guide: false,
             guide_kind: Kind::Pawn,
             guide_rect: Rect::NOTHING,
@@ -1856,6 +1859,7 @@ impl App {
         view.paused = false;
         view.pending_promotion = None;
         self.review_saved = Some(saved);
+        self.review_stats.clear();
         self.review = true;
         self.game = view;
         self.review_ply = 0;
@@ -1896,6 +1900,43 @@ impl App {
         view.selected = None;
         view.trans = 0.0;
         view.paused = false;
+        let mut chess_plies = 0usize;
+        let mut check_plies = 0usize;
+        let mut caps_chess = 0usize;
+        let mut caps_check = 0usize;
+        let mut flips = 0usize;
+        let mut prev: Option<Phase> = None;
+        for r in &view.history {
+            if r.phase == Phase::Chess {
+                chess_plies += 1;
+            } else {
+                check_plies += 1;
+            }
+            if r.captured.is_some() {
+                if r.phase == Phase::Chess {
+                    caps_chess += 1;
+                } else {
+                    caps_check += 1;
+                }
+            }
+            if prev.is_some() && prev != Some(r.phase) {
+                flips += 1;
+            }
+            prev = Some(r.phase);
+        }
+        let diff = view.material_diff();
+        self.review_stats = i18n::trf(
+            "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}",
+            &[
+                ("n", &view.history.len().to_string()),
+                ("c", &chess_plies.to_string()),
+                ("k", &check_plies.to_string()),
+                ("cc", &caps_chess.to_string()),
+                ("ck", &caps_check.to_string()),
+                ("f", &flips.to_string()),
+                ("m", &format!("{:+}", diff)),
+            ],
+        );
         self.review_saved = Some(view.clone());
         self.review = true;
         self.game = view;
@@ -6668,8 +6709,20 @@ impl App {
             Pos2::new(x + (w - 8.0) * 0.5 + 8.0, card.bottom() - 44.0),
             Vec2::new((w - 8.0) * 0.5, 34.0),
         );
+        let mut list_top = card.top() + 62.0;
+        if !self.review_stats.is_empty() {
+            text_fit(
+                painter,
+                Pos2::new(x, card.top() + 52.0),
+                &self.review_stats,
+                w,
+                9.5,
+                alpha(pal.accent, 0.85),
+            );
+            list_top = card.top() + 70.0;
+        }
         let list_rect = Rect::from_min_max(
-            Pos2::new(x, card.top() + 62.0),
+            Pos2::new(x, list_top),
             Pos2::new(card.right() - pad, prev.top() - 10.0),
         );
         let labels = self.review_labels();

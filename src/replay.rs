@@ -6,10 +6,11 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::game::{Game, Kind, Phase, Side, Status};
+use crate::game::{Game, Kind, Phase, Piece, Side, Square, Status};
 
 /// Один ход из таблицы лога.
 struct MoveRow {
+    side: Side,
     from: (usize, usize),
     to: (usize, usize),
     capture: bool,
@@ -191,33 +192,104 @@ pub fn load_game(path: &Path) -> Option<Game> {
     g.mandatory_capture = logged.mandatory_capture;
     g.crown_non_pawns = logged.crown_non_pawns;
     g.king_escape = logged.king_escape;
+    // Доска ведётся строго по логу: правила не перепроверяем, поэтому
+    // откроется любая партия, даже если движок уже играет иначе.
+    for row in &logged.moves {
+        raw_apply(&mut g, row);
+    }
+    g.status = Status::Playing;
+    g.selected = None;
+    g.legal.clear();
+    g.chain = None;
+    g.trans = 0.0;
+    g.paused = false;
+    g.pending_promotion = None;
+    g.move_twilight_pending = false;
+    Some(g)
+}
 
-    for (idx, mv) in logged.moves.iter().enumerate() {
-        if g.pending_promotion.is_some() {
-            g.choose_promotion(Kind::Queen);
-        }
-        if g.phase != mv.phase {
-            return None;
-        }
-        let legal = g
-            .moves_for(mv.from)
-            .into_iter()
-            .find(|m| m.to == mv.to && m.captured.is_some() == mv.capture);
-        let legal = legal?;
-        g.apply(legal);
-        // Фаза для следующего хода: переворачиваем только когда лог этого
-        // ждёт. Так ход, сделанный игроком во время паузы, попадает
-        // в старую фазу — как было в настоящей партии.
-        if let Some(next) = logged.moves.get(idx + 1) {
-            if next.phase != g.phase {
-                settle(&mut g);
+/// Провести ход из лога по доске без проверки правил.
+fn raw_apply(g: &mut Game, row: &MoveRow) {
+    g.turn = row.side;
+    g.phase = row.phase;
+    let Some(mut piece) = g.board[row.from.1][row.from.0].take() else {
+        return;
+    };
+    let mut captured: Option<(Square, Piece)> = None;
+    if row.capture {
+        let victim_sq = if row.phase == Phase::Chess {
+            Some(row.to)
+        } else {
+            checker_victim(g, row.from, row.to, piece.side)
+        };
+        if let Some(v) = victim_sq {
+            if let Some(vp) = g.board[v.1][v.0].take() {
+                captured = Some((v, vp));
             }
         }
     }
-    g.move_twilight_pending = false;
-    g.trans = 0.0;
-    g.status = Status::Playing;
-    Some(g)
+    if row.phase == Phase::Checkers {
+        let last = if piece.side == Side::White { 7 } else { 0 };
+        if row.to.1 == last {
+            piece.crowned = true;
+        }
+    } else if piece.kind == Kind::Pawn {
+        // Превращение в шахматах: пешка на последнем ряду — ферзь.
+        let last = if piece.side == Side::White { 7 } else { 0 };
+        if row.to.1 == last {
+            piece.kind = Kind::Queen;
+        }
+    }
+    let kind_before = piece.kind;
+    let damka = piece.crowned;
+    g.board[row.to.1][row.to.0] = Some(piece);
+    g.last_move = Some((row.from, row.to));
+    g.last_capture = captured.map(|(sq, p)| (sq, p));
+    g.history.push(crate::game::MoveRecord {
+        side: row.side,
+        kind: kind_before,
+        damka,
+        from: row.from,
+        to: row.to,
+        captured: captured.map(|(_, p)| (p.side, p.kind)),
+        phase: row.phase,
+    });
+    g.turn = row.side.other();
+    g.snapshots.push(crate::game::Snapshot {
+        board: g.board,
+        turn: g.turn,
+        phase: row.phase,
+        last_move: Some((row.from, row.to)),
+        last_capture: g.last_capture,
+    });
+}
+
+/// Кого бьёт шашечный ход: первая чужая фигура между «откуда» и «куда»
+/// (или прямо на клетке приземления, если короля берут наступлением).
+fn checker_victim(g: &Game, from: Square, to: Square, side: Side) -> Option<Square> {
+    let (df, dr) = (
+        to.0 as i32 - from.0 as i32,
+        to.1 as i32 - from.1 as i32,
+    );
+    let steps = df.abs().max(dr.abs());
+    if steps <= 1 {
+        return None;
+    }
+    let (sx, sy) = (df.signum(), dr.signum());
+    for k in 1..steps {
+        let f = from.0 as i32 + sx * k;
+        let r = from.1 as i32 + sy * k;
+        if !(0..8).contains(&f) || !(0..8).contains(&r) {
+            return None;
+        }
+        if let Some(p) = g.board[r as usize][f as usize] {
+            if p.side != side {
+                return Some((f as usize, r as usize));
+            }
+            return None;
+        }
+    }
+    None
 }
 
 /// Список логов из папки `logs`: (путь, подпись). Свежие сверху.
@@ -369,7 +441,13 @@ fn parse(text: &str) -> Result<Logged, String> {
             };
             let from = parse_sq(&mv[..2]).ok_or_else(|| format!("клетка «{mv}»"))?;
             let to = parse_sq(&mv[3..5]).ok_or_else(|| format!("клетка «{mv}»"))?;
+            let side = if parts[1].trim() == "Белые" {
+                Side::White
+            } else {
+                Side::Black
+            };
             logged.moves.push(MoveRow {
+                side,
                 from,
                 to,
                 capture: mv.contains('x'),

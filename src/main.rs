@@ -4613,10 +4613,10 @@ impl App {
         if slider.dragged() || slider.clicked() {
             if let Some(p) = slider.interact_pointer_pos() {
                 let t = ((p.x - track.left()) / track.width()).clamp(0.0, 1.0);
-                self.game.move_anim_secs = 0.05 + t * 0.55;
+                self.game.move_anim_secs = 0.05 + t * 0.85;
             }
         }
-        let frac = ((self.game.move_anim_secs - 0.05) / 0.55).clamp(0.0, 1.0);
+        let frac = ((self.game.move_anim_secs - 0.05) / 0.85).clamp(0.0, 1.0);
         painter.rect_filled(track, 3.0, alpha(Color32::WHITE, 0.10));
         painter.rect_filled(
             Rect::from_min_size(track.min, Vec2::new(track.width() * frac, 6.0)),

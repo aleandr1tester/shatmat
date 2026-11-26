@@ -5,7 +5,7 @@
 //! по правилам шашек и наоборот. Ходы в момент перехода замирают.
 
 pub const TRANS_SECS: f32 = 1.7;
-pub const MOVE_ANIM_SECS: f32 = 0.22;
+pub const MOVE_ANIM_SECS: f32 = 0.40;
 pub const MIN_PHASE: f32 = 5.0;
 pub const MAX_PHASE: f32 = 60.0;
 pub const MIN_AUTO_SECS: f32 = 10.0;

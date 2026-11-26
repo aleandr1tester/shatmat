@@ -2,6 +2,7 @@
 
 mod ai;
 mod arena;
+mod replay;
 mod art;
 mod fonts;
 mod game;
@@ -50,8 +51,11 @@ fn main() -> eframe::Result<()> {
     let mut arena_chess: Vec<u8> = vec![4, 6, 8];
     let mut arena_checkers: Vec<u8> = vec![2, 4, 6, 8];
     let mut arena_difficulty = "medium".to_string();
+    let mut arena_difficulty_black: Option<String> = None;
     let mut arena_holds = 2u8;
+    let mut arena_draw_plies = 20usize;
     let mut arena_out = PathBuf::from("arena.csv");
+    let mut replay_path: Option<PathBuf> = None;
     let mut i = 1;
     while i < args.len() {
         if args[i] == "--screenshot" {
@@ -75,6 +79,12 @@ fn main() -> eframe::Result<()> {
         if args[i] == "--check-update" {
             check_update = true;
         }
+        if args[i] == "--replay" {
+            if let Some(p) = args.get(i + 1) {
+                replay_path = Some(PathBuf::from(p));
+                i += 1;
+            }
+        }
         if args[i] == "--arena" {
             arena_mode = true;
         }
@@ -93,6 +103,18 @@ fn main() -> eframe::Result<()> {
         if args[i] == "--checkers" {
             if let Some(p) = args.get(i + 1) {
                 arena_checkers = p.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                i += 1;
+            }
+        }
+        if args[i] == "--draw-plies" {
+            if let Some(p) = args.get(i + 1) {
+                arena_draw_plies = p.parse().unwrap_or(arena_draw_plies);
+                i += 1;
+            }
+        }
+        if args[i] == "--difficulty-black" {
+            if let Some(p) = args.get(i + 1) {
+                arena_difficulty_black = Some(p.clone());
                 i += 1;
             }
         }
@@ -116,18 +138,26 @@ fn main() -> eframe::Result<()> {
         }
         i += 1;
     }
+    if let Some(path) = replay_path {
+        replay::run(&path);
+        return Ok(());
+    }
     if arena_mode {
-        let difficulty = match arena_difficulty.as_str() {
+        let parse_diff = |s: &str| match s {
             "easy" => Difficulty::Easy,
             "hard" => Difficulty::Hard,
             _ => Difficulty::Medium,
         };
+        let difficulty = parse_diff(&arena_difficulty);
+        let difficulty_black = arena_difficulty_black.as_deref().map(parse_diff);
         arena::run(&arena::Config {
             games: arena_games.max(1),
             chess: arena_chess,
             checkers: arena_checkers,
             difficulty,
+            difficulty_black,
             holds: arena_holds,
+            draw_plies: arena_draw_plies,
             out: arena_out,
         });
         return Ok(());

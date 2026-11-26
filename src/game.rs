@@ -294,6 +294,8 @@ pub struct Game {
     /// Сколько ещё ждать перед решением о сумерках после хода.
     pub move_twilight_wait: f32,
     /// Сколько уже копится удержание сумерек (сбрасывается при смене фазы).
+    /// Порог ничьей без взятий в мёртвом эндшпиле, полуходов.
+    pub draw_plies: usize,
     /// Сколько раз подряд разрешено отложить смену фаз в решающий
     /// момент (турнир ИИ показывает, сколько пользы от каждой отложки).
     pub hold_max: u8,
@@ -385,6 +387,7 @@ impl Game {
             move_twilight_wait: 0.0,
             twilight_hold_secs: 0.0,
             hold_max: 2,
+            draw_plies: NO_CAPTURE_DRAW_PLIES,
             move_time_limit: DEFAULT_MOVE_SECS,
             move_left: DEFAULT_MOVE_SECS,
             phase_hold: false,
@@ -1719,7 +1722,7 @@ impl Game {
             }
             // Одинокий король против короля и одной фигуры: добить нельзя,
             // и через 10 полуходов без взятий объявляем ничью.
-            if self.lone_king_endgame() && self.no_capture_plies() >= NO_CAPTURE_DRAW_PLIES {
+            if self.lone_king_endgame() && self.no_capture_plies() >= self.draw_plies {
                 self.status = Status::Draw {
                     reason: "нет взятий".into(),
                 };

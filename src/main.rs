@@ -813,12 +813,22 @@ impl Layout {
 }
 
 /// Что показывает кнопка «Показать» на странице правил.
+/// Один шаг серии взятий.
+#[derive(Clone, Copy)]
+struct RuleStep {
+    from: Square,
+    to: Square,
+    victim: Square,
+}
+
 #[derive(Clone, Copy)]
 enum RuleAction {
     /// Анимации нет.
     None,
     /// Ход или взятие: откуда, куда, кого сбивает.
     Move(Square, Square, Option<Square>),
+    /// Серия взятий: несколько шагов подряд.
+    Chain(&'static [RuleStep]),
     /// Смена природы: фигуры превращаются на ходу.
     Flip,
 }
@@ -835,6 +845,10 @@ struct RuleDemo {
     targets: &'static [Square],
     /// Клетки со сбитыми фигурами (кружки).
     victims: &'static [Square],
+    /// Кто обязан бить — красная пульсация, как в игре.
+    forced: &'static [Square],
+    /// После хода фигура становится дамкой (коронация).
+    promote: bool,
     /// Что показывает кнопка «Показать».
     action: RuleAction,
 }
@@ -842,54 +856,90 @@ struct RuleDemo {
 const RULE_DEMOS: &[RuleDemo] = &[
     RuleDemo {
         title: "Смена природы",
-        text: "Партия идёт в двух природах: шахматы и шашки. В панели видно, сколько ходов осталось до смены. После последнего хода доска замирает на паузу — это не зависание: природа меняется. В шашках смена может отложиться на один ход, чтобы доиграть серию взятий.",
+        text: "Партия идёт в двух природах: шахматы и шашки. В панели видно, сколько ходов осталось до смены. После последнего хода доска замирает на паузу — это не зависание: природа меняется. Фигуры превращаются: пешка становится шашкой, ферзь — дамкой, король в шашках остаётся с меткой и его можно взять. Нажмите «Показать» и посмотрите на доску.",
         pieces: &[
+            // белые: весь набор рангов и одна дамка
+            ((3, 0), Side::White, Kind::Queen, false, false),
+            ((4, 0), Side::White, Kind::King, false, false),
+            ((0, 0), Side::White, Kind::Rook, false, false),
+            ((6, 0), Side::White, Kind::Knight, false, false),
+            ((2, 0), Side::White, Kind::Bishop, false, false),
             ((3, 1), Side::White, Kind::Pawn, false, false),
-            ((1, 1), Side::White, Kind::Pawn, false, false),
-            ((4, 6), Side::Black, Kind::Pawn, false, false),
+            ((2, 2), Side::White, Kind::Pawn, true, false),
+            ((5, 3), Side::White, Kind::Pawn, false, false),
+            // чёрные: тот же набор и дамка
+            ((3, 7), Side::Black, Kind::Queen, false, false),
             ((4, 7), Side::Black, Kind::King, false, false),
+            ((7, 7), Side::Black, Kind::Rook, false, false),
+            ((1, 7), Side::Black, Kind::Knight, false, false),
+            ((5, 7), Side::Black, Kind::Bishop, false, false),
+            ((4, 6), Side::Black, Kind::Pawn, false, false),
+            ((5, 5), Side::Black, Kind::Pawn, true, false),
+            ((2, 5), Side::Black, Kind::Pawn, false, false),
         ],
         sources: &[],
         targets: &[],
         victims: &[],
+        forced: &[],
+        promote: false,
         action: RuleAction::Flip,
     },
     RuleDemo {
         title: "Серия взятий",
-        text: "В шашках взятие обязательно, если оно есть. Бить нужно самую длинную серию: одна и та же шашка бьёт несколько фигур подряд, пока может.",
+        text: "В шашках взятие обязательно, если оно есть. Бить нужно самую длинную серию: красным пульсирует шашка, у которой серия длиннее. Она бьёт одну фигуру, остаётся на новом поле и продолжает — пока есть цель.",
         pieces: &[
             ((2, 2), Side::White, Kind::Pawn, false, true),
+            ((5, 2), Side::White, Kind::Pawn, false, true),
             ((1, 3), Side::Black, Kind::Pawn, false, true),
             ((3, 3), Side::Black, Kind::Pawn, false, true),
+            ((1, 5), Side::Black, Kind::Pawn, false, true),
         ],
-        sources: &[(2, 2)],
-        targets: &[(0, 4), (4, 4)],
-        victims: &[(1, 3), (3, 3)],
-        action: RuleAction::Move((2, 2), (0, 4), Some((1, 3))),
+        sources: &[],
+        targets: &[],
+        victims: &[(1, 3), (3, 3), (1, 5)],
+        forced: &[(2, 2)],
+        promote: false,
+        action: RuleAction::Chain(&[
+            RuleStep {
+                from: (2, 2),
+                to: (0, 4),
+                victim: (1, 3),
+            },
+            RuleStep {
+                from: (0, 4),
+                to: (2, 6),
+                victim: (1, 5),
+            },
+        ]),
     },
     RuleDemo {
         title: "Король",
-        text: "В шахматах короля не берут — ему ставят мат. В шашках король уязвим: дамка может взять его, как обычную шашку, и партия сразу кончается.",
+        text: "В шахматах короля не берут — ему ставят мат. В шашках король уязвим: дамка летит по диагонали через всё поле и берёт его, как обычную шашку — партия сразу кончается.",
         pieces: &[
-            ((4, 7), Side::Black, Kind::King, false, false),
-            ((4, 2), Side::White, Kind::Pawn, true, true),
+            ((7, 7), Side::Black, Kind::King, false, false),
+            ((0, 0), Side::White, Kind::Pawn, true, true),
         ],
-        sources: &[(4, 2)],
+        sources: &[(0, 0)],
         targets: &[],
-        victims: &[(4, 7)],
-        action: RuleAction::Move((4, 2), (4, 7), Some((4, 7))),
+        victims: &[(7, 7)],
+        forced: &[],
+        promote: false,
+        action: RuleAction::Move((0, 0), (7, 7), Some((7, 7))),
     },
     RuleDemo {
         title: "Коронация",
-        text: "Шашка, дошедшая до последнего ряда, становится дамкой: она бьёт и ходит по всей диагонали. При смене природы на шашки дамками становятся все фигуры на последнем ряду — настройка «Дамки: все».",
+        text: "Шашка ходит и бьёт по диагонали, а дойдя до последнего ряда, становится дамкой: она летит по всей диагонали на любое расстояние. При смене природы на шашки дамками становятся все фигуры на последнем ряду — настройка «Дамки: все».",
         pieces: &[
             ((1, 6), Side::White, Kind::Pawn, false, true),
             ((6, 1), Side::Black, Kind::Pawn, false, true),
+            ((7, 7), Side::Black, Kind::Pawn, false, true),
         ],
         sources: &[(1, 6)],
-        targets: &[(1, 7)],
+        targets: &[(0, 7)],
         victims: &[],
-        action: RuleAction::Move((1, 6), (1, 7), None),
+        forced: &[],
+        promote: true,
+        action: RuleAction::Move((1, 6), (0, 7), None),
     },
     RuleDemo {
         title: "Победа и ничья",
@@ -901,6 +951,8 @@ const RULE_DEMOS: &[RuleDemo] = &[
         sources: &[],
         targets: &[],
         victims: &[],
+        forced: &[],
+        promote: false,
         action: RuleAction::None,
     },
 ];
@@ -6980,11 +7032,12 @@ impl App {
         t: f32,
     ) {
         let cell = rect.width() / 8.0;
+        // Как на игровой доске: первый ряд внизу, восьмой вверху.
         let sq_rect = |sq: Square| {
             Rect::from_min_size(
                 Pos2::new(
                     rect.left() + sq.0 as f32 * cell,
-                    rect.top() + sq.1 as f32 * cell,
+                    rect.bottom() - (sq.1 as f32 + 1.0) * cell,
                 ),
                 Vec2::splat(cell),
             )
@@ -7017,43 +7070,80 @@ impl App {
                 Stroke::new(1.0_f32, alpha(pal.accent, 0.35)),
             );
         }
-        let (move_from, move_to, move_victim) = match page.action {
-            RuleAction::Move(from, to, victim) => (Some(from), Some(to), victim),
-            _ => (None, None, None),
-        };
-        let moving = t > 0.0 && t < 1.0;
-        // Сбитая фигура гаснет по мере движения.
-        for sq in page.victims {
-            let fade = if move_victim == Some(*sq) {
-                (1.0 - t).clamp(0.0, 1.0)
-            } else {
-                1.0
-            };
-            if fade > 0.02 {
-                let c = sq_rect(*sq).center();
-                painter.circle_stroke(
-                    c,
-                    cell * 0.32,
-                    Stroke::new(1.6_f32, alpha(Color32::from_rgb(226, 96, 96), 0.85 * fade)),
-                );
-            }
-        }
         let ease = |x: f32| {
             let x = x.clamp(0.0, 1.0);
             x * x * (3.0 - 2.0 * x)
         };
-        for (sq, side, kind, damka, checkers_form) in page.pieces {
-            // Фигура, которая едет в демо, рисуется отдельно.
-            if moving && move_from == Some(*sq) {
-                continue;
-            }
-            if !moving && t >= 1.0 && move_from == Some(*sq) {
-                continue;
-            }
-            if let Some(v) = move_victim {
-                if v == *sq && t >= 1.0 {
-                    continue;
+        // Куда едет фигура и кто уже сбит — для одиночного хода и для серии.
+        let mut mover_pos: Option<Pos2> = None;
+        let mut mover_start: Option<Square> = None;
+        let mut gone: Vec<Square> = Vec::new();
+        let mut fading: Option<(Square, f32)> = None;
+        match page.action {
+            RuleAction::Move(from, to, victim) => {
+                mover_start = Some(from);
+                if t > 0.0 {
+                    let a = sq_rect(from).center();
+                    let b = sq_rect(to).center();
+                    let e = ease(t);
+                    mover_pos = Some(Pos2::new(a.x + (b.x - a.x) * e, a.y + (b.y - a.y) * e));
+                    if let Some(v) = victim {
+                        if t >= 1.0 {
+                            gone.push(v);
+                        } else {
+                            fading = Some((v, 1.0 - t));
+                        }
+                    }
                 }
+            }
+            RuleAction::Chain(steps) if !steps.is_empty() => {
+                mover_start = Some(steps[0].from);
+                if t > 0.0 {
+                    let n = steps.len();
+                    let k = ((t * n as f32) as usize).min(n - 1);
+                    let local = (t * n as f32 - k as f32).clamp(0.0, 1.0);
+                    for s in steps.iter().take(k) {
+                        gone.push(s.victim);
+                    }
+                    let a = sq_rect(steps[k].from).center();
+                    let b = sq_rect(steps[k].to).center();
+                    let e = ease(local);
+                    mover_pos = Some(Pos2::new(a.x + (b.x - a.x) * e, a.y + (b.y - a.y) * e));
+                    if t >= 1.0 {
+                        gone.push(steps[k].victim);
+                    } else {
+                        fading = Some((steps[k].victim, 1.0 - local));
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        for sq in page.victims {
+            if gone.contains(sq) {
+                continue;
+            }
+            let fade = match fading {
+                Some((v, a)) if v == *sq => a,
+                _ => 1.0,
+            };
+            if fade <= 0.02 {
+                continue;
+            }
+            let c = sq_rect(*sq).center();
+            painter.circle_stroke(
+                c,
+                cell * 0.32,
+                Stroke::new(1.6_f32, alpha(Color32::from_rgb(226, 96, 96), 0.85 * fade)),
+            );
+        }
+        for (sq, side, kind, damka, checkers_form) in page.pieces {
+            if gone.contains(sq) {
+                continue;
+            }
+            // Фигура, которая едет в демо, рисуется отдельно.
+            if mover_pos.is_some() && mover_start == Some(*sq) {
+                continue;
             }
             // Смена природы: формы перетекают на середине демонстрации.
             let form = if matches!(page.action, RuleAction::Flip) {
@@ -7078,29 +7168,43 @@ impl App {
                 None,
             );
         }
-        if let (Some(from), Some(to)) = (move_from, move_to) {
-            if t > 0.0 {
-                let (f, r) = (ease(t), ease(t));
-                let a = sq_rect(from).center();
-                let b = sq_rect(to).center();
-                let pos = Pos2::new(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * r);
-                if let Some((_, side, kind, damka, checkers_form)) =
-                    page.pieces.iter().find(|p| p.0 == from)
-                {
-                    self.paint_piece(
-                        painter,
-                        pos,
-                        cell * 1.02,
-                        *kind,
-                        *damka,
-                        *side,
-                        pal,
-                        1.0,
-                        *checkers_form,
-                        None,
-                    );
-                }
+        if let (Some(start_sq), Some(pos)) = (mover_start, mover_pos) {
+            if let Some((_, side, kind, damka, checkers_form)) =
+                page.pieces.iter().find(|p| p.0 == start_sq)
+            {
+                // Дошла до последнего ряда — стала дамкой.
+                let damka_now = *damka || (page.promote && t >= 1.0);
+                self.paint_piece(
+                    painter,
+                    pos,
+                    cell * 1.02,
+                    *kind,
+                    damka_now,
+                    *side,
+                    pal,
+                    1.0,
+                    *checkers_form,
+                    None,
+                );
             }
+        }
+        // Красная пульсация: кто обязан бить серию (как в самой игре).
+        let pulse = 0.5 + 0.5 * (self.time * 4.5).sin();
+        for sq in page.forced {
+            let c = if let (Some(s), Some(pos)) = (mover_start, mover_pos) {
+                if s == *sq {
+                    pos
+                } else {
+                    sq_rect(*sq).center()
+                }
+            } else {
+                sq_rect(*sq).center()
+            };
+            painter.circle_stroke(
+                c,
+                cell * 0.44,
+                Stroke::new(2.6_f32, alpha(Color32::from_rgb(236, 72, 72), 0.35 + 0.45 * pulse)),
+            );
         }
     }
 

@@ -4168,23 +4168,60 @@ impl App {
         let log_bottom = setup_top - 10.0;
         let line_h = 17.0;
         let max_lines = (((log_bottom - log_top) / line_h).floor() as usize).max(0);
-        if max_lines > 0 && !g.log.is_empty() {
-            let start = g.log.len().saturating_sub(max_lines);
+        if max_lines > 0 && !g.history.is_empty() {
+            // Тот же вид, что в просмотре лога: «полуход.ход» и природа хода.
+            let (all_lines, _switched, all_phases) = Self::build_review_lines(g);
+            let lines = &all_lines[1..];
+            let phases = &all_phases[1..];
+            let start = lines.len().saturating_sub(max_lines);
             let mut ly = log_top;
-            for (idx, line) in g.log[start..].iter().enumerate() {
-                let is_last = start + idx + 1 == g.log.len();
-                text_fit(
-                    painter,
-                    Pos2::new(x, ly),
-                    line,
-                    w,
-                    12.5,
-                    if is_last {
-                        alpha(cur.text, 0.95)
-                    } else {
-                        alpha(cur.text_dim, 0.8)
+            let font = FontId::proportional(12.0);
+            for idx in start..lines.len() {
+                let is_last = idx + 1 == lines.len();
+                let base = if is_last {
+                    alpha(cur.text, 0.95)
+                } else {
+                    alpha(cur.text_dim, 0.8)
+                };
+                let mut job = egui::text::LayoutJob::default();
+                job.wrap.max_width = w;
+                job.append(
+                    &lines[idx],
+                    0.0,
+                    egui::TextFormat {
+                        font_id: font.clone(),
+                        color: base,
+                        ..Default::default()
                     },
                 );
+                if let Some(ph) = phases.get(idx).copied().flatten() {
+                    let ph_pal = Palette::for_phase(ph);
+                    job.append(
+                        " · ",
+                        0.0,
+                        egui::TextFormat {
+                            font_id: font.clone(),
+                            color: alpha(cur.text_dim, 0.6),
+                            ..Default::default()
+                        },
+                    );
+                    let word = if ph == Phase::Checkers {
+                        i18n::tr("шашки")
+                    } else {
+                        i18n::tr("шахматы")
+                    };
+                    job.append(
+                        word,
+                        0.0,
+                        egui::TextFormat {
+                            font_id: font.clone(),
+                            color: ph_pal.accent,
+                            ..Default::default()
+                        },
+                    );
+                }
+                let galley = painter.layout_job(job);
+                painter.galley(Pos2::new(x, ly), galley, Color32::WHITE);
                 ly += line_h;
             }
         } else if max_lines > 0 {
@@ -6459,6 +6496,10 @@ impl App {
             Pos2::new(x, card.bottom() - pad - 36.0),
             Vec2::new(160.0, 36.0),
         );
+        let copy_path = Rect::from_min_size(
+            Pos2::new(copy.right() + 10.0, card.bottom() - pad - 36.0),
+            Vec2::new(180.0, 36.0),
+        );
         let text_rect = Rect::from_min_max(
             Pos2::new(x, card.top() + 70.0),
             Pos2::new(card.right() - pad, close.top() - 10.0),
@@ -6487,6 +6528,11 @@ impl App {
 
         if button(ui, copy, "Копировать", false, &pal, 12.0) {
             ui.ctx().copy_text(self.journal_text.clone());
+        }
+        if button(ui, copy_path, "Копировать путь", false, &pal, 12.0) {
+            if let Some(path) = &self.last_log {
+                ui.ctx().copy_text(path.display().to_string());
+            }
         }
         if button(ui, close, "Закрыть", true, &pal, 13.0) {
             self.journal = false;

@@ -6556,10 +6556,7 @@ impl App {
 
     fn paint_guide(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(180));
-        let card = Rect::from_center_size(
-            layout.full.center(),
-            Vec2::new(860.0, if self.guide_rules { 560.0 } else { 650.0 }),
-        );
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(860.0, 650.0));
         self.guide_rect = card;
         let pal = Palette::for_phase(if self.guide_checkers {
             Phase::Checkers
@@ -6610,26 +6607,13 @@ impl App {
             Pos2::new(close.left() - 92.0, card.top() + 18.0),
             Vec2::new(84.0, 28.0),
         );
-        let section = Rect::from_min_size(
-            Pos2::new(back_rules.left() - 108.0, card.top() + 18.0),
-            Vec2::new(100.0, 28.0),
-        );
-        if chip(
-            ui,
-            section,
-            if self.guide_rules {
-                "Фигуры"
-            } else {
-                "Правила"
-            },
-            self.guide_rules,
-            &pal,
-        ) {
-            self.guide_rules = !self.guide_rules;
-            self.guide_page = 0;
-            self.guide_demo = None;
-        }
         if self.guide_rules {
+            // Из правил возвращаемся к разбору фигур — одна кнопка.
+            if chip(ui, back_rules, "Фигуры", true, &pal) {
+                self.guide_rules = false;
+                self.guide_page = 0;
+                self.guide_demo = None;
+            }
             self.paint_guide_rules(ui, painter, card, &pal);
             return;
         }
@@ -6648,6 +6632,15 @@ impl App {
         if chip(ui, chess_mode, "ШАХМАТЫ", !self.guide_checkers, &pal) {
             self.guide_checkers = false;
             self.guide_damka = false;
+            self.guide_demo = None;
+        }
+        let guide_chip = Rect::from_min_size(
+            Pos2::new(left_x + (mode_w + 10.0) * 2.0, mode_y),
+            Vec2::new(210.0, 34.0),
+        );
+        if chip(ui, guide_chip, "Интерактивный гид", false, &pal) {
+            self.guide_rules = true;
+            self.guide_page = 0;
             self.guide_demo = None;
         }
         if chip(ui, check_mode, "ШАШКИ", self.guide_checkers, &pal) {
@@ -6706,12 +6699,15 @@ impl App {
             }
         }
 
+        // Демонстрация — крупно, на половину ширины окна: так видно фигуру.
+        let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 250.0);
+        let board = Rect::from_min_size(
+            Pos2::new(left_x, card.top() + 176.0),
+            Vec2::splat(board_size),
+        );
         text(
             painter,
-            Pos2::new(
-                left_x,
-                card.top() + 190.0,
-            ),
+            Pos2::new(left_x, card.top() + 156.0),
             Align2::LEFT_TOP,
             if self.guide_checkers {
                 "ФИГУРА В ШАШКАХ"
@@ -6721,10 +6717,15 @@ impl App {
             9.0,
             alpha(pal.text_dim, 0.75),
         );
+        self.paint_guide_board(painter, board, &pal);
+
+        // Справа: сначала сама фигура, под ней — текст.
+        let right_x = board.right() + 26.0;
+        let right_w = card.right() - pad - right_x;
         self.paint_piece(
             painter,
-            Pos2::new(left_x + 126.0, card.top() + 292.0),
-            116.0,
+            Pos2::new(right_x + right_w * 0.5, card.top() + 250.0),
+            150.0,
             self.guide_kind,
             self.guide_damka,
             Side::White,
@@ -6733,28 +6734,15 @@ impl App {
             self.guide_checkers,
             None,
         );
-        text(
-            painter,
-            Pos2::new(left_x, card.top() + 372.0),
-            Align2::LEFT_TOP,
-            "ДЕМОНСТРАЦИЯ",
-            8.5,
-            alpha(pal.text_dim, 0.65),
-        );
-        let board = Rect::from_min_size(
-            Pos2::new(left_x + 18.0, card.top() + 394.0),
-            Vec2::splat(210.0),
-        );
-        self.paint_guide_board(painter, board, &pal);
-
         let (move_text, capture_text) = if self.guide_checkers {
             guide_checkers_text(self.guide_kind, self.guide_damka)
         } else {
             guide_text(self.guide_kind, false)
         };
+        let mut y = card.top() + 340.0;
         text(
             painter,
-            Pos2::new(right_x, card.top() + 190.0),
+            Pos2::new(right_x, y),
             Align2::LEFT_TOP,
             if self.guide_checkers {
                 if self.guide_damka {
@@ -6767,10 +6755,10 @@ impl App {
             } else {
                 piece_title_ru(self.guide_kind)
             },
-            27.0,
+            24.0,
             pal.text,
         );
-        let mut y = card.top() + 238.0;
+        y += 34.0;
         text(
             painter,
             Pos2::new(right_x, y),
@@ -6779,16 +6767,9 @@ impl App {
             9.0,
             pal.accent,
         );
-        y += 19.0;
-        let h = wrapped_text(
-            painter,
-            Pos2::new(right_x, y),
-            right_w,
-            move_text,
-            11.5,
-            pal.text,
-        );
-        y += h + 26.0;
+        y += 18.0;
+        let h = wrapped_text(painter, Pos2::new(right_x, y), right_w, move_text, 11.5, pal.text);
+        y += h + 18.0;
         text(
             painter,
             Pos2::new(right_x, y),
@@ -6797,22 +6778,16 @@ impl App {
             9.0,
             pal.accent,
         );
-        y += 19.0;
-        let _ = wrapped_text(
-            painter,
-            Pos2::new(right_x, y),
-            right_w,
-            capture_text,
-            11.5,
-            pal.text,
-        );
+        y += 18.0;
+        let _ = wrapped_text(painter, Pos2::new(right_x, y), right_w, capture_text, 11.5, pal.text);
 
-        let btn_y = card.bottom() - 62.0;
-        let bw = (right_w - 10.0) * 0.5;
-        let demo_move = Rect::from_min_size(Pos2::new(right_x, btn_y), Vec2::new(bw, 40.0));
+        // Кнопки демонстрации — под доской.
+        let btn_y = board.bottom() + 14.0;
+        let bw = (board.width() - 10.0) * 0.5;
+        let demo_move = Rect::from_min_size(Pos2::new(board.left(), btn_y), Vec2::new(bw, 38.0));
         let demo_capture = Rect::from_min_size(
-            Pos2::new(right_x + bw + 10.0, btn_y),
-            Vec2::new(bw, 40.0),
+            Pos2::new(board.left() + bw + 10.0, btn_y),
+            Vec2::new(bw, 38.0),
         );
         if button(
             ui,
@@ -6873,45 +6848,58 @@ impl App {
         let pad = 30.0;
         let left_x = card.left() + pad;
         let page = &RULE_DEMOS[self.guide_page.min(RULE_DEMOS.len() - 1)];
+        // Демо-зона — половина ширины окна, как в разборе фигур.
+        let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 250.0);
         let board = Rect::from_min_size(
+            Pos2::new(left_x, card.top() + 124.0),
+            Vec2::splat(board_size),
+        );
+        text(
+            painter,
             Pos2::new(left_x, card.top() + 104.0),
-            Vec2::splat(340.0),
+            Align2::LEFT_TOP,
+            "ДЕМОНСТРАЦИЯ",
+            9.0,
+            alpha(pal.text_dim, 0.75),
         );
         self.paint_rule_board(painter, board, pal, page);
-        let right_x = left_x + 372.0;
+        let right_x = board.right() + 26.0;
         let right_w = card.right() - pad - right_x;
         text(
             painter,
-            Pos2::new(right_x, card.top() + 104.0),
+            Pos2::new(right_x, card.top() + 124.0),
             Align2::LEFT_TOP,
             i18n::tr(page.title),
             23.0,
             pal.text,
         );
-        wrapped_text(
-            painter,
-            Pos2::new(right_x, card.top() + 146.0),
-            right_w,
-            i18n::tr(page.text),
-            12.0,
-            pal.text,
-        );
         let last = RULE_DEMOS.len() - 1;
+        // Счётчик страниц — под демонстрацией.
         text(
             painter,
-            Pos2::new(right_x, card.bottom() - 96.0),
+            Pos2::new(left_x, board.bottom() + 12.0),
             Align2::LEFT_TOP,
             format!("{} / {}", self.guide_page + 1, RULE_DEMOS.len()),
             10.5,
             alpha(pal.text_dim, 0.85),
         );
+        // Кнопки — в правом блоке, сразу под текстом.
+        let text_h = wrapped_text(
+            painter,
+            Pos2::new(right_x, card.top() + 166.0),
+            right_w,
+            i18n::tr(page.text),
+            12.0,
+            pal.text,
+        );
+        let btn_y = (card.top() + 166.0 + text_h + 22.0).min(card.bottom() - 62.0);
         let bw = (right_w - 10.0) * 0.5;
         let prev = Rect::from_min_size(
-            Pos2::new(right_x, card.bottom() - 62.0),
+            Pos2::new(right_x, btn_y),
             Vec2::new(bw, 40.0),
         );
         let next = Rect::from_min_size(
-            Pos2::new(right_x + bw + 10.0, card.bottom() - 62.0),
+            Pos2::new(right_x + bw + 10.0, btn_y),
             Vec2::new(bw, 40.0),
         );
         if button(ui, prev, "◀ Назад", false, pal, 11.5) && self.guide_page > 0 {
@@ -6981,7 +6969,7 @@ impl App {
             self.paint_piece(
                 painter,
                 sq_rect(*sq).center(),
-                cell * 0.90,
+                cell * 1.02,
                 *kind,
                 *damka,
                 *side,

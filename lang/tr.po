@@ -1241,3 +1241,6 @@ msgstr "Bir parti seçin — tahta ve hamlelerle açılır."
 
 msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}"
 msgstr "hamle {n} · satranç {c}, dama {k} · alınan {cc}/{ck} · faz değişimi {f} · materyal {m}"
+
+msgid "Ход {full} · полуход {ply} из {total}"
+msgstr "Hamle {full} · yarım hamle {ply}/{total}"

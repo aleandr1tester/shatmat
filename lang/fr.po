@@ -1241,3 +1241,6 @@ msgstr "Choisissez une partie — elle s'ouvre avec le plateau et les coups."
 
 msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}"
 msgstr "coups {n} · échecs {c}, dames {k} · prises {cc}/{ck} · changements {f} · matériel {m}"
+
+msgid "Ход {full} · полуход {ply} из {total}"
+msgstr "Coup {full} · demi-coup {ply} sur {total}"

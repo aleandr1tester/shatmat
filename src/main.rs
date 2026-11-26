@@ -2027,12 +2027,16 @@ impl App {
             .unwrap_or(0)
     }
 
-    /// Короткие строки ходов для панели: «1. e2-e4», «1... e7-e5».
+    /// Строки ходов для панели просмотра: «полуход.ход» впереди, чтобы
+    /// различать ход и полуход, и природа хода — как в файле лога:
+    /// «1.1 e2-e4 · шахматы», «7.4 h2-g3 · шашки». Ход, сменивший природу,
+    /// помечается стрелкой.
     fn build_review_lines(saved: &Game) -> Vec<String> {
         let mut out = Vec::with_capacity(saved.history.len() + 1);
         out.push(i18n::tr("0. Начальная позиция").to_string());
         let mut full_move = 0usize;
-        for r in &saved.history {
+        let mut prev_phase: Option<Phase> = None;
+        for (i, r) in saved.history.iter().enumerate() {
             let sep = if r.captured.is_some() { "x" } else { "-" };
             let mv = format!(
                 "{}{}{}",
@@ -2042,10 +2046,20 @@ impl App {
             );
             if r.side == Side::White {
                 full_move += 1;
-                out.push(format!("{full_move}. {mv}"));
-            } else {
-                out.push(format!("{full_move}... {mv}"));
             }
+            let ply = i + 1;
+            let phase = if r.phase == Phase::Checkers {
+                i18n::tr("шашки")
+            } else {
+                i18n::tr("шахматы")
+            };
+            let turn = if prev_phase.is_some() && prev_phase != Some(r.phase) {
+                "» "
+            } else {
+                ""
+            };
+            out.push(format!("{turn}{ply}.{full_move} {mv} · {phase}"));
+            prev_phase = Some(r.phase);
         }
         out
     }
@@ -6772,14 +6786,16 @@ impl App {
         );
         y += 24.0;
         let total = self.review_max();
+        let full_move = (self.review_ply + 1) / 2;
         text(
             painter,
             Pos2::new(x, y),
             Align2::LEFT_TOP,
             i18n::trf(
-                "Ход {n} из {total}",
+                "Ход {full} · полуход {ply} из {total}",
                 &[
-                    ("n", &self.review_ply.to_string()),
+                    ("full", &full_move.to_string()),
+                    ("ply", &self.review_ply.to_string()),
                     ("total", &total.to_string()),
                 ],
             ),

@@ -1240,3 +1240,6 @@ msgstr "Wähle eine Partie — sie öffnet sich zur Durchsicht mit Brett und Zü
 
 msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}"
 msgstr "Züge {n} · Schach {c}, Damespiel {k} · Schläge {cc}/{ck} · Phasenwechsel {f} · Material {m}"
+
+msgid "Ход {full} · полуход {ply} из {total}"
+msgstr "Zug {full} · Halbzug {ply} von {total}"

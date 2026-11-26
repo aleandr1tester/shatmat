@@ -1240,3 +1240,6 @@ msgstr "Elige una partida — se abrirá con tablero y jugadas."
 
 msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}/{ck} · смен {f} · материал {m}"
 msgstr "jugadas {n} · ajedrez {c}, damas {k} · capturas {cc}/{ck} · cambios {f} · material {m}"
+
+msgid "Ход {full} · полуход {ply} из {total}"
+msgstr "Jugada {full} · medio movimiento {ply} de {total}"

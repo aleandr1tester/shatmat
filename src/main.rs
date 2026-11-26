@@ -6635,6 +6635,9 @@ impl App {
             self.guide_page = 0;
             self.guide_demo = None;
         }
+        if button(ui, close, "Закрыть", false, &pal, 10.5) {
+            self.guide = false;
+        }
         if self.guide_rules {
             self.paint_guide_rules(ui, painter, card, &pal);
             return;
@@ -6818,9 +6821,6 @@ impl App {
                 victim: Some(victim),
                 t: 0.0,
             });
-        }
-        if button(ui, close, "Закрыть", false, &pal, 10.5) {
-            self.guide = false;
         }
     }
 

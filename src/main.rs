@@ -767,10 +767,15 @@ fn all_piece_sets(packs: &[PackInfo]) -> Vec<(String, String)> {
     out
 }
 
-/// Выбранный набор запоминается в pieces/current.txt (пусто — встроенный).
+/// Выбранный набор фигур: пишется в packs/current.txt строкой `pieces=…`
+/// (пусто — «Встроенный»). Старый pieces/current.txt читается для
+/// совместимости: папки pieces/ в сборке больше нет, но у пользователя
+/// с прежней версией она может остаться.
 fn saved_preset() -> Option<String> {
-    let path = pieces_dir().join("current.txt");
-    let text = std::fs::read_to_string(path).ok()?;
+    if let Some(name) = saved_pack("pieces") {
+        return Some(name);
+    }
+    let text = std::fs::read_to_string(pieces_dir().join("current.txt")).ok()?;
     let name = text.trim().to_string();
     if name.is_empty() {
         None
@@ -780,8 +785,7 @@ fn saved_preset() -> Option<String> {
 }
 
 fn save_preset(name: Option<&str>) {
-    let path = pieces_dir().join("current.txt");
-    let _ = std::fs::write(path, name.unwrap_or(""));
+    save_pack("pieces", name);
 }
 
 struct Layout {

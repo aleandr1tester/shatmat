@@ -88,27 +88,24 @@ durations, move limit, pawn promotion, mandatory capture and the damka mode.
 
 The standard set lives in the pack `packs/standard/pieces/` — that is the
 "Built-in" option in Settings. It is a pack like any other, so it is easy to
-use as a template: copy `packs/standard` to `packs/my-set`.
+use as a template: copy `packs/standard` to `packs/my-set`, replace the images
+and change `name=` in `pack.txt`.
 
 **A pack** is a folder `packs/<name>/` with a `pack.txt` inside, containing
 `pieces/`, `sounds/` and `music/` (any one of them is enough). In Settings a
 pack appears as a separate option in each list: you can take the pieces from a
-pack and keep the built-in sounds, or the other way round. Details and naming
-rules are in `packs/README.txt`.
+pack and keep the built-in sounds, or the other way round.
 
-**Custom pieces without a pack** — put PNG (or SVG) files straight into
-`pieces` next to the program and the game picks them up on launch. Sets made
-before packs existed live in subfolders `pieces/<name>/` and keep working.
+There is no separate `pieces/` folder next to the game any more: every set is
+a pack. If you still have an old `pieces/` folder with files or set subfolders,
+it keeps working: the selected pack wins, then files in `pieces/`, then the
+standard pack.
 
-Priority: the selected pack → files in the `pieces/` root → the standard pack
-`packs/standard`.
-
-Place PNG files in the `pieces` folder next to the program — the game will
-pick them up on launch. Requirements: PNG RGBA with a transparent background,
-a 512×512 square (256×256 is fine), the piece centred, height about 85–90% of
-the canvas, no shadow, square, text or watermarks. Names: `white_pawn.png` …
-`white_king.png` and the same `black_*.png`. Details are in
-`pieces/README.txt`.
+Requirements: PNG RGBA with a transparent background, a 512×512 square
+(256×256 is fine), the piece centred, height about 85–90% of the canvas, no
+shadow, square, text or watermarks. Names: `white_pawn.png` …
+`white_king.png` and the same `black_*.png`; `.svg` works too and is
+preferred. The full list of names and requirements is in `packs/README.txt`.
 
 You can also use vector pieces: place `.svg` files with the same names
 (`white_pawn.svg`, …). The game prefers SVG over PNG. SVG is rendered at any
@@ -316,9 +313,8 @@ git show --stat HEAD
 - `sounds/` — replaceable WAV/MP3 files: `move`, `capture`, `twilight`
   (same names, either extension).
 - `music/` — `theme.wav` for background music.
-- `packs/standard/pieces/` — the standard piece set; custom sets and packs go
-  to `packs/` or `pieces/` (see `packs/README.txt`, `pieces/README.txt`).
-- `packs/` — packs: pieces, sounds and music in one set (see
+- `packs/` — packs: pieces, sounds and music in one set. `packs/standard` is
+  the standard set ("Built-in") and the template for your own pack (see
   `packs/README.txt`).
 - `lang/` — interface translations: `ru.po`, `en.po`, `es.po`, `de.po`,
   `fr.po`, `tr.po` (or `.mo`).

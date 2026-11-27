@@ -74,7 +74,7 @@
 | Текст/подпись в интерфейсе | `src/main.rs`, затем `lang/*.po` + `lang/msgids.txt` |
 | Новое правило или причина результата | `src/game.rs` (`refresh_status`, `Status`), затем `lang/` |
 | Журнал партии, демо-логи | `src/logging.rs` |
-| Фигуры, иконки на доске | `src/art.rs`, `pieces/`, `packs/` |
+| Фигуры, иконки на доске | `src/art.rs`, `packs/` |
 | Звук и музыка | `src/sound.rs`, `src/music.rs`, `packs/*/sounds`, `packs/*/music` |
 | Сетевые сообщения | `src/net.rs` |
 | Код правил | `src/rulecode.rs` |

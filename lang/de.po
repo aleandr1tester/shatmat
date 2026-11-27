@@ -1252,3 +1252,81 @@ msgstr "gleich"
 
 msgid "Демонстрация правил"
 msgstr "Regeln-Demo"
+
+msgid "Смена природы"
+msgstr "Naturwechsel"
+
+msgid "Партия идёт в двух природах: шахматы и шашки. В панели видно, сколько ходов осталось до смены. После последнего хода доска замирает на паузу — это не зависание: природа меняется. Фигуры превращаются: пешка становится шашкой, ферзь — дамкой, король в шашках остаётся с меткой и его можно взять. Нажмите «Показать» и посмотрите на доску."
+msgstr "Eine Partie läuft in zwei Naturen: Schach und Damespiel. Die Leiste zeigt, wie viele Züge bis zum Wechsel bleiben. Nach dem letzten Zug friert das Brett kurz ein — das ist kein Hänger: die Natur wechselt. Figuren verwandeln sich: Bauer wird Stein, Dame wird Damka, der König im Damespiel behält seine Markierung und kann geschlagen werden. Drücken Sie „Zeigen“ und schauen Sie aufs Brett."
+
+msgid "Серия взятий"
+msgstr "Schlagserie"
+
+msgid "В шашках взятие обязательно, если оно есть. Бить нужно самую длинную серию: красным пульсирует шашка, у которой серия длиннее. Она бьёт одну фигуру, остаётся на новом поле и продолжает — пока есть цель."
+msgstr "Im Damespiel ist Schlagen Pflicht, wenn es möglich ist. Man muss die längste Serie nehmen: der Stein mit der längeren Serie pulsiert rot. Er schlägt einen Stein, landet auf einem neuen Feld und macht weiter — solange ein Ziel da ist."
+
+msgid "В шахматах короля не берут — ему ставят мат. В шашках король ходит и бьёт как дамка, но его можно взять, и это сразу поражение. Три способа взять короля — ниже."
+msgstr "Im Schach wird der König nicht geschlagen — er wird matt gesetzt. Im Damespiel zieht und schlägt der König wie eine Damka, aber er kann geschlagen werden, und das ist sofort eine Niederlage. Drei Arten, den König zu schlagen, finden Sie unten."
+
+msgid "Прыжок"
+msgstr "Sprung"
+
+msgid "Обычная шашка берёт короля-шашку прыжком через него — так же, как любую другую шашку."
+msgstr "Ein einfacher Stein schlägt den König-Stein im Sprung über ihn — wie jeden anderen Stein."
+
+msgid "Касание у края"
+msgstr "Berührung am Rand"
+
+msgid "Король на крайней линии: прыгать некуда. Дамка (или король) берёт его наступлением на его клетку. Простая шашка так не может."
+msgstr "Der König an der Randlinie: Es gibt kein Feld zum Springen. Eine Damka (oder der König) schlägt ihn, indem sie auf sein Feld tritt. Ein einfacher Stein kann das nicht."
+
+msgid "Защита"
+msgstr "Schutz"
+
+msgid "За королём по диагонали стоит фигура: поле приземления занято, прыжка нет. Наступить простая шашка не может — король под защитой."
+msgstr "Hinter dem König steht auf der Diagonale eine Figur: Das Landefeld ist besetzt, also kein Sprung. Ein einfacher Stein kann nicht auf ihn treten — der König ist geschützt."
+
+msgid "Коронация"
+msgstr "Umwandlung"
+
+msgid "Шашка ходит и бьёт по диагонали, а дойдя до последнего ряда, становится дамкой: она летит по всей диагонали на любое расстояние. При смене природы на шашки дамками становятся все фигуры на последнем ряду — настройка «Дамки: все»."
+msgstr "Ein Stein zieht und schlägt diagonal, und auf der letzten Reihe wird er zur Damka: Sie fliegt über die ganze Diagonale. Beim Naturwechsel zu Damespiel werden alle Figuren auf der letzten Reihe zur Damka — Einstellung „Damki: alle“."
+
+msgid "Победа и ничья"
+msgstr "Sieg und Remis"
+
+msgid "Победа: король соперника взят или ему мат. Ничья: остались только короли, или двадцать полуходов без взятий при одиноком короле."
+msgstr "Sieg: Der gegnerische König ist geschlagen oder matt. Remis: Nur Könige sind übrig, oder zwanzig Halbzüge ohne Schlag bei einem einzelnen König."
+
+msgid "НИЧЬИ\n"
+msgstr "REMIS\n"
+
+msgid "ПРОСМОТР ЛОГА"
+msgstr "LOG-ANSICHT"
+
+msgid "Простая шашка берёт короля только прыжком через него — как любую шашку."
+msgstr "Ein einfacher Stein schlägt den König nur im Sprung über ihn — wie jeden Stein."
+
+msgid "Дамка и король берут короля наступлением на его клетку. Это единственный способ, когда король стоит на крайней линии: поля приземления за ним нет."
+msgstr "Eine Damka und der König schlagen den König, indem sie auf sein Feld treten. Das ist der einzige Weg, wenn der König auf der Randlinie steht: Hinter ihm gibt es kein Landefeld."
+
+msgid "Если за королём по диагонали стоит фигура, простая шашка взять его не может: поле приземления занято, а наступить ей нельзя — король под защитой."
+msgstr "Steht hinter dem König auf der Diagonale eine Figur, kann ein einfacher Stein ihn nicht schlagen: Das Landefeld ist besetzt, und auf ihn treten kann er nicht — der König ist geschützt."
+
+msgid "Пешка-король с кружком: выглядит как шашка, но ходит как дамка — по диагонали на любое расстояние, пока путь свободен. Потеря короля — сразу поражение, следите за ним особенно внимательно."
+msgstr "Der gekrönte Stein: sieht aus wie ein Stein, zieht aber wie eine Damka — diagonal beliebig weit, solange der Weg frei ist. Der Verlust des Königs ist sofortige Niederlage — gut aufpassen."
+
+msgid "Бьёт как дамка: сбивает фигуру на диагонали и встаёт за ней на любое свободное поле. Короля соперника, стоящего на краю, может взять касанием — прыгать некуда."
+msgstr "Schlägt wie eine Damka: nimmt eine Figur auf der Diagonale und landet auf einem freien Feld dahinter. Ein gegnerischer König am Rand kann durch Berührung geschlagen werden."
+
+msgid "Интерактивный гид"
+msgstr "Interaktiver Leitfaden"
+
+msgid "К началу"
+msgstr "Zum Anfang"
+
+msgid "Копировать путь"
+msgstr "Pfad kopieren"
+
+msgid "Показать"
+msgstr "Zeigen"

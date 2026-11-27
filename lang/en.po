@@ -1253,3 +1253,81 @@ msgstr "even"
 
 msgid "Демонстрация правил"
 msgstr "Rules demo"
+
+msgid "Смена природы"
+msgstr "Nature shift"
+
+msgid "Партия идёт в двух природах: шахматы и шашки. В панели видно, сколько ходов осталось до смены. После последнего хода доска замирает на паузу — это не зависание: природа меняется. Фигуры превращаются: пешка становится шашкой, ферзь — дамкой, король в шашках остаётся с меткой и его можно взять. Нажмите «Показать» и посмотрите на доску."
+msgstr "A game runs in two natures: chess and checkers. The panel shows how many moves remain before the shift. After the last move the board freezes for a moment — that is not a hang: the nature is changing. Pieces transform: a pawn becomes a checker, a queen becomes a damka, the king in checkers keeps its mark and can be captured. Press «Show» and watch the board."
+
+msgid "Серия взятий"
+msgstr "Capture chain"
+
+msgid "В шашках взятие обязательно, если оно есть. Бить нужно самую длинную серию: красным пульсирует шашка, у которой серия длиннее. Она бьёт одну фигуру, остаётся на новом поле и продолжает — пока есть цель."
+msgstr "In checkers a capture is forced whenever one is available. You must take the longest chain: the piece with the longer chain pulses red. It captures one piece, lands on a new square and continues — as long as there is a target."
+
+msgid "В шахматах короля не берут — ему ставят мат. В шашках король ходит и бьёт как дамка, но его можно взять, и это сразу поражение. Три способа взять короля — ниже."
+msgstr "In chess the king is not captured — he is checkmated. In checkers the king moves and captures like a damka, but he can be taken, and that is an immediate loss. Three ways to take the king are below."
+
+msgid "Прыжок"
+msgstr "Jump"
+
+msgid "Обычная шашка берёт короля-шашку прыжком через него — так же, как любую другую шашку."
+msgstr "A simple checker takes the king-checker by jumping over it — just like any other checker."
+
+msgid "Касание у края"
+msgstr "Touch at the edge"
+
+msgid "Король на крайней линии: прыгать некуда. Дамка (или король) берёт его наступлением на его клетку. Простая шашка так не может."
+msgstr "The king on the edge line: there is nowhere to jump. A damka (or the king) takes him by stepping onto his square. A simple checker cannot do that."
+
+msgid "Защита"
+msgstr "Protection"
+
+msgid "За королём по диагонали стоит фигура: поле приземления занято, прыжка нет. Наступить простая шашка не может — король под защитой."
+msgstr "A piece stands behind the king on the diagonal: the landing square is occupied, so there is no jump. A simple checker cannot step on him — the king is protected."
+
+msgid "Коронация"
+msgstr "Promotion"
+
+msgid "Шашка ходит и бьёт по диагонали, а дойдя до последнего ряда, становится дамкой: она летит по всей диагонали на любое расстояние. При смене природы на шашки дамками становятся все фигуры на последнем ряду — настройка «Дамки: все»."
+msgstr "A checker moves and captures diagonally, and reaching the last rank it becomes a damka: it then flies along the whole diagonal. When the nature shifts to checkers, every piece on the last rank becomes a damka — the «Damki: all» setting."
+
+msgid "Победа и ничья"
+msgstr "Win and draw"
+
+msgid "Победа: король соперника взят или ему мат. Ничья: остались только короли, или двадцать полуходов без взятий при одиноком короле."
+msgstr "Win: the opponent's king is captured or checkmated. Draw: only kings remain, or twenty half-moves without captures with a lone king."
+
+msgid "НИЧЬИ\n"
+msgstr "DRAWS\n"
+
+msgid "ПРОСМОТР ЛОГА"
+msgstr "LOG REVIEW"
+
+msgid "Простая шашка берёт короля только прыжком через него — как любую шашку."
+msgstr "A simple checker takes the king only by jumping over him — like any checker."
+
+msgid "Дамка и король берут короля наступлением на его клетку. Это единственный способ, когда король стоит на крайней линии: поля приземления за ним нет."
+msgstr "A damka and the king take the king by stepping onto his square. This is the only way when the king stands on the edge line: there is no landing square behind him."
+
+msgid "Если за королём по диагонали стоит фигура, простая шашка взять его не может: поле приземления занято, а наступить ей нельзя — король под защитой."
+msgstr "If a piece stands behind the king on the diagonal, a simple checker cannot take him: the landing square is occupied and it cannot step on him — the king is protected."
+
+msgid "Пешка-король с кружком: выглядит как шашка, но ходит как дамка — по диагонали на любое расстояние, пока путь свободен. Потеря короля — сразу поражение, следите за ним особенно внимательно."
+msgstr "The crowned checker: it looks like a checker but moves like a damka — diagonally for any distance while the path is clear. Losing the king is an instant defeat, watch it closely."
+
+msgid "Бьёт как дамка: сбивает фигуру на диагонали и встаёт за ней на любое свободное поле. Короля соперника, стоящего на краю, может взять касанием — прыгать некуда."
+msgstr "Captures like a damka: takes a piece on the diagonal and lands on any free square behind it. An enemy king on the edge can be taken by touch — there is nowhere to jump."
+
+msgid "Интерактивный гид"
+msgstr "Interactive guide"
+
+msgid "К началу"
+msgstr "To start"
+
+msgid "Копировать путь"
+msgstr "Copy path"
+
+msgid "Показать"
+msgstr "Show"

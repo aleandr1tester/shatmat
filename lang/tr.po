@@ -1253,3 +1253,81 @@ msgstr "eşit"
 
 msgid "Демонстрация правил"
 msgstr "Kural demosu"
+
+msgid "Смена природы"
+msgstr "Doğa değişimi"
+
+msgid "Партия идёт в двух природах: шахматы и шашки. В панели видно, сколько ходов осталось до смены. После последнего хода доска замирает на паузу — это не зависание: природа меняется. Фигуры превращаются: пешка становится шашкой, ферзь — дамкой, король в шашках остаётся с меткой и его можно взять. Нажмите «Показать» и посмотрите на доску."
+msgstr "Parti iki doğada oynanır: satranç ve dama. Panel değişime kaç hamle kaldığını gösterir. Son hamleden sonra tahta bir an donar — bu donma değil: doğa değişiyor. Taşlar dönüşür: piyon dama taşına, vezir damkaya dönüşür; damada şah işaretini korur ve alınabilir. «Göster» düğmesine basıp tahtaya bakın."
+
+msgid "Серия взятий"
+msgstr "Vuruş serisi"
+
+msgid "В шашках взятие обязательно, если оно есть. Бить нужно самую длинную серию: красным пульсирует шашка, у которой серия длиннее. Она бьёт одну фигуру, остаётся на новом поле и продолжает — пока есть цель."
+msgstr "Damada vuruş varsa zorunludur. En uzun seriyi almak gerekir: serisi daha uzun olan taş kırmızı yanıp söner. Bir taşı alır, yeni kareye konar ve devam eder — hedef oldukça."
+
+msgid "В шахматах короля не берут — ему ставят мат. В шашках король ходит и бьёт как дамка, но его можно взять, и это сразу поражение. Три способа взять короля — ниже."
+msgstr "Satrançta şah alınmaz — mat edilir. Damada şah damka gibi hareket eder ve vurur, ama alınabilir ve bu hemen yenilgidir. Şahı almanın üç yolu aşağıda."
+
+msgid "Прыжок"
+msgstr "Atlayış"
+
+msgid "Обычная шашка берёт короля-шашку прыжком через него — так же, как любую другую шашку."
+msgstr "Basit bir dama taşı şah-taşı üzerinden atlayarak alır — diğer taşlar gibi."
+
+msgid "Касание у края"
+msgstr "Kenarda dokunma"
+
+msgid "Король на крайней линии: прыгать некуда. Дамка (или король) берёт его наступлением на его клетку. Простая шашка так не может."
+msgstr "Kenar sıradaki şah: atlayacak yer yok. Damka (ya da şah) onun karesine basarak alır. Basit taş bunu yapamaz."
+
+msgid "Защита"
+msgstr "Koruma"
+
+msgid "За королём по диагонали стоит фигура: поле приземления занято, прыжка нет. Наступить простая шашка не может — король под защитой."
+msgstr "Şahın arkasında çaprazda bir taş var: iniş karesi dolu, atlayış yok. Basit taş üzerine basamaz — şah korunuyor."
+
+msgid "Коронация"
+msgstr "Terfi"
+
+msgid "Шашка ходит и бьёт по диагонали, а дойдя до последнего ряда, становится дамкой: она летит по всей диагонали на любое расстояние. При смене природы на шашки дамками становятся все фигуры на последнем ряду — настройка «Дамки: все»."
+msgstr "Taş çapraz hareket eder ve vurur; son sıraya varınca damka olur: tüm çaprazda uçar. Doğa damaya döndüğünde son sıradaki tüm taşlar damka olur — «Damki: hepsi» ayarı."
+
+msgid "Победа и ничья"
+msgstr "Zafer ve beraberlik"
+
+msgid "Победа: король соперника взят или ему мат. Ничья: остались только короли, или двадцать полуходов без взятий при одиноком короле."
+msgstr "Zafer: rakibin şahı alınır ya da mat olur. Beraberlik: yalnızca şahlar kalır veya tek şahla yirmi yarım hamle vuruşsuz geçer."
+
+msgid "НИЧЬИ\n"
+msgstr "BERABERLİKLER\n"
+
+msgid "ПРОСМОТР ЛОГА"
+msgstr "GÜNLÜK İNCELEMESİ"
+
+msgid "Простая шашка берёт короля только прыжком через него — как любую шашку."
+msgstr "Basit taş şahı yalnızca üzerinden atlayarak alır — diğer taşlar gibi."
+
+msgid "Дамка и король берут короля наступлением на его клетку. Это единственный способ, когда король стоит на крайней линии: поля приземления за ним нет."
+msgstr "Damka ve şah, şahı onun karesine basarak alır. Şah kenar sıradaysa tek yol budur: arkasında iniş karesi yoktur."
+
+msgid "Если за королём по диагонали стоит фигура, простая шашка взять его не может: поле приземления занято, а наступить ей нельзя — король под защитой."
+msgstr "Şahın arkasında çaprazda taş varsa basit taş onu alamaz: iniş karesi dolu ve üzerine basamaz — şah korunuyor."
+
+msgid "Пешка-король с кружком: выглядит как шашка, но ходит как дамка — по диагонали на любое расстояние, пока путь свободен. Потеря короля — сразу поражение, следите за ним особенно внимательно."
+msgstr "Taçlı taş: dama taşına benzer ama damka gibi hareket eder — yol açıkken çaprazda her mesafe. Şahın kaybı anında yenilgidir, dikkat edin."
+
+msgid "Бьёт как дамка: сбивает фигуру на диагонали и встаёт за ней на любое свободное поле. Короля соперника, стоящего на краю, может взять касанием — прыгать некуда."
+msgstr "Damka gibi vurur: çaprazda bir taşı alır ve arkasındaki boş kareye konar. Kenardaki rakip şahı dokunarak alabilir — atlayacak yer yok."
+
+msgid "Интерактивный гид"
+msgstr "Etkileşimli rehber"
+
+msgid "К началу"
+msgstr "Başa"
+
+msgid "Копировать путь"
+msgstr "Yolu kopyala"
+
+msgid "Показать"
+msgstr "Göster"

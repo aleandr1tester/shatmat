@@ -6973,7 +6973,7 @@ impl App {
             pal.accent,
         );
         y += 18.0;
-        let h = wrapped_text(painter, Pos2::new(right_x, y), right_w, move_text, 11.5, pal.text);
+        let h = wrapped_text(painter, Pos2::new(right_x, y), right_w, &i18n::tr_owned(move_text.to_string()), 11.5, pal.text);
         y += h + 16.0;
         text(
             painter,
@@ -6984,7 +6984,7 @@ impl App {
             pal.accent,
         );
         y += 18.0;
-        let cap_h = wrapped_text(painter, Pos2::new(right_x, y), right_w, capture_text, 11.5, pal.text);
+        let cap_h = wrapped_text(painter, Pos2::new(right_x, y), right_w, &i18n::tr_owned(capture_text.to_string()), 11.5, pal.text);
 
         // Кнопки демонстрации — в правой колонке, под текстом.
         let btn_y = y + cap_h + 20.0;

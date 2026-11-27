@@ -1252,3 +1252,81 @@ msgstr "igualado"
 
 msgid "Демонстрация правил"
 msgstr "Demostración de reglas"
+
+msgid "Смена природы"
+msgstr "Cambio de naturaleza"
+
+msgid "Партия идёт в двух природах: шахматы и шашки. В панели видно, сколько ходов осталось до смены. После последнего хода доска замирает на паузу — это не зависание: природа меняется. Фигуры превращаются: пешка становится шашкой, ферзь — дамкой, король в шашках остаётся с меткой и его можно взять. Нажмите «Показать» и посмотрите на доску."
+msgstr "La partida transcurre en dos naturalezas: ajedrez y damas. El panel muestra cuántas jugadas quedan hasta el cambio. Tras el último movimiento el tablero se detiene un instante — no es un cuelgue: la naturaleza cambia. Las piezas se transforman: el peón se vuelve ficha, la reina se vuelve damka, el rey en damas conserva su marca y puede ser capturado. Pulsa «Mostrar» y mira el tablero."
+
+msgid "Серия взятий"
+msgstr "Cadena de capturas"
+
+msgid "В шашках взятие обязательно, если оно есть. Бить нужно самую длинную серию: красным пульсирует шашка, у которой серия длиннее. Она бьёт одну фигуру, остаётся на новом поле и продолжает — пока есть цель."
+msgstr "En damas la captura es obligatoria si existe. Hay que tomar la cadena más larga: la ficha con la cadena más larga pulsa en rojo. Captura una pieza, cae en una casilla nueva y continúa — mientras haya objetivo."
+
+msgid "В шахматах короля не берут — ему ставят мат. В шашках король ходит и бьёт как дамка, но его можно взять, и это сразу поражение. Три способа взять короля — ниже."
+msgstr "En ajedrez al rey no se le captura: se le da mate. En damas el rey se mueve y captura como una damka, pero puede ser tomado, y eso es derrota inmediata. Abajo hay tres formas de tomar al rey."
+
+msgid "Прыжок"
+msgstr "Salto"
+
+msgid "Обычная шашка берёт короля-шашку прыжком через него — так же, как любую другую шашку."
+msgstr "Una ficha simple toma al rey-ficha saltando sobre él — como cualquier otra ficha."
+
+msgid "Касание у края"
+msgstr "Toque en el borde"
+
+msgid "Король на крайней линии: прыгать некуда. Дамка (или король) берёт его наступлением на его клетку. Простая шашка так не может."
+msgstr "El rey en la línea del borde: no hay dónde saltar. Una damka (o el rey) lo toma pisando su casilla. Una ficha simple no puede."
+
+msgid "Защита"
+msgstr "Protección"
+
+msgid "За королём по диагонали стоит фигура: поле приземления занято, прыжка нет. Наступить простая шашка не может — король под защитой."
+msgstr "Detrás del rey, en la diagonal, hay una pieza: la casilla de aterrizaje está ocupada, así que no hay salto. Una ficha simple no puede pisarlo: el rey está protegido."
+
+msgid "Коронация"
+msgstr "Coronación"
+
+msgid "Шашка ходит и бьёт по диагонали, а дойдя до последнего ряда, становится дамкой: она летит по всей диагонали на любое расстояние. При смене природы на шашки дамками становятся все фигуры на последнем ряду — настройка «Дамки: все»."
+msgstr "La ficha se mueve y captura en diagonal, y al llegar a la última fila se convierte en damka: vuela por toda la diagonal. Al cambiar la naturaleza a damas, todas las piezas de la última fila se vuelven damka — ajuste «Damki: todas»."
+
+msgid "Победа и ничья"
+msgstr "Victoria y tablas"
+
+msgid "Победа: король соперника взят или ему мат. Ничья: остались только короли, или двадцать полуходов без взятий при одиноком короле."
+msgstr "Victoria: el rey rival es capturado o recibe mate. Tablas: solo quedan reyes, o veinte medios movimientos sin capturas con un rey solitario."
+
+msgid "НИЧЬИ\n"
+msgstr "TABLAS\n"
+
+msgid "ПРОСМОТР ЛОГА"
+msgstr "REVISIÓN DEL REGISTRO"
+
+msgid "Простая шашка берёт короля только прыжком через него — как любую шашку."
+msgstr "Una ficha simple toma al rey solo saltando sobre él — como cualquier ficha."
+
+msgid "Дамка и король берут короля наступлением на его клетку. Это единственный способ, когда король стоит на крайней линии: поля приземления за ним нет."
+msgstr "Una damka y el rey toman al rey pisando su casilla. Es la única forma cuando el rey está en la línea del borde: detrás no hay casilla de aterrizaje."
+
+msgid "Если за королём по диагонали стоит фигура, простая шашка взять его не может: поле приземления занято, а наступить ей нельзя — король под защитой."
+msgstr "Si hay una pieza detrás del rey en la diagonal, una ficha simple no puede tomarlo: la casilla de aterrizaje está ocupada y no puede pisarlo: el rey está protegido."
+
+msgid "Пешка-король с кружком: выглядит как шашка, но ходит как дамка — по диагонали на любое расстояние, пока путь свободен. Потеря короля — сразу поражение, следите за ним особенно внимательно."
+msgstr "La ficha coronada: parece una ficha pero se mueve como damka — en diagonal cualquier distancia si el camino está libre. Perder al rey es derrota instantánea; vigílalo."
+
+msgid "Бьёт как дамка: сбивает фигуру на диагонали и встаёт за ней на любое свободное поле. Короля соперника, стоящего на краю, может взять касанием — прыгать некуда."
+msgstr "Captura como damka: toma una pieza en la diagonal y cae en cualquier casilla libre detrás. Al rey rival en el borde puede tomarlo por contacto — no hay dónde saltar."
+
+msgid "Интерактивный гид"
+msgstr "Guía interactiva"
+
+msgid "К началу"
+msgstr "Al inicio"
+
+msgid "Копировать путь"
+msgstr "Copiar ruta"
+
+msgid "Показать"
+msgstr "Mostrar"

@@ -1253,3 +1253,81 @@ msgstr "égal"
 
 msgid "Демонстрация правил"
 msgstr "Démo des règles"
+
+msgid "Смена природы"
+msgstr "Changement de nature"
+
+msgid "Партия идёт в двух природах: шахматы и шашки. В панели видно, сколько ходов осталось до смены. После последнего хода доска замирает на паузу — это не зависание: природа меняется. Фигуры превращаются: пешка становится шашкой, ферзь — дамкой, король в шашках остаётся с меткой и его можно взять. Нажмите «Показать» и посмотрите на доску."
+msgstr "La partie se joue dans deux natures : échecs et dames. Le panneau indique combien de coups restent avant le changement. Après le dernier coup le plateau se fige un instant — ce n'est pas un blocage : la nature change. Les pièces se transforment : un pion devient un pion de dames, une reine devient une damka, le roi aux dames garde sa marque et peut être pris. Appuyez sur « Montrer » et regardez le plateau."
+
+msgid "Серия взятий"
+msgstr "Enchaînement de prises"
+
+msgid "В шашках взятие обязательно, если оно есть. Бить нужно самую длинную серию: красным пульсирует шашка, у которой серия длиннее. Она бьёт одну фигуру, остаётся на новом поле и продолжает — пока есть цель."
+msgstr "Aux dames, la prise est obligatoire dès qu'elle existe. Il faut prendre la chaîne la plus longue : le pion dont la chaîne est la plus longue pulse en rouge. Il prend une pièce, se pose sur une nouvelle case et continue — tant qu'il y a une cible."
+
+msgid "В шахматах короля не берут — ему ставят мат. В шашках король ходит и бьёт как дамка, но его можно взять, и это сразу поражение. Три способа взять короля — ниже."
+msgstr "Aux échecs, le roi ne se prend pas : on lui donne mat. Aux dames, le roi se déplace et prend comme une damka, mais il peut être pris, et c'est une défaite immédiate. Trois façons de prendre le roi sont ci-dessous."
+
+msgid "Прыжок"
+msgstr "Saut"
+
+msgid "Обычная шашка берёт короля-шашку прыжком через него — так же, как любую другую шашку."
+msgstr "Un simple pion prend le roi-pion en sautant par-dessus — comme n'importe quel autre pion."
+
+msgid "Касание у края"
+msgstr "Toucher au bord"
+
+msgid "Король на крайней линии: прыгать некуда. Дамка (или король) берёт его наступлением на его клетку. Простая шашка так не может."
+msgstr "Le roi sur la ligne du bord : il n'y a nulle part où sauter. Une damka (ou le roi) le prend en marchant sur sa case. Un simple pion ne peut pas."
+
+msgid "Защита"
+msgstr "Protection"
+
+msgid "За королём по диагонали стоит фигура: поле приземления занято, прыжка нет. Наступить простая шашка не может — король под защитой."
+msgstr "Une pièce se tient derrière le roi sur la diagonale : la case d'arrivée est occupée, donc pas de saut. Un simple pion ne peut pas marcher sur lui — le roi est protégé."
+
+msgid "Коронация"
+msgstr "Promotion"
+
+msgid "Шашка ходит и бьёт по диагонали, а дойдя до последнего ряда, становится дамкой: она летит по всей диагонали на любое расстояние. При смене природы на шашки дамками становятся все фигуры на последнем ряду — настройка «Дамки: все»."
+msgstr "Le pion se déplace et prend en diagonale, et en atteignant la dernière rangée il devient damka : elle vole sur toute la diagonale. Au changement de nature vers les dames, toutes les pièces de la dernière rangée deviennent damka — réglage « Damki : toutes »."
+
+msgid "Победа и ничья"
+msgstr "Victoire et nulle"
+
+msgid "Победа: король соперника взят или ему мат. Ничья: остались только короли, или двадцать полуходов без взятий при одиноком короле."
+msgstr "Victoire : le roi adverse est pris ou mat. Nulle : il ne reste que les rois, ou vingt demi-coups sans prise avec un roi seul."
+
+msgid "НИЧЬИ\n"
+msgstr "NULLES\n"
+
+msgid "ПРОСМОТР ЛОГА"
+msgstr "REVUE DU JOURNAL"
+
+msgid "Простая шашка берёт короля только прыжком через него — как любую шашку."
+msgstr "Un simple pion ne prend le roi qu'en sautant par-dessus — comme tout pion."
+
+msgid "Дамка и король берут короля наступлением на его клетку. Это единственный способ, когда король стоит на крайней линии: поля приземления за ним нет."
+msgstr "Une damka et le roi prennent le roi en marchant sur sa case. C'est la seule façon quand le roi est sur la ligne du bord : il n'y a pas de case d'arrivée derrière lui."
+
+msgid "Если за королём по диагонали стоит фигура, простая шашка взять его не может: поле приземления занято, а наступить ей нельзя — король под защитой."
+msgstr "Si une pièce se tient derrière le roi sur la diagonale, un simple pion ne peut pas le prendre : la case d'arrivée est occupée et il ne peut pas marcher sur lui — le roi est protégé."
+
+msgid "Пешка-король с кружком: выглядит как шашка, но ходит как дамка — по диагонали на любое расстояние, пока путь свободен. Потеря короля — сразу поражение, следите за ним особенно внимательно."
+msgstr "Le pion couronné : il ressemble à un pion mais se déplace comme une damka — en diagonale sur toute distance si le chemin est libre. Perdre le roi, c'est la défaite immédiate."
+
+msgid "Бьёт как дамка: сбивает фигуру на диагонали и встаёт за ней на любое свободное поле. Короля соперника, стоящего на краю, может взять касанием — прыгать некуда."
+msgstr "Prend comme une damka : prend une pièce sur la diagonale et se pose sur une case libre derrière. Un roi adverse au bord se prend par contact — rien à sauter."
+
+msgid "Интерактивный гид"
+msgstr "Guide interactif"
+
+msgid "К началу"
+msgstr "Au début"
+
+msgid "Копировать путь"
+msgstr "Copier le chemin"
+
+msgid "Показать"
+msgstr "Montrer"

@@ -1416,3 +1416,18 @@ msgstr "Das Formular ist im Browser geöffnet. Das Log liegt in der Zwischenabla
 
 msgid "Форма не настроена — сохраните отчёт в файл"
 msgstr "Das Formular ist nicht eingerichtet — Bericht in eine Datei speichern"
+
+msgid "Отправляю…"
+msgstr "Sende…"
+
+msgid "Отчёт отправлен — спасибо!"
+msgstr "Bericht gesendet — danke!"
+
+msgid "Не удалось отправить: {reason}"
+msgstr "Senden fehlgeschlagen: {reason}"
+
+msgid "Форма ответила кодом {code}"
+msgstr "Das Formular antwortete mit Code {code}"
+
+msgid "Не удалось отправить отчёт"
+msgstr "Bericht konnte nicht gesendet werden"

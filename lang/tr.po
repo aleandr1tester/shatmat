@@ -1416,3 +1416,18 @@ msgstr "Form tarayıcıda açıldı. Günlük panoya kopyalandı — Günlük al
 
 msgid "Форма не настроена — сохраните отчёт в файл"
 msgstr "Form yapılandırılmadı — raporu dosyaya kaydedin"
+
+msgid "Отправляю…"
+msgstr "Gönderiliyor…"
+
+msgid "Отчёт отправлен — спасибо!"
+msgstr "Rapor gönderildi — teşekkürler!"
+
+msgid "Не удалось отправить: {reason}"
+msgstr "Gönderilemedi: {reason}"
+
+msgid "Форма ответила кодом {code}"
+msgstr "Form {code} koduyla yanıt verdi"
+
+msgid "Не удалось отправить отчёт"
+msgstr "Rapor gönderilemedi"

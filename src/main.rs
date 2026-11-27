@@ -1094,6 +1094,35 @@ fn report_form_url(
     Some((base, false))
 }
 
+/// Тело POST-запроса для Google-формы: пары `entry.*` и служебные поля.
+/// Пустые значения не отправляем, чтобы форма не считала их заполненными.
+fn report_form_body(
+    field_message: &str,
+    field_log: &str,
+    field_email: &str,
+    field_meta: &str,
+    message: &str,
+    log: Option<&str>,
+    mail: &str,
+    meta: &str,
+) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let mut push = |field: &str, value: &str| {
+        if !field.is_empty() && !value.trim().is_empty() {
+            parts.push(format!("entry.{field}={}", url_encode(value)));
+        }
+    };
+    push(field_message, message);
+    if let Some(log) = log {
+        push(field_log, log);
+    }
+    push(field_email, mail);
+    push(field_meta, meta);
+    parts.push("fvv=1".to_string());
+    parts.push("pageHistory=0".to_string());
+    parts.join("&")
+}
+
 /// Текст правил (LayoutJob), общий для окна правил и раздела гида.
 fn rules_job(width: f32) -> egui::text::LayoutJob {
     let chess_rules = [
@@ -1340,6 +1369,10 @@ pub struct App {
     report_consent: bool,
     report_status: String,
     report_scroll: f32,
+    /// Фоновый поток отправки отчёта: код ответа HTTP или ошибка.
+    report_send: Option<std::sync::mpsc::Receiver<Result<u32, String>>>,
+    /// Идёт отправка: кнопка «Отправить» не срабатывает повторно.
+    report_sending: bool,
     /// Заголовок панели в просмотре: итог партии или название лога.
     review_result: String,
     guide: bool,
@@ -1553,6 +1586,8 @@ impl App {
             report_consent: false,
             report_status: String::new(),
             report_scroll: 0.0,
+            report_send: None,
+            report_sending: false,
             review_result: String::new(),
             guide: false,
             guide_kind: Kind::Pawn,
@@ -2414,6 +2449,7 @@ impl App {
 
     /// Ссылка на Google-форму отчётов. Пустая — форма ещё не настроена,
     /// кнопка «Открыть форму» будет недоступна, останутся копирование и файл.
+    const REPORT_FORM_HOST: &'static str = "docs.google.com";
     const REPORT_FORM_URL: &'static str = "https://docs.google.com/forms/d/e/1FAIpQLScdyN0JKMaIuG904NNoQaUXzM2jdYz1Pki7na1eJ6pXqS3TuA/viewform";
     /// ID полей формы (entry.XXXXXXXX) из «Ссылки с предзаполненными ответами».
     const REPORT_FIELD_MESSAGE: &'static str = "104432352";
@@ -2493,6 +2529,89 @@ impl App {
         std::fs::read_to_string(&path.0).ok()
     }
 
+    /// Тело POST-запроса: поля формы из констант и текущего состояния.
+    fn report_body_for_form(&self) -> String {
+        let meta = format!(
+            "{} · {} · {}",
+            VERSION,
+            rulecode::encode_compact(&rulecode::Rules::from_game(&self.game)),
+            i18n::current().code()
+        );
+        let log = self.report_log_text();
+        report_form_body(
+            Self::REPORT_FIELD_MESSAGE,
+            Self::REPORT_FIELD_LOG,
+            Self::REPORT_FIELD_EMAIL,
+            Self::REPORT_FIELD_META,
+            self.report_text.trim(),
+            log.as_deref(),
+            self.report_email.trim(),
+            &meta,
+        )
+    }
+
+    /// Отправить отчёт в форму в фоне: интерфейс не замирает на время сети.
+    fn report_submit(&mut self) {
+        if self.report_send.is_some() {
+            return;
+        }
+        let Some(action) = self.report_form_action() else {
+            self.report_status = i18n::tr("Форма не настроена — сохраните отчёт в файл").to_string();
+            return;
+        };
+        let body = self.report_body_for_form();
+        let (tx, rx) = std::sync::mpsc::channel::<Result<u32, String>>();
+        self.report_send = Some(rx);
+        self.report_sending = true;
+        self.report_status = i18n::tr("Отправляю…").to_string();
+        std::thread::spawn(move || {
+            let _ = tx.send(updater::post_form(App::REPORT_FORM_HOST, &action, &body));
+        });
+    }
+
+    /// Забрать результат фоновой отправки, если он уже готов.
+    fn report_poll(&mut self) {
+        let Some(rx) = &self.report_send else {
+            return;
+        };
+        match rx.try_recv() {
+            Ok(Ok(code)) => {
+                let ok = (200..400).contains(&code);
+                self.report_status = if ok {
+                    i18n::tr("Отчёт отправлен — спасибо!").to_string()
+                } else {
+                    i18n::trf("Форма ответила кодом {code}", &[("code", &code.to_string())])
+                };
+                self.report_sending = false;
+                self.report_send = None;
+            }
+            Ok(Err(reason)) => {
+                self.report_status =
+                    i18n::trf("Не удалось отправить: {reason}", &[("reason", &reason)]);
+                self.report_sending = false;
+                self.report_send = None;
+            }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                self.report_status = i18n::tr("Не удалось отправить отчёт").to_string();
+                self.report_sending = false;
+                self.report_send = None;
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {}
+        }
+    }
+
+    /// Путь `formResponse` от адреса формы (для POST).
+    fn report_form_action(&self) -> Option<String> {
+        if Self::REPORT_FORM_URL.is_empty() {
+            return None;
+        }
+        let path = Self::REPORT_FORM_URL
+            .split("docs.google.com")
+            .nth(1)?
+            .replace("/viewform", "/formResponse");
+        Some(path)
+    }
+
     /// Ссылка на форму с предзаполненными полями.
     /// Возвращает (ссылка, вошёл ли лог в ссылку).
     fn report_form_url(&self) -> Option<(String, bool)> {
@@ -2522,19 +2641,9 @@ impl App {
     /// None — форма не настроена.
     fn open_report_form(&self) -> Option<bool> {
         let (url, log_included) = self.report_form_url()?;
-        // cmd трактует & как разделитель команд, поэтому ссылку
-        // передаём в кавычках, иначе браузер получит обрезанный адрес.
-        #[cfg(windows)]
-        {
-            let quoted = format!("\"{url}\"");
-            let _ = std::process::Command::new("cmd")
-                .args(["/C", "start", "", &quoted])
-                .spawn();
-        }
-        #[cfg(not(windows))]
-        {
-            let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
-        }
+        // ShellExecuteW открывает браузер напрямую: без окна консоли и без
+        // разбора ссылки оболочкой (cmd режет URL по `&`).
+        updater::open_url(&url);
         Some(log_included)
     }
 
@@ -5946,6 +6055,7 @@ impl App {
         // кнопка обновлений: проверка версии на GitHub, при наличии —
         // открытие страницы релизов (скачивание делает сам пользователь)
         self.update_check_poll();
+        self.report_poll();
         let upd_state = self.update_state.clone();
         let upd_label: String = match &upd_state {
             updater::UpdateState::Idle => i18n::tr("Обновления").to_string(),
@@ -7037,10 +7147,20 @@ impl App {
         }
 
         let btn_y = card.bottom() - 56.0;
-        let bw = (w - 16.0) / 3.0;
-        let save = Rect::from_min_size(Pos2::new(x, btn_y), Vec2::new(bw, 40.0));
-        let copy = Rect::from_min_size(Pos2::new(x + bw + 8.0, btn_y), Vec2::new(bw, 40.0));
-        let mail = Rect::from_min_size(Pos2::new(x + (bw + 8.0) * 2.0, btn_y), Vec2::new(bw, 40.0));
+        let gap = 8.0;
+        let bw = (w - gap * 3.0) / 4.0;
+        let send = Rect::from_min_size(Pos2::new(x, btn_y), Vec2::new(bw, 40.0));
+        let mail = Rect::from_min_size(Pos2::new(x + bw + gap, btn_y), Vec2::new(bw, 40.0));
+        let copy = Rect::from_min_size(Pos2::new(x + (bw + gap) * 2.0, btn_y), Vec2::new(bw, 40.0));
+        let save = Rect::from_min_size(Pos2::new(x + (bw + gap) * 3.0, btn_y), Vec2::new(bw, 40.0));
+        let can_send = !self.report_sending;
+        if button(ui, send, "Отправить", can_send, &pal, 11.5) && can_send {
+            if !self.report_consent {
+                self.report_status = i18n::tr("Отметьте согласие перед отправкой").to_string();
+            } else {
+                self.report_submit();
+            }
+        }
         if button(ui, save, "Сохранить файл", false, &pal, 11.5) {
             if let Some(path) = self.save_report() {
                 self.report_status = i18n::trf(
@@ -7056,7 +7176,7 @@ impl App {
             ui.ctx().copy_text(body);
             self.report_status = i18n::tr("Отчёт скопирован в буфер").to_string();
         }
-        if button(ui, mail, "Открыть форму", true, &pal, 11.5) {
+        if button(ui, mail, "Открыть форму", false, &pal, 11.5) {
             if !self.report_consent {
                 self.report_status = i18n::tr("Отметьте согласие перед отправкой").to_string();
             } else {
@@ -9266,6 +9386,52 @@ mod tests {
     fn url_encode_escapes_ampersand_and_space() {
         assert_eq!(url_encode("a b&c"), "a%20b%26c");
         assert_eq!(url_encode("привет"), "%D0%BF%D1%80%D0%B8%D0%B2%D0%B5%D1%82");
+    }
+
+
+    #[test]
+    fn report_form_body_encodes_fields_and_skips_empty() {
+        let body = report_form_body(
+            "111",
+            "222",
+            "333",
+            "444",
+            "король встал в угол",
+            Some("ход 1 e2-e4"),
+            "",
+            "0.22.1 · 0/21/1 · ru",
+        );
+        assert!(body.contains("entry.111=%D0%BA%D0%BE%D1%80%D0%BE%D0%BB%D1%8C"), "поле проблемы закодировано");
+        assert!(body.contains("entry.222="), "поле лога");
+        assert!(!body.contains("entry.333="), "пустую почту не отправляем");
+        assert!(body.contains("entry.444="), "поле версии");
+        assert!(body.ends_with("fvv=1&pageHistory=0"), "служебные поля формы");
+    }
+
+    /// Живая проверка: реальный POST в Google-форму. Не входит в обычный
+    /// прогон (нужна сеть); запуск:
+    /// `cargo test --offline real_form_submit -- --ignored --nocapture`
+    #[test]
+    #[ignore = "нужна сеть: отправляет тестовый ответ в форму"]
+    fn real_form_submit_reaches_google() {
+        let url = "https://docs.google.com/forms/d/e/1FAIpQLScdyN0JKMaIuG904NNoQaUXzM2jdYz1Pki7na1eJ6pXqS3TuA/viewform";
+        let path = url
+            .split("docs.google.com")
+            .nth(1)
+            .expect("путь формы")
+            .replace("/viewform", "/formResponse");
+        let body = report_form_body(
+            "104432352",
+            "298242670",
+            "1736527743",
+            "677615932",
+            "тест отправки из ShatMat (можно удалить)",
+            Some("проверка POST-отправки, лог не приложен"),
+            "test@test.ru",
+            "0.22.1-test",
+        );
+        let code = updater::post_form("docs.google.com", &path, &body).expect("запрос ушёл");
+        assert!((200..400).contains(&code), "форма ответила кодом {code}");
     }
 
 }

@@ -1416,3 +1416,18 @@ msgstr "El formulario está abierto en el navegador. El registro está copiado e
 
 msgid "Форма не настроена — сохраните отчёт в файл"
 msgstr "El formulario no está configurado — guarda el informe en un archivo"
+
+msgid "Отправляю…"
+msgstr "Enviando…"
+
+msgid "Отчёт отправлен — спасибо!"
+msgstr "Informe enviado — ¡gracias!"
+
+msgid "Не удалось отправить: {reason}"
+msgstr "No se pudo enviar: {reason}"
+
+msgid "Форма ответила кодом {code}"
+msgstr "El formulario respondió con el código {code}"
+
+msgid "Не удалось отправить отчёт"
+msgstr "No se pudo enviar el informe"

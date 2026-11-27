@@ -1416,3 +1416,18 @@ msgstr "Le formulaire est ouvert dans le navigateur. Le journal est copié dans 
 
 msgid "Форма не настроена — сохраните отчёт в файл"
 msgstr "Le formulaire n'est pas configuré — enregistrez le rapport dans un fichier"
+
+msgid "Отправляю…"
+msgstr "Envoi…"
+
+msgid "Отчёт отправлен — спасибо!"
+msgstr "Rapport envoyé — merci !"
+
+msgid "Не удалось отправить: {reason}"
+msgstr "Échec de l'envoi : {reason}"
+
+msgid "Форма ответила кодом {code}"
+msgstr "Le formulaire a répondu avec le code {code}"
+
+msgid "Не удалось отправить отчёт"
+msgstr "Impossible d'envoyer le rapport"

@@ -1416,3 +1416,18 @@ msgstr "The form is open in the browser. The log is copied to the clipboard — 
 
 msgid "Форма не настроена — сохраните отчёт в файл"
 msgstr "The form is not configured — save the report to a file"
+
+msgid "Отправляю…"
+msgstr "Sending…"
+
+msgid "Отчёт отправлен — спасибо!"
+msgstr "Report sent — thank you!"
+
+msgid "Не удалось отправить: {reason}"
+msgstr "Could not send: {reason}"
+
+msgid "Форма ответила кодом {code}"
+msgstr "The form answered with code {code}"
+
+msgid "Не удалось отправить отчёт"
+msgstr "Could not send the report"

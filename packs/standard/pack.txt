@@ -1,0 +1,9 @@
+# Стандартный набор фигур ShatMat (он же «Встроенный» в настройках).
+# Папку не удаляйте и не переименовывайте: без неё игра нарисует фигуры
+# упрощёнными значками.
+name=Standard
+name.ru=Встроенный
+name.de=Standard
+name.es=Estándar
+name.fr=Standard
+name.tr=Standart

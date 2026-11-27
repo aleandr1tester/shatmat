@@ -546,6 +546,10 @@ fn packs_dir() -> PathBuf {
     PathBuf::from("packs")
 }
 
+/// Пак со стандартным набором фигур: папка `packs/standard`. Он же
+/// «Встроенный» в настройках, поэтому в списке наборов не дублируется.
+const DEFAULT_PACK: &str = "standard";
+
 /// Пак: папка в packs/ с фигурами, звуками и/или музыкой.
 #[derive(Clone)]
 struct PackInfo {
@@ -676,6 +680,31 @@ fn save_pack(kind: &str, name: Option<&str>) {
     let _ = std::fs::write(&path, lines.join("\n"));
 }
 
+/// Стандартный набор фигур из пака `packs/standard`. Если папку пакета
+/// удалили, остаётся корень pieces/ — так старые сборки не ломаются.
+fn standard_pieces_dir(packs: &[PackInfo]) -> PathBuf {
+    if let Some(p) = packs
+        .iter()
+        .find(|p| p.name == DEFAULT_PACK)
+        .and_then(|p| p.pieces())
+    {
+        return p;
+    }
+    pieces_dir()
+}
+
+/// Набор по умолчанию («Встроенный»): свои файлы в корне pieces/ важнее
+/// пака, затем идёт стандартный пак.
+fn default_pieces_dir(packs: &[PackInfo]) -> PathBuf {
+    let root = pieces_dir();
+    let has_king =
+        |d: &std::path::Path| d.join("white_king.svg").is_file() || d.join("white_king.png").is_file();
+    if has_king(&root) {
+        return root;
+    }
+    standard_pieces_dir(packs)
+}
+
 /// Каталог фигур набора: сначала пак, потом старая папка в pieces/.
 fn preset_dir_for(packs: &[PackInfo], preset: Option<&str>) -> PathBuf {
     if let Some(name) = preset {
@@ -689,7 +718,7 @@ fn preset_dir_for(packs: &[PackInfo], preset: Option<&str>) -> PathBuf {
             return legacy;
         }
     }
-    pieces_dir()
+    default_pieces_dir(packs)
 }
 
 /// Наборы фигур: подпапки в pieces/, где есть хотя бы король.
@@ -727,6 +756,9 @@ fn available_presets() -> Vec<(String, String)> {
 fn all_piece_sets(packs: &[PackInfo]) -> Vec<(String, String)> {
     let mut out = available_presets();
     for p in packs {
+        if p.name == DEFAULT_PACK {
+            continue;
+        }
         if p.pieces().is_some() && !out.iter().any(|(d, _)| *d == p.name) {
             out.push((p.name.clone(), p.label.clone()));
         }
@@ -1501,8 +1533,14 @@ impl App {
             piece_preset.as_deref().unwrap_or("builtin"),
             512,
         );
-        // Иконки на шашках берём из корня pieces/ (стандартный набор), 128 px достаточно.
-        let icon_tex = load_piece_textures(&cc.egui_ctx, &pieces_dir(), "stdicons", 128);
+        // Иконки на шашках берём из стандартного набора (пак standard),
+        // чтобы они не зависели от выбранного пользователем набора.
+        let icon_tex = load_piece_textures(
+            &cc.egui_ctx,
+            &standard_pieces_dir(&packs),
+            "stdicons",
+            128,
+        );
         let font_faces = fonts::load();
         let font_index = 0;
         fonts::apply(&cc.egui_ctx, &font_faces, font_index);
@@ -5564,7 +5602,7 @@ impl App {
         ly += 20.0;
 
         // код правил: текущий код + ввод чужого кода
-        // набор фигур: встроенный + папки-пресеты из pieces/
+        // набор фигур: «Встроенный» (пак standard) + паки и папки-пресеты
         text(
             painter,
             Pos2::new(x, ly),
@@ -9600,6 +9638,33 @@ fn badge(painter: &egui::Painter, right_top: Pos2, label: &str, color: Color32, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Стандартный набор живёт в папке packs/standard, а не в корне pieces/.
+    #[test]
+    fn default_piece_set_comes_from_standard_pack() {
+        let packs = discover_packs();
+        assert!(
+            packs.iter().any(|p| p.name == DEFAULT_PACK && p.pieces().is_some()),
+            "пак standard с фигурами не найден"
+        );
+        let dir = preset_dir_for(&packs, None);
+        assert!(
+            dir.ends_with("pieces"),
+            "каталог стандартного набора: {}",
+            dir.display()
+        );
+        assert!(
+            dir.join("white_king.svg").is_file() || dir.join("white_king.png").is_file(),
+            "в стандартном наборе нет короля: {}",
+            dir.display()
+        );
+        // Стандартный пак не должен появляться в списке наборов отдельным пунктом.
+        assert!(
+            !all_piece_sets(&packs).iter().any(|(d, _)| d == DEFAULT_PACK),
+            "standard попал в список наборов"
+        );
+    }
+
 
     #[test]
     fn darken_keeps_alpha_and_dims_bright_pixels() {

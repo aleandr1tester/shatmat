@@ -381,7 +381,8 @@ fn lobby_demo_preset(plies: usize) -> Game {
 }
 
 /// Делит срубленные фигуры на две группы: белые (показываются слева)
-/// и чёрные (справа). Порядок — как в партии.
+/// и чёрные (справа). Внутри группы — по весу: сперва тяжёлые, потом мелочь,
+/// при равном весе сохраняется порядок взятия.
 fn split_captures(recs: &[game::MoveRecord]) -> (Vec<Kind>, Vec<Kind>) {
     let mut white = Vec::new();
     let mut black = Vec::new();
@@ -393,6 +394,9 @@ fn split_captures(recs: &[game::MoveRecord]) -> (Vec<Kind>, Vec<Kind>) {
             }
         }
     }
+    let by_weight = |a: &Kind, b: &Kind| b.material().cmp(&a.material());
+    white.sort_by(by_weight);
+    black.sort_by(by_weight);
     (white, black)
 }
 
@@ -9810,7 +9814,8 @@ mod tests {
             rec(Side::Black, Some((Side::White, Kind::Queen))),
         ];
         let (white, black) = split_captures(&recs);
-        assert_eq!(white, vec![Kind::Pawn, Kind::Queen]);
+        // Сперва тяжёлые, потом мелочь.
+        assert_eq!(white, vec![Kind::Queen, Kind::Pawn]);
         assert_eq!(black, vec![Kind::Rook]);
     }
 

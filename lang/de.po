@@ -1438,5 +1438,3 @@ msgstr "Kopiert"
 msgid "Сохранено"
 msgstr "Gespeichert"
 
-msgid "«Отправить» передаёт лог целиком; в браузере лог копируется в буфер обмена"
-msgstr "„Senden“ überträgt das ganze Log; im Browser wird das Log in die Zwischenablage kopiert"

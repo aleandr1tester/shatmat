@@ -1438,5 +1438,3 @@ msgstr "Copié"
 msgid "Сохранено"
 msgstr "Enregistré"
 
-msgid "«Отправить» передаёт лог целиком; в браузере лог копируется в буфер обмена"
-msgstr "« Envoyer » transmet tout le journal ; dans le navigateur le journal est copié dans le presse-papiers"

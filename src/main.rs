@@ -7686,6 +7686,14 @@ impl App {
                 painter.rect_filled(sq_rect((x, y)), 0.0, fill);
             }
         }
+        // Перечёркнутые поля: сюда ход запрещён (занято приземление).
+        // Рисуем раньше фигур, чтобы крестик не закрывал стоящую фигуру.
+        for sq in scene.blocked {
+            let r = sq_rect(*sq).shrink(cell * 0.14);
+            let col = alpha(Color32::from_rgb(226, 96, 96), 0.85);
+            painter.line_segment([r.left_top(), r.right_bottom()], Stroke::new(2.0_f32, col));
+            painter.line_segment([r.right_top(), r.left_bottom()], Stroke::new(2.0_f32, col));
+        }
         for sq in scene.sources {
             painter.rect_stroke(
                 sq_rect(*sq).shrink(1.0),
@@ -7820,19 +7828,6 @@ impl App {
                     None,
                 );
             }
-        }
-        // Перечёркнутые поля: сюда ход запрещён (занято приземление).
-        for sq in scene.blocked {
-            let r = sq_rect(*sq).shrink(cell * 0.16);
-            let col = alpha(Color32::from_rgb(226, 96, 96), 0.9);
-            painter.line_segment(
-                [r.left_top(), r.right_bottom()],
-                Stroke::new(2.2_f32, col),
-            );
-            painter.line_segment(
-                [r.right_top(), r.left_bottom()],
-                Stroke::new(2.2_f32, col),
-            );
         }
         // Красная пульсация: кто обязан бить серию (как в самой игре).
         let pulse = 0.5 + 0.5 * (self.time * 4.5).sin();

@@ -1354,17 +1354,8 @@ msgstr "Yanıt için e-postanız (isteğe bağlı)"
 msgid "Согласен отправить версию, правила и выбранный лог в Google-форму"
 msgstr "Sürümü, kuralları ve seçilen günlüğü Google formuna göndermeyi kabul ediyorum"
 
-msgid "Сохранить файл"
-msgstr "Dosyayı kaydet"
-
 msgid "Скопировать отчёт"
 msgstr "Raporu kopyala"
-
-msgid "Отчёт сохранён: {path}"
-msgstr "Rapor kaydedildi: {path}"
-
-msgid "Не удалось сохранить отчёт"
-msgstr "Rapor kaydedilemedi"
 
 msgid "Отчёт скопирован в буфер"
 msgstr "Rapor panoya kopyalandı"
@@ -1434,7 +1425,4 @@ msgstr "Rapor gönderilemedi"
 
 msgid "Скопировано"
 msgstr "Kopyalandı"
-
-msgid "Сохранено"
-msgstr "Kaydedildi"
 

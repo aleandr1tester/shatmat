@@ -1354,17 +1354,8 @@ msgstr "Tu correo para la respuesta (opcional)"
 msgid "Согласен отправить версию, правила и выбранный лог в Google-форму"
 msgstr "Acepto enviar la versión, las reglas y el registro elegido al formulario de Google"
 
-msgid "Сохранить файл"
-msgstr "Guardar archivo"
-
 msgid "Скопировать отчёт"
 msgstr "Copiar informe"
-
-msgid "Отчёт сохранён: {path}"
-msgstr "Informe guardado: {path}"
-
-msgid "Не удалось сохранить отчёт"
-msgstr "No se pudo guardar el informe"
 
 msgid "Отчёт скопирован в буфер"
 msgstr "Informe copiado al portapapeles"
@@ -1434,7 +1425,4 @@ msgstr "No se pudo enviar el informe"
 
 msgid "Скопировано"
 msgstr "Copiado"
-
-msgid "Сохранено"
-msgstr "Guardado"
 

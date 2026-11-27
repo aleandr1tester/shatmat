@@ -49,12 +49,6 @@ pub fn now_string() -> String {
     }
 }
 
-/// Штамп времени для имени файла: без пробелов и двоеточий —
-/// Windows не принимает `:` в именах, из-за него отчёт не сохранялся.
-pub fn file_stamp_now() -> String {
-    now_string().replace(' ', "-").replace(':', "-")
-}
-
 pub fn logs_dir() -> PathBuf {
     if let Some(dir) = std::env::current_exe()
         .ok()

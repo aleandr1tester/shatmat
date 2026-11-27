@@ -1376,8 +1376,6 @@ pub struct App {
     report_fallback_note: String,
     /// Время, до которого кнопка «Скопировать отчёт» показывает «Скопировано».
     report_copied_until: f32,
-    /// Время, до которого кнопка «Сохранить файл» показывает «Сохранено».
-    report_saved_until: f32,
     /// Фоновый поток отправки отчёта: код ответа HTTP или ошибка.
     report_send: Option<std::sync::mpsc::Receiver<Result<u32, String>>>,
     /// Идёт отправка: кнопка «Отправить» не срабатывает повторно.
@@ -1598,7 +1596,6 @@ impl App {
             report_copy_pending: None,
             report_fallback_note: String::new(),
             report_copied_until: 0.0,
-            report_saved_until: 0.0,
             report_send: None,
             report_sending: false,
             review_result: String::new(),
@@ -2532,14 +2529,6 @@ impl App {
         out
     }
 
-    /// Сохранить отчёт в logs/reports и вернуть путь.
-    fn save_report(&self) -> Option<PathBuf> {
-        let dir = logging::logs_dir().join("reports");
-        std::fs::create_dir_all(&dir).ok()?;
-        let path = dir.join(format!("report-{}.txt", logging::file_stamp_now()));
-        std::fs::write(&path, self.report_body()).ok()?;
-        Some(path)
-    }
 
     /// Текст выбранного лога: только сам файл, без шапки отчёта.
     fn report_log_text(&self) -> Option<String> {
@@ -7214,10 +7203,9 @@ impl App {
 
         let btn_y = card.bottom() - 56.0;
         let gap = 8.0;
-        let bw = (w - gap * 2.0) / 3.0;
+        let bw = (w - gap) / 2.0;
         let send = Rect::from_min_size(Pos2::new(x, btn_y), Vec2::new(bw, 40.0));
         let copy = Rect::from_min_size(Pos2::new(x + bw + gap, btn_y), Vec2::new(bw, 40.0));
-        let save = Rect::from_min_size(Pos2::new(x + (bw + gap) * 2.0, btn_y), Vec2::new(bw, 40.0));
         let can_send = !self.report_sending;
         let send_label = if self.report_sending {
             i18n::tr("Отправляю…")
@@ -7231,23 +7219,6 @@ impl App {
             } else {
                 self.report_fallback_note.clear();
                 self.report_submit();
-            }
-        }
-        let saved = self.time < self.report_saved_until;
-        let save_label = if saved {
-            i18n::tr("Сохранено")
-        } else {
-            i18n::tr("Сохранить файл")
-        };
-        if button(ui, save, save_label, saved, &pal, 11.5) {
-            if let Some(path) = self.save_report() {
-                self.report_saved_until = self.time + 2.0;
-                self.report_status = i18n::trf(
-                    "Отчёт сохранён: {path}",
-                    &[("path", &path.display().to_string())],
-                );
-            } else {
-                self.report_status = i18n::tr("Не удалось сохранить отчёт").to_string();
             }
         }
         // Подсказка на самой кнопке: после нажатия она на пару секунд

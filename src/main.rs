@@ -1351,8 +1351,6 @@ pub struct App {
     pulse_on: bool,
     /// Как показывать срубленные фигуры по бокам доски.
     captured_view: CapturedView,
-    /// Временный флаг для снимка настроек в высоком окне.
-    tall_probe: bool,
     /// Выбранный набор фигур (папка в pieces/ или пак) и список доступных.
     piece_preset: Option<String>,
     piece_presets: Vec<(String, String)>,
@@ -1599,7 +1597,6 @@ impl App {
             icon_tex,
             pulse_on: true,
             captured_view: CapturedView::WhiteLeft,
-            tall_probe: false,
             piece_preset,
             piece_presets,
             packs,
@@ -1771,19 +1768,6 @@ impl App {
             app.guide_checkers = true;
             app.guide_damka = false;
             app.guide_demo = None;
-        }
-        if demo.as_deref() == Some("probe_settings") {
-            i18n::set_lang(i18n::Lang::Ru);
-            app.settings = true;
-        }
-        if demo.as_deref() == Some("probe_settings") {
-            i18n::set_lang(i18n::Lang::Ru);
-            app.settings = true;
-        }
-        if demo.as_deref() == Some("probe_settings_tall") {
-            i18n::set_lang(i18n::Lang::Ru);
-            app.settings = true;
-            app.tall_probe = true;
         }
         app
     }
@@ -8778,9 +8762,6 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if self.tall_probe && self.frames == 0 {
-            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(Vec2::new(1600.0, 1400.0)));
-        }
         let dt = ctx.input(|i| i.stable_dt).min(0.1);
         self.time += dt;
         music::tick();

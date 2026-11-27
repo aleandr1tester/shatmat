@@ -339,7 +339,6 @@ msgstr "Afficher : oui"
 msgid "Показывать: нет"
 msgstr "Afficher : non"
 
-
 msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
 msgstr "Actuel : auto-changement, 10–{max} s (phase actuelle {phase} s)"
 
@@ -451,7 +450,8 @@ msgstr "La durée des échecs et des dames se règle séparément dans les régl
 msgid "Смена фаз: по времени или по полным ходам — по ходу на каждого."
 msgstr "Changement de phase : par temps ou coups complets — un coup chacun."
 
-msgid "Длина фазы — 4, 6 или 8 полных ходов; счётчик виден в панели, обе стороны знают срок."msgstr "La phase dure 4, 6 ou 8 coups complets ; le compteur est visible et les deux le savent."
+msgid "Длина фазы — 4, 6 или 8 полных ходов; счётчик виден в панели, обе стороны знают срок."
+msgstr "La phase dure 4, 6 ou 8 coups complets ; le compteur est visible et les deux le savent."
 msgid "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы."
 msgstr "Aux dames, le roi se déplace comme une dame mais peut être pris — protégez-le."
 
@@ -836,7 +836,6 @@ msgstr "Coups complets : {value}\n"
 msgid "\n№\tСторона\tФигура\tХод\tВзятие\tФаза\n"
 msgstr "\n№\tCôté\tPièce\tCoup\tPrise\tPhase\n"
 
-
 msgid "Атака: да"
 msgstr "Attaque : oui"
 
@@ -1063,7 +1062,6 @@ msgstr "changement dans {n} coups"
 
 msgid "длина фазы: {n} полных хода"
 msgstr "durée de la phase : {n} coups complets"
-
 
 msgid "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий."
 msgstr "« Chaîne : maximale » — seule la plus longue série de prises est permise."

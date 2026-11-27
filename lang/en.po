@@ -339,7 +339,6 @@ msgstr "Show: yes"
 msgid "Показывать: нет"
 msgstr "Show: no"
 
-
 msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
 msgstr "Now: auto-shift, 10–{max} s (current phase {phase} s)"
 
@@ -451,7 +450,8 @@ msgstr "Chess and checkers time is set separately in settings."
 msgid "Смена фаз: по времени или по полным ходам — по ходу на каждого."
 msgstr "Phase change: by time or by full moves — one move each."
 
-msgid "Длина фазы — 4, 6 или 8 полных ходов; счётчик виден в панели, обе стороны знают срок."msgstr "Phase length is 4, 6 or 8 full moves; the counter is in the panel and both sides know it."
+msgid "Длина фазы — 4, 6 или 8 полных ходов; счётчик виден в панели, обе стороны знают срок."
+msgstr "Phase length is 4, 6 or 8 full moves; the counter is in the panel and both sides know it."
 msgid "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы."
 msgstr "In checkers the king moves like a damka but can be captured — protect it until chess returns."
 
@@ -836,7 +836,6 @@ msgstr "Full moves: {value}\n"
 msgid "\n№\tСторона\tФигура\tХод\tВзятие\tФаза\n"
 msgstr "\n#\tSide\tPiece\tMove\tCapture\tPhase\n"
 
-
 msgid "Атака: да"
 msgstr "Attack: yes"
 
@@ -1063,7 +1062,6 @@ msgstr "switch in {n} moves"
 
 msgid "длина фазы: {n} полных хода"
 msgstr "phase length: {n} full moves"
-
 
 msgid "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий."
 msgstr "“Chain: longest” — only the longest capture series is allowed."

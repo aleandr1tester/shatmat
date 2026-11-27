@@ -339,7 +339,6 @@ msgstr "Mostrar: sí"
 msgid "Показывать: нет"
 msgstr "Mostrar: no"
 
-
 msgid "Сейчас: автосмена, 10–{max} с (текущая фаза {phase} с)"
 msgstr "Ahora: cambio automático, 10–{max} s (fase actual {phase} s)"
 
@@ -451,7 +450,8 @@ msgstr "El tiempo del ajedrez y el de las damas se configuran por separado en lo
 msgid "Смена фаз: по времени или по полным ходам — по ходу на каждого."
 msgstr "Cambio de fase: por tiempo o jugadas completas — un movimiento cada uno."
 
-msgid "Длина фазы — 4, 6 или 8 полных ходов; счётчик виден в панели, обе стороны знают срок."msgstr "La fase dura 4, 6 u 8 jugadas completas; el contador está en el panel y ambos lo saben."
+msgid "Длина фазы — 4, 6 или 8 полных ходов; счётчик виден в панели, обе стороны знают срок."
+msgstr "La fase dura 4, 6 u 8 jugadas completas; el contador está en el panel y ambos lo saben."
 msgid "В шашках король ходит как дамка, но его можно взять — берегите короля до возврата в шахматы."
 msgstr "En damas el rey se mueve como dama pero puede ser capturado: protéjalo."
 
@@ -1062,7 +1062,6 @@ msgstr "cambio en {n} jugadas"
 
 msgid "длина фазы: {n} полных хода"
 msgstr "duración de la fase: {n} jugadas completas"
-
 
 msgid "«Цепочка: максимум» — брать разрешено только самую длинную серию взятий."
 msgstr "«Cadena: máxima» — solo se permite la serie de capturas más larga."

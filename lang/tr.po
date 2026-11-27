@@ -1433,8 +1433,11 @@ msgstr "Sona"
 msgid "ход {ply} из {total} · Esc — к итогу"
 msgstr "hamle {ply}/{total} · Esc — sonuca"
 
-msgid "Срублено: да"
-msgstr "Alınanlar: var"
+msgid "Срублено: белые слева"
+msgstr "Alınanlar: beyazlar solda"
+
+msgid "Срублено: чёрные слева"
+msgstr "Alınanlar: siyahlar solda"
 
 msgid "Срублено: нет"
 msgstr "Alınanlar: yok"

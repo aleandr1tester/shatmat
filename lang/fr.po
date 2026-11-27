@@ -1433,8 +1433,11 @@ msgstr "À la fin"
 msgid "ход {ply} из {total} · Esc — к итогу"
 msgstr "coup {ply} sur {total} · Esc — au résultat"
 
-msgid "Срублено: да"
-msgstr "Capturées : oui"
+msgid "Срублено: белые слева"
+msgstr "Capturées : blanches à gauche"
+
+msgid "Срублено: чёрные слева"
+msgstr "Capturées : noires à gauche"
 
 msgid "Срублено: нет"
 msgstr "Capturées : non"

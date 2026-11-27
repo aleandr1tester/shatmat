@@ -1433,8 +1433,11 @@ msgstr "Zum Ende"
 msgid "ход {ply} из {total} · Esc — к итогу"
 msgstr "Zug {ply} von {total} · Esc — zum Ergebnis"
 
-msgid "Срублено: да"
-msgstr "Geschlagen: ja"
+msgid "Срублено: белые слева"
+msgstr "Geschlagen: Weiß links"
+
+msgid "Срублено: чёрные слева"
+msgstr "Geschlagen: Schwarz links"
 
 msgid "Срублено: нет"
 msgstr "Geschlagen: nein"

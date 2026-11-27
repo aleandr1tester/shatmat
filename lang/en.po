@@ -1433,8 +1433,11 @@ msgstr "To the end"
 msgid "ход {ply} из {total} · Esc — к итогу"
 msgstr "move {ply} of {total} · Esc — back to result"
 
-msgid "Срублено: да"
-msgstr "Captured: on"
+msgid "Срублено: белые слева"
+msgstr "Captured: white left"
+
+msgid "Срублено: чёрные слева"
+msgstr "Captured: black left"
 
 msgid "Срублено: нет"
 msgstr "Captured: off"

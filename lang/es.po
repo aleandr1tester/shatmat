@@ -1433,8 +1433,11 @@ msgstr "Al final"
 msgid "ход {ply} из {total} · Esc — к итогу"
 msgstr "jugada {ply} de {total} · Esc — al resultado"
 
-msgid "Срублено: да"
-msgstr "Capturadas: sí"
+msgid "Срублено: белые слева"
+msgstr "Capturadas: blancas izq."
+
+msgid "Срублено: чёрные слева"
+msgstr "Capturadas: negras izq."
 
 msgid "Срублено: нет"
 msgstr "Capturadas: no"

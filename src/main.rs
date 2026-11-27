@@ -26,6 +26,17 @@ use game::{Game, Kind, Move, Phase, Piece, Side, Square};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Как показывать срубленные фигуры по бокам доски.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CapturedView {
+    /// Белые слева, чёрные справа.
+    WhiteLeft,
+    /// Чёрные слева, белые справа.
+    BlackLeft,
+    /// Не показывать.
+    Hidden,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
     Hotseat,
@@ -1338,8 +1349,8 @@ pub struct App {
     icon_tex: PieceTextures,
     /// Пульсация фигур ходящей стороны (по умолчанию включена).
     pulse_on: bool,
-    /// Показывать срубленные фигуры столбиками по бокам доски.
-    show_captured: bool,
+    /// Как показывать срубленные фигуры по бокам доски.
+    captured_view: CapturedView,
     /// Выбранный набор фигур (папка в pieces/ или пак) и список доступных.
     piece_preset: Option<String>,
     piece_presets: Vec<(String, String)>,
@@ -1585,7 +1596,7 @@ impl App {
             piece_tex,
             icon_tex,
             pulse_on: true,
-            show_captured: true,
+            captured_view: CapturedView::WhiteLeft,
             piece_preset,
             piece_presets,
             packs,
@@ -3964,7 +3975,7 @@ impl App {
     /// Природа совпадает с текущей фазой: в шахматах — фигуры, в шашках —
     /// шашки с шахматными метками.
     fn paint_captured(&self, painter: &egui::Painter, layout: &Layout) {
-        if !self.show_captured {
+        if self.captured_view == CapturedView::Hidden {
             return;
         }
         let total = self.game.history.len();
@@ -3979,6 +3990,12 @@ impl App {
         if white_lost.is_empty() && black_lost.is_empty() {
             return;
         }
+        // Вариант показа из настроек: какая сторона слева, а какая справа.
+        let (left_list, left_side, right_list, right_side) = match self.captured_view {
+            CapturedView::WhiteLeft => (&white_lost, Side::White, &black_lost, Side::Black),
+            CapturedView::BlackLeft => (&black_lost, Side::Black, &white_lost, Side::White),
+            CapturedView::Hidden => return,
+        };
         let pal = Palette::for_phase(self.game.phase);
         let checkers = self.game.phase == Phase::Checkers;
         // Такой же размер, как фигуры на доске; если места мало — уменьшаем.
@@ -3995,7 +4012,7 @@ impl App {
         // Размер общий для обеих сторон: как на доске, но с учётом того,
         // сколько места есть слева и справа и сколько фигур надо уместить.
         let mut size = board_size.max(12.0);
-        for (area, n) in [(&left_area, white_lost.len()), (&right_area, black_lost.len())] {
+        for (area, n) in [(&left_area, left_list.len()), (&right_area, right_list.len())] {
             if n == 0 {
                 continue;
             }
@@ -4013,13 +4030,13 @@ impl App {
                 let cols = (area.width() / step).floor().max(1.0);
                 (rows * cols) >= n as f32
             };
-            if fits(&left_area, white_lost.len()) && fits(&right_area, black_lost.len()) {
+            if fits(&left_area, left_list.len()) && fits(&right_area, right_list.len()) {
                 break;
             }
             size *= 0.92;
         }
-        self.paint_capture_side(painter, &white_lost, Side::White, left_area, true, size, &pal, checkers);
-        self.paint_capture_side(painter, &black_lost, Side::Black, right_area, false, size, &pal, checkers);
+        self.paint_capture_side(painter, left_list, left_side, left_area, true, size, &pal, checkers);
+        self.paint_capture_side(painter, right_list, right_side, right_area, false, size, &pal, checkers);
     }
 
     /// Столбики срубленных у одного края доски. `align_right` — заполняем
@@ -5695,25 +5712,30 @@ impl App {
         ) {
             self.pulse_on = !self.pulse_on;
         }
-        // Срубленные фигуры по бокам доски — рядом с заголовком «ШРИФТ».
+        ly += 22.0;
+        // Срубленные фигуры: по клику перебираются варианты показа.
+        let capt_label = match self.captured_view {
+            CapturedView::WhiteLeft => "Срублено: белые слева",
+            CapturedView::BlackLeft => "Срублено: чёрные слева",
+            CapturedView::Hidden => "Срублено: нет",
+        };
         let capt_chip = Rect::from_min_size(
-            Pos2::new(x + left_w - 112.0, ly - 5.0),
-            Vec2::new(112.0, 20.0),
+            Pos2::new(x + left_w - 168.0, ly - 5.0),
+            Vec2::new(168.0, 20.0),
         );
         if chip(
             ui,
             capt_chip,
-            if self.show_captured {
-                "Срублено: да"
-            } else {
-                "Срублено: нет"
-            },
-            self.show_captured,
+            capt_label,
+            self.captured_view != CapturedView::Hidden,
             &pal,
         ) {
-            self.show_captured = !self.show_captured;
+            self.captured_view = match self.captured_view {
+                CapturedView::WhiteLeft => CapturedView::BlackLeft,
+                CapturedView::BlackLeft => CapturedView::Hidden,
+                CapturedView::Hidden => CapturedView::WhiteLeft,
+            };
         }
-        ly += 22.0;
         text(
             painter,
             Pos2::new(x, ly),
@@ -6468,7 +6490,7 @@ impl App {
         text_fit(
             painter,
             Pos2::new(x, summary_y + 26.0),
-            "Свои звуки — sounds (WAV/MP3), музыка — music/theme.wav, фигуры — pieces (PNG).",
+            "Свои звуки — sounds (WAV/MP3), музыка — music/theme.wav, фигуры — паки в packs/.",
             w,
             11.0,
             alpha(pal.text_dim, 0.95),

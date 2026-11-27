@@ -4738,8 +4738,11 @@ impl App {
         // партии клик по ходу открывает разбор с этой позиции.
         let log_top = y;
         let log_bottom = setup_top - 10.0;
-        let line_h = 17.0;
-        let view_h = (log_bottom - log_top).max(0.0);
+        // Строки выше и обрезка ровно по строке: иначе последняя строка
+        // липнет к карточке правил половиной высоты.
+        let line_h = 20.0;
+        let rows_fit = (((log_bottom - log_top) / line_h).floor()).max(0.0);
+        let view_h = rows_fit * line_h;
         if view_h >= line_h && !g.history.is_empty() {
             // Тот же вид, что в просмотре лога: «полуход.ход» и природа хода.
             let (all_lines, _switched, all_phases) = Self::build_review_lines(g);
@@ -4753,7 +4756,7 @@ impl App {
                 self.panel_scroll = max_off;
             }
             let list_rect =
-                Rect::from_min_max(Pos2::new(x, log_top), Pos2::new(x + w, log_bottom));
+                Rect::from_min_max(Pos2::new(x, log_top), Pos2::new(x + w, log_top + view_h));
             if let Some(m) = ui.input(|i| i.pointer.latest_pos()) {
                 if list_rect.contains(m) && max_off > 0.5 {
                     let wheel = ui.input(|i| i.raw_scroll_delta.y);
@@ -4769,18 +4772,19 @@ impl App {
                     continue;
                 }
                 let row = Rect::from_min_size(Pos2::new(x, ry), Vec2::new(w, line_h));
-                let resp = ui.interact(row, ui.id().with(("panel_move", idx)), Sense::click());
-                // Подсветка только там, где клик действительно что-то делает.
-                if resp.hovered() && over {
-                    clip.rect_filled(row.shrink2(Vec2::new(0.0, 1.0)), 4.0, alpha(cur.accent, 0.10));
-                }
                 let is_current = self.final_ply == Some(idx + 1);
                 let is_last = idx + 1 == lines.len();
+                let resp = ui.interact(row, ui.id().with(("panel_move", idx)), Sense::click());
+                // Подсветка только там, где клик действительно что-то делает.
+                if resp.hovered() && over && !is_current {
+                    clip.rect_filled(row.shrink2(Vec2::new(0.0, 2.0)), 5.0, alpha(cur.accent, 0.10));
+                }
                 if is_current {
+                    // Полоса выделения на всю строку и с запасом по высоте.
                     clip.rect_filled(
-                        row.shrink2(Vec2::new(0.0, 1.0)),
-                        4.0,
-                        alpha(cur.accent, 0.18),
+                        row.shrink2(Vec2::new(0.0, 2.0)),
+                        5.0,
+                        alpha(cur.accent, 0.20),
                     );
                 }
                 let base = if is_last || is_current {
@@ -4826,7 +4830,8 @@ impl App {
                     );
                 }
                 let galley = painter.layout_job(job);
-                clip.galley(Pos2::new(x, ry + 2.0), galley, Color32::WHITE);
+                let text_dy = ((line_h - galley.size().y) * 0.5).max(0.0);
+                clip.galley(Pos2::new(x, ry + text_dy), galley, Color32::WHITE);
                 if resp.clicked() && over {
                     self.panel_jump = Some(idx + 1);
                 }

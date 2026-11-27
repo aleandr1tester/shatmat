@@ -1681,6 +1681,11 @@ impl App {
     }
 
     fn handle_keys(&mut self, ctx: &egui::Context) {
+        // Пока открыт отчёт, клавиши игры молчат: иначе набор текста в форме
+        // ставит игру на паузу и открывает окна.
+        if self.report_open {
+            return;
+        }
         if self.review {
             // Стрелки листают партию: влево/вверх — назад, вправо/вниз —
             // вперёд; Home/End — к началу и к концу, Esc — закрыть.
@@ -6961,7 +6966,14 @@ impl App {
 
     fn paint_report(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(175));
-        let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, 600.0));
+        // Модальное окно: перехватываем клики по всему экрану. Без этого
+        // нажатие на текст диалога попадало в кнопки настроек под ним
+        // (например, в переключатель шрифта). Щит регистрируется раньше
+        // кнопок диалога, поэтому сами кнопки остаются рабочими.
+        ui.interact(layout.full, ui.id().with("report_shield"), Sense::click());
+        // Высота по содержимому: шапка, поле проблемы, список логов, почта,
+        // согласие, строка статуса и подсказка, кнопки — без пустоты снизу.
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, 500.0));
         self.report_rect = card;
         let pal = Palette::for_phase(self.game.phase);
         rr(
@@ -7025,7 +7037,8 @@ impl App {
             alpha(pal.text_dim, 0.85),
         );
         y += 16.0;
-        let list_h = 118.0;
+        // Ровно четыре строки списка: половина пятой смотрелась как обрез.
+        let list_h = 100.0;
         let list_rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, list_h));
         rr(
             painter,
@@ -7114,8 +7127,22 @@ impl App {
         y += 42.0;
 
         let check = Rect::from_min_size(Pos2::new(x, y), Vec2::new(18.0, 18.0));
+        // Кликабельна вся строка согласия: по тексту попасть проще, чем по квадратику.
+        let consent_label = i18n::tr("Согласен отправить версию, правила и выбранный лог в Google-форму");
+        let consent_w = painter
+            .layout_no_wrap(
+                consent_label.to_string(),
+                FontId::proportional(11.0),
+                pal.text,
+            )
+            .size()
+            .x;
+        let consent_row = Rect::from_min_size(
+            Pos2::new(x, y - 4.0),
+            Vec2::new(consent_w + 36.0, 26.0),
+        );
         let check_hit = ui.interact(
-            check.expand2(Vec2::new(4.0, 6.0)),
+            consent_row,
             ui.id().with("report_consent"),
             Sense::click(),
         );
@@ -7135,7 +7162,7 @@ impl App {
             painter,
             Pos2::new(check.right() + 10.0, check.center().y),
             Align2::LEFT_CENTER,
-            i18n::tr("Согласен отправить версию, правила и выбранный лог в Google-форму"),
+            consent_label,
             11.0,
             alpha(pal.text, 0.92),
         );
@@ -7149,6 +7176,19 @@ impl App {
                 w,
                 11.0,
                 pal.accent,
+            );
+            y += 18.0;
+        }
+        if self.report_log.is_some() {
+            // Честно предупреждаем: лог целиком уходит только кнопкой
+            // «Отправить»; в ссылке браузера он не помещается.
+            text_fit(
+                painter,
+                Pos2::new(x, y),
+                i18n::tr("«Отправить» передаёт лог целиком; в браузере лог копируется в буфер обмена"),
+                w,
+                10.0,
+                alpha(pal.text_dim, 0.85),
             );
         }
 

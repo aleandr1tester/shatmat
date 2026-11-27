@@ -1437,3 +1437,6 @@ msgstr "Copiado"
 
 msgid "Сохранено"
 msgstr "Guardado"
+
+msgid "«Отправить» передаёт лог целиком; в браузере лог копируется в буфер обмена"
+msgstr "«Enviar» envía el registro completo; en el navegador el registro se copia al portapapeles"

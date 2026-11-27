@@ -1437,3 +1437,6 @@ msgstr "Kopyalandı"
 
 msgid "Сохранено"
 msgstr "Kaydedildi"
+
+msgid "«Отправить» передаёт лог целиком; в браузере лог копируется в буфер обмена"
+msgstr "«Gönder» günlüğün tamamını iletir; tarayıcıda günlük panoya kopyalanır"

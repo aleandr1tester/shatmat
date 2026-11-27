@@ -1402,9 +1402,6 @@ msgstr "Formu aç"
 msgid "Форма открыта в браузере — нажмите «Отправить»"
 msgstr "Form tarayıcıda açıldı — Gönder düğmesine basın"
 
-msgid "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»"
-msgstr "Form tarayıcıda açıldı. Günlük panoya kopyalandı — Günlük alanına yapıştırın"
-
 msgid "Форма не настроена — сохраните отчёт в файл"
 msgstr "Form yapılandırılmadı — raporu dosyaya kaydedin"
 
@@ -1426,3 +1423,5 @@ msgstr "Rapor gönderilemedi"
 msgid "Скопировано"
 msgstr "Kopyalandı"
 
+msgid "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)"
+msgstr "Gönderilemedi: {reason}. Form açıldı — günlük panoda (Ctrl+V)"

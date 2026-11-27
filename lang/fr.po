@@ -1402,9 +1402,6 @@ msgstr "Ouvrir le formulaire"
 msgid "Форма открыта в браузере — нажмите «Отправить»"
 msgstr "Le formulaire est ouvert dans le navigateur — appuyez sur Envoyer"
 
-msgid "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»"
-msgstr "Le formulaire est ouvert dans le navigateur. Le journal est copié dans le presse-papiers — collez-le dans le champ Journal"
-
 msgid "Форма не настроена — сохраните отчёт в файл"
 msgstr "Le formulaire n'est pas configuré — enregistrez le rapport dans un fichier"
 
@@ -1426,3 +1423,5 @@ msgstr "Impossible d'envoyer le rapport"
 msgid "Скопировано"
 msgstr "Copié"
 
+msgid "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)"
+msgstr "Échec de l'envoi : {reason}. Formulaire ouvert — le journal est dans le presse-papiers (Ctrl+V)"

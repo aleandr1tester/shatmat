@@ -1372,8 +1372,6 @@ pub struct App {
     /// Текст, который нужно положить в буфер на следующем кадре: при откате
     /// на браузер там оказывается лог — его вставляют в поле «Лог».
     report_copy_pending: Option<String>,
-    /// Подсказка после отката на браузер (вместо общей подсказки про лог).
-    report_fallback_note: String,
     /// Время, до которого кнопка «Скопировать отчёт» показывает «Скопировано».
     report_copied_until: f32,
     /// Фоновый поток отправки отчёта: код ответа HTTP или ошибка.
@@ -1594,7 +1592,6 @@ impl App {
             report_status: String::new(),
             report_scroll: 0.0,
             report_copy_pending: None,
-            report_fallback_note: String::new(),
             report_copied_until: 0.0,
             report_send: None,
             report_sending: false,
@@ -2601,10 +2598,10 @@ impl App {
                     self.report_copy_pending = Some(log);
                 }
                 if self.open_report_form().is_some() {
-                    self.report_fallback_note = i18n::tr(
-                        "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»",
-                    )
-                    .to_string();
+                    self.report_status = i18n::trf(
+                        "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)",
+                        &[("reason", &reason)],
+                    );
                 }
                 self.report_sending = false;
                 self.report_send = None;
@@ -6983,7 +6980,7 @@ impl App {
         }
         // Высота по содержимому: шапка, поле проблемы, список логов, почта,
         // согласие, строка статуса и подсказка, кнопки — без пустоты снизу.
-        let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, 500.0));
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, 482.0));
         self.report_rect = card;
         let pal = Palette::for_phase(self.game.phase);
         rr(
@@ -7187,18 +7184,6 @@ impl App {
                 11.0,
                 pal.accent,
             );
-            y += 18.0;
-        }
-        if !self.report_fallback_note.is_empty() {
-            // Откат на браузер: объясняем, что лог уже в буфере.
-            text_fit(
-                painter,
-                Pos2::new(x, y),
-                &self.report_fallback_note,
-                w,
-                10.0,
-                alpha(pal.text_dim, 0.85),
-            );
         }
 
         let btn_y = card.bottom() - 56.0;
@@ -7217,7 +7202,6 @@ impl App {
             if !self.report_consent {
                 self.report_status = i18n::tr("Отметьте согласие перед отправкой").to_string();
             } else {
-                self.report_fallback_note.clear();
                 self.report_submit();
             }
         }

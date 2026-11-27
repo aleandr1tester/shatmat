@@ -1402,9 +1402,6 @@ msgstr "Abrir formulario"
 msgid "Форма открыта в браузере — нажмите «Отправить»"
 msgstr "El formulario está abierto en el navegador — pulsa Enviar"
 
-msgid "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»"
-msgstr "El formulario está abierto en el navegador. El registro está copiado en el portapapeles — pégalo en el campo Registro"
-
 msgid "Форма не настроена — сохраните отчёт в файл"
 msgstr "El formulario no está configurado — guarda el informe en un archivo"
 
@@ -1426,3 +1423,5 @@ msgstr "No se pudo enviar el informe"
 msgid "Скопировано"
 msgstr "Copiado"
 
+msgid "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)"
+msgstr "No se pudo enviar: {reason}. Formulario abierto: el registro está en el portapapeles (Ctrl+V)"

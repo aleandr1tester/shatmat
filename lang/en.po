@@ -1402,9 +1402,6 @@ msgstr "Open form"
 msgid "Форма открыта в браузере — нажмите «Отправить»"
 msgstr "The form is open in the browser — press 'Send'"
 
-msgid "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»"
-msgstr "The form is open in the browser. The log is copied to the clipboard — paste it into the 'Log' field"
-
 msgid "Форма не настроена — сохраните отчёт в файл"
 msgstr "The form is not configured — save the report to a file"
 
@@ -1426,3 +1423,5 @@ msgstr "Could not send the report"
 msgid "Скопировано"
 msgstr "Copied"
 
+msgid "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)"
+msgstr "Could not send: {reason}. The form is open — the log is in the clipboard (Ctrl+V)"

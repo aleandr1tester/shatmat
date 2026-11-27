@@ -1402,9 +1402,6 @@ msgstr "Formular öffnen"
 msgid "Форма открыта в браузере — нажмите «Отправить»"
 msgstr "Das Formular ist im Browser geöffnet — Senden drücken"
 
-msgid "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»"
-msgstr "Das Formular ist im Browser geöffnet. Das Log liegt in der Zwischenablage — in das Feld Log einfügen"
-
 msgid "Форма не настроена — сохраните отчёт в файл"
 msgstr "Das Formular ist nicht eingerichtet — Bericht in eine Datei speichern"
 
@@ -1426,3 +1423,5 @@ msgstr "Bericht konnte nicht gesendet werden"
 msgid "Скопировано"
 msgstr "Kopiert"
 
+msgid "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)"
+msgstr "Senden fehlgeschlagen: {reason}. Formular geöffnet — das Log liegt in der Zwischenablage (Ctrl+V)"

@@ -3988,32 +3988,39 @@ impl App {
             Pos2::new(frame.right() + 8.0, frame.top()),
             Pos2::new(layout.panel.left() - 10.0, frame.bottom()),
         );
-        self.paint_capture_side(
-            painter,
-            &white_lost,
-            Side::White,
-            left_area,
-            true,
-            board_size,
-            &pal,
-            checkers,
-        );
-        self.paint_capture_side(
-            painter,
-            &black_lost,
-            Side::Black,
-            right_area,
-            false,
-            board_size,
-            &pal,
-            checkers,
-        );
+        // Размер общий для обеих сторон: как на доске, но с учётом того,
+        // сколько места есть слева и справа и сколько фигур надо уместить.
+        let mut size = board_size.max(12.0);
+        for (area, n) in [(&left_area, white_lost.len()), (&right_area, black_lost.len())] {
+            if n == 0 {
+                continue;
+            }
+            size = size
+                .min((area.width() - 6.0).max(12.0))
+                .min((area.height() - 6.0).max(12.0));
+        }
+        while size > 14.0 {
+            let fits = |area: &Rect, n: usize| -> bool {
+                if n == 0 {
+                    return true;
+                }
+                let step = size * 1.15;
+                let rows = (area.height() / step).floor().max(1.0);
+                let cols = (area.width() / step).floor().max(1.0);
+                (rows * cols) >= n as f32
+            };
+            if fits(&left_area, white_lost.len()) && fits(&right_area, black_lost.len()) {
+                break;
+            }
+            size *= 0.92;
+        }
+        self.paint_capture_side(painter, &white_lost, Side::White, left_area, true, size, &pal, checkers);
+        self.paint_capture_side(painter, &black_lost, Side::Black, right_area, false, size, &pal, checkers);
     }
 
     /// Столбики срубленных у одного края доски. `align_right` — заполняем
     /// от правого края области (левая сторона доски), иначе от левого.
-    /// Размер берём как у фигур на доске, но ужимаем, чтобы ничего не
-    /// наползало на сайдбар, край окна и соседние фигуры.
+    /// Размер общий для обеих сторон и посчитан заранее в `paint_captured`.
     #[allow(clippy::too_many_arguments)]
     fn paint_capture_side(
         &self,
@@ -4022,27 +4029,14 @@ impl App {
         side: Side,
         area: Rect,
         align_right: bool,
-        board_size: f32,
+        size: f32,
         pal: &Palette,
         checkers: bool,
     ) {
         if list.is_empty() || area.width() < 14.0 || area.height() < 28.0 {
             return;
         }
-        let mut size = board_size
-            .min((area.width() - 6.0).max(12.0))
-            .min((area.height() - 6.0).max(12.0));
-        let mut step = size * 1.15;
-        let want = list.len() as f32;
-        while size > 14.0 {
-            let rows = (area.height() / step).floor().max(1.0);
-            let cols = (area.width() / step).floor().max(1.0);
-            if rows * cols >= want {
-                break;
-            }
-            size *= 0.92;
-            step = size * 1.15;
-        }
+        let step = size * 1.15;
         let rows = ((area.height() / step).floor() as usize).max(1);
         let cols = ((area.width() / step).floor() as usize).max(1);
         // Столбики по центру высоты доски: так они не липнут к верхнему краю.

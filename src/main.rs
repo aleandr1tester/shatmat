@@ -1369,6 +1369,10 @@ pub struct App {
     report_consent: bool,
     report_status: String,
     report_scroll: f32,
+    /// Время, до которого кнопка «Скопировать отчёт» показывает «Скопировано».
+    report_copied_until: f32,
+    /// Время, до которого кнопка «Сохранить файл» показывает «Сохранено».
+    report_saved_until: f32,
     /// Фоновый поток отправки отчёта: код ответа HTTP или ошибка.
     report_send: Option<std::sync::mpsc::Receiver<Result<u32, String>>>,
     /// Идёт отправка: кнопка «Отправить» не срабатывает повторно.
@@ -1586,6 +1590,8 @@ impl App {
             report_consent: false,
             report_status: String::new(),
             report_scroll: 0.0,
+            report_copied_until: 0.0,
+            report_saved_until: 0.0,
             report_send: None,
             report_sending: false,
             review_result: String::new(),
@@ -2518,7 +2524,7 @@ impl App {
     fn save_report(&self) -> Option<PathBuf> {
         let dir = logging::logs_dir().join("reports");
         std::fs::create_dir_all(&dir).ok()?;
-        let path = dir.join(format!("report-{}.txt", logging::now_string()));
+        let path = dir.join(format!("report-{}.txt", logging::file_stamp_now()));
         std::fs::write(&path, self.report_body()).ok()?;
         Some(path)
     }
@@ -7161,8 +7167,15 @@ impl App {
                 self.report_submit();
             }
         }
-        if button(ui, save, "Сохранить файл", false, &pal, 11.5) {
+        let saved = self.time < self.report_saved_until;
+        let save_label = if saved {
+            i18n::tr("Сохранено")
+        } else {
+            i18n::tr("Сохранить файл")
+        };
+        if button(ui, save, save_label, saved, &pal, 11.5) {
             if let Some(path) = self.save_report() {
+                self.report_saved_until = self.time + 2.0;
                 self.report_status = i18n::trf(
                     "Отчёт сохранён: {path}",
                     &[("path", &path.display().to_string())],
@@ -7171,9 +7184,18 @@ impl App {
                 self.report_status = i18n::tr("Не удалось сохранить отчёт").to_string();
             }
         }
-        if button(ui, copy, "Скопировать отчёт", false, &pal, 11.5) {
+        // Подсказка на самой кнопке: после нажатия она на пару секунд
+        // показывает «Скопировано», чтобы не смотреть в строку статуса.
+        let copied = self.time < self.report_copied_until;
+        let copy_label = if copied {
+            i18n::tr("Скопировано")
+        } else {
+            i18n::tr("Скопировать отчёт")
+        };
+        if button(ui, copy, copy_label, copied, &pal, 11.5) {
             let body = self.report_body();
             ui.ctx().copy_text(body);
+            self.report_copied_until = self.time + 2.0;
             self.report_status = i18n::tr("Отчёт скопирован в буфер").to_string();
         }
         if button(ui, mail, "Открыть форму", false, &pal, 11.5) {

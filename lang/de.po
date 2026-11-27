@@ -1431,3 +1431,9 @@ msgstr "Das Formular antwortete mit Code {code}"
 
 msgid "Не удалось отправить отчёт"
 msgstr "Bericht konnte nicht gesendet werden"
+
+msgid "Скопировано"
+msgstr "Kopiert"
+
+msgid "Сохранено"
+msgstr "Gespeichert"

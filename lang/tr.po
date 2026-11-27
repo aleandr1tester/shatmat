@@ -1431,3 +1431,9 @@ msgstr "Form {code} koduyla yanıt verdi"
 
 msgid "Не удалось отправить отчёт"
 msgstr "Rapor gönderilemedi"
+
+msgid "Скопировано"
+msgstr "Kopyalandı"
+
+msgid "Сохранено"
+msgstr "Kaydedildi"

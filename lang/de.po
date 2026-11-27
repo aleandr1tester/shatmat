@@ -1441,3 +1441,6 @@ msgstr "Geschlagen: Schwarz links"
 
 msgid "Срублено: нет"
 msgstr "Geschlagen: nein"
+
+msgid "СРУБЛЕННЫЕ ФИГУРЫ"
+msgstr "GESCHLAGENE FIGUREN"

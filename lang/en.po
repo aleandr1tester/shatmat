@@ -1441,3 +1441,6 @@ msgstr "Captured: black left"
 
 msgid "Срублено: нет"
 msgstr "Captured: off"
+
+msgid "СРУБЛЕННЫЕ ФИГУРЫ"
+msgstr "CAPTURED PIECES"

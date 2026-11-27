@@ -1441,3 +1441,6 @@ msgstr "Alınanlar: siyahlar solda"
 
 msgid "Срублено: нет"
 msgstr "Alınanlar: yok"
+
+msgid "СРУБЛЕННЫЕ ФИГУРЫ"
+msgstr "ALINAN TAŞLAR"

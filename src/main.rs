@@ -1351,6 +1351,8 @@ pub struct App {
     pulse_on: bool,
     /// Как показывать срубленные фигуры по бокам доски.
     captured_view: CapturedView,
+    /// Временный флаг для снимка настроек в высоком окне.
+    tall_probe: bool,
     /// Выбранный набор фигур (папка в pieces/ или пак) и список доступных.
     piece_preset: Option<String>,
     piece_presets: Vec<(String, String)>,
@@ -1597,6 +1599,7 @@ impl App {
             icon_tex,
             pulse_on: true,
             captured_view: CapturedView::WhiteLeft,
+            tall_probe: false,
             piece_preset,
             piece_presets,
             packs,
@@ -1768,6 +1771,19 @@ impl App {
             app.guide_checkers = true;
             app.guide_damka = false;
             app.guide_demo = None;
+        }
+        if demo.as_deref() == Some("probe_settings") {
+            i18n::set_lang(i18n::Lang::Ru);
+            app.settings = true;
+        }
+        if demo.as_deref() == Some("probe_settings") {
+            i18n::set_lang(i18n::Lang::Ru);
+            app.settings = true;
+        }
+        if demo.as_deref() == Some("probe_settings_tall") {
+            i18n::set_lang(i18n::Lang::Ru);
+            app.settings = true;
+            app.tall_probe = true;
         }
         app
     }
@@ -5411,7 +5427,7 @@ impl App {
         // колонке должны помещаться целиком, без обрезки.
         // Высота — по окну: с группами настроек контент стал выше,
         // фиксированные 660 px обрезали нижние блоки.
-        let card_h = (layout.full.height() - 40.0).clamp(560.0, 962.0);
+        let card_h = (layout.full.height() - 40.0).clamp(560.0, 1180.0);
         let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, card_h));
         self.settings_rect = card;
         let pal = Palette::for_phase(self.game.phase);
@@ -5713,29 +5729,6 @@ impl App {
             self.pulse_on = !self.pulse_on;
         }
         ly += 22.0;
-        // Срубленные фигуры: по клику перебираются варианты показа.
-        let capt_label = match self.captured_view {
-            CapturedView::WhiteLeft => "Срублено: белые слева",
-            CapturedView::BlackLeft => "Срублено: чёрные слева",
-            CapturedView::Hidden => "Срублено: нет",
-        };
-        let capt_chip = Rect::from_min_size(
-            Pos2::new(x + left_w - 168.0, ly - 5.0),
-            Vec2::new(168.0, 20.0),
-        );
-        if chip(
-            ui,
-            capt_chip,
-            capt_label,
-            self.captured_view != CapturedView::Hidden,
-            &pal,
-        ) {
-            self.captured_view = match self.captured_view {
-                CapturedView::WhiteLeft => CapturedView::BlackLeft,
-                CapturedView::BlackLeft => CapturedView::Hidden,
-                CapturedView::Hidden => CapturedView::WhiteLeft,
-            };
-        }
         text(
             painter,
             Pos2::new(x, ly),
@@ -5919,6 +5912,38 @@ impl App {
             self.mate_escape = !self.mate_escape;
         }
         ly += 32.0;
+        // Срубленные фигуры: своя подпись и отступы, чтобы строка читалась
+        // отдельно от траекторий мата.
+        ly += 14.0;
+        text(
+            painter,
+            Pos2::new(x, ly),
+            Align2::LEFT_TOP,
+            "СРУБЛЕННЫЕ ФИГУРЫ",
+            9.0,
+            alpha(pal.text_dim, 0.75),
+        );
+        ly += 16.0;
+        let capt_label = match self.captured_view {
+            CapturedView::WhiteLeft => "Срублено: белые слева",
+            CapturedView::BlackLeft => "Срублено: чёрные слева",
+            CapturedView::Hidden => "Срублено: нет",
+        };
+        let capt_chip = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 30.0));
+        if chip(
+            ui,
+            capt_chip,
+            capt_label,
+            self.captured_view != CapturedView::Hidden,
+            &pal,
+        ) {
+            self.captured_view = match self.captured_view {
+                CapturedView::WhiteLeft => CapturedView::BlackLeft,
+                CapturedView::BlackLeft => CapturedView::Hidden,
+                CapturedView::Hidden => CapturedView::WhiteLeft,
+            };
+        }
+        ly += 34.0;
         }
         {
         // Сеть: режим «по сети» скрыт, пока не включён здесь. Блок стоит
@@ -8753,6 +8778,9 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.tall_probe && self.frames == 0 {
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(Vec2::new(1600.0, 1400.0)));
+        }
         let dt = ctx.input(|i| i.stable_dt).min(0.1);
         self.time += dt;
         music::tick();

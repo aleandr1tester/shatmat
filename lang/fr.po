@@ -1441,3 +1441,6 @@ msgstr "Capturées : noires à gauche"
 
 msgid "Срублено: нет"
 msgstr "Capturées : non"
+
+msgid "СРУБЛЕННЫЕ ФИГУРЫ"
+msgstr "PIÈCES CAPTURÉES"

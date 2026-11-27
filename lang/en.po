@@ -1425,3 +1425,6 @@ msgstr "Copied"
 
 msgid "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)"
 msgstr "Could not send: {reason}. The form is open — the log is in the clipboard (Ctrl+V)"
+
+msgid "колесо или клик — разбор"
+msgstr "wheel or click — review"

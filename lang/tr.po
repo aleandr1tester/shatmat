@@ -1425,3 +1425,6 @@ msgstr "Kopyalandı"
 
 msgid "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)"
 msgstr "Gönderilemedi: {reason}. Form açıldı — günlük panoda (Ctrl+V)"
+
+msgid "колесо или клик — разбор"
+msgstr "tekerlek veya tık — inceleme"

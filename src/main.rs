@@ -1739,6 +1739,36 @@ impl App {
             }
             return;
         }
+        // После партии стрелки и A/D листают её так же, как в разборе:
+        // не нужно сначала нажимать «Просмотр».
+        if self.game.is_over()
+            && !self.settings
+            && !self.rules
+            && !self.journal
+            && !self.guide
+        {
+            let back = ctx.input(|i| {
+                i.key_pressed(egui::Key::ArrowLeft)
+                    || i.key_pressed(egui::Key::A)
+                    || i.key_pressed(egui::Key::ArrowUp)
+                    || i.key_pressed(egui::Key::W)
+            });
+            let forward = ctx.input(|i| {
+                i.key_pressed(egui::Key::ArrowRight)
+                    || i.key_pressed(egui::Key::D)
+                    || i.key_pressed(egui::Key::ArrowDown)
+                    || i.key_pressed(egui::Key::S)
+            });
+            if back || forward {
+                self.start_review();
+                if self.review {
+                    let max = self.review_max();
+                    let ply = if back { max.saturating_sub(1) } else { max };
+                    self.set_review_ply(ply);
+                    return;
+                }
+            }
+        }
         if self.guide {
             if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
                 self.guide = false;
@@ -4551,6 +4581,17 @@ impl App {
             9.5,
             alpha(cur.text_dim, 0.85),
         );
+        if over {
+            // После партии журнал управляемый: колесо и клик листают партию.
+            text_fit_right(
+                painter,
+                Pos2::new(x + w, y),
+                i18n::tr("колесо или клик — разбор"),
+                w * 0.6,
+                9.5,
+                alpha(cur.text_dim, 0.7),
+            );
+        }
         y += 18.0;
 
         // нижние элементы: Играть/Пауза (с заливкой) и Новая партия рядом.
@@ -8395,6 +8436,16 @@ impl eframe::App for App {
             self.handle_keys(ctx);
             ctx.request_repaint();
             let layout = Layout::new(ctx);
+            // Колесо над доской листает партию, как ленту.
+            let (wheel, ptr) = ctx.input(|i| (i.raw_scroll_delta.y, i.pointer.latest_pos()));
+            if wheel.abs() > 0.5 && ptr.map(|p| layout.board.contains(p)).unwrap_or(false) {
+                let max = self.review_max();
+                if wheel > 0.0 && self.review_ply > 0 {
+                    self.set_review_ply(self.review_ply - 1);
+                } else if wheel < 0.0 && self.review_ply < max {
+                    self.set_review_ply(self.review_ply + 1);
+                }
+            }
             self.draw(ctx, &layout);
             self.handle_shot(ctx);
             return;
@@ -8536,7 +8587,33 @@ impl eframe::App for App {
 
         let layout = Layout::new(ctx);
         self.handle_keys(ctx);
-        self.handle_pointer(ctx, &layout);
+        // После партии колесо над доской сразу открывает разбор с нужного
+        // хода: искать кнопку «Просмотр» больше не нужно.
+        let mut entered_review = false;
+        if self.game.is_over()
+            && !self.review
+            && !self.settings
+            && !self.rules
+            && !self.journal
+            && !self.logs_window
+            && !self.net_window
+            && !self.guide
+            && !self.report_open
+        {
+            let (wheel, ptr) = ctx.input(|i| (i.raw_scroll_delta.y, i.pointer.latest_pos()));
+            if wheel.abs() > 0.5 && ptr.map(|p| layout.board.contains(p)).unwrap_or(false) {
+                self.start_review();
+                if self.review {
+                    let max = self.review_max();
+                    let ply = if wheel > 0.0 { max.saturating_sub(1) } else { max };
+                    self.set_review_ply(ply);
+                    entered_review = true;
+                }
+            }
+        }
+        if !entered_review {
+            self.handle_pointer(ctx, &layout);
+        }
         self.draw(ctx, &layout);
         self.handle_shot(ctx);
     }

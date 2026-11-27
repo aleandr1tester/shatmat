@@ -1425,3 +1425,6 @@ msgstr "Copiado"
 
 msgid "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)"
 msgstr "No se pudo enviar: {reason}. Formulario abierto: el registro está en el portapapeles (Ctrl+V)"
+
+msgid "колесо или клик — разбор"
+msgstr "rueda o clic — revisión"

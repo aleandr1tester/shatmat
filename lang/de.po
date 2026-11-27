@@ -1425,3 +1425,6 @@ msgstr "Kopiert"
 
 msgid "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)"
 msgstr "Senden fehlgeschlagen: {reason}. Formular geöffnet — das Log liegt in der Zwischenablage (Ctrl+V)"
+
+msgid "колесо или клик — разбор"
+msgstr "Rad oder Klick — Analyse"

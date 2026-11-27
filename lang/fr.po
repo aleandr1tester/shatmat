@@ -1425,3 +1425,6 @@ msgstr "Copié"
 
 msgid "Не удалось отправить: {reason}. Форма открыта — лог в буфере (Ctrl+V)"
 msgstr "Échec de l'envoi : {reason}. Formulaire ouvert — le journal est dans le presse-papiers (Ctrl+V)"
+
+msgid "колесо или клик — разбор"
+msgstr "molette ou clic — revue"

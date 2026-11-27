@@ -5694,14 +5694,13 @@ impl App {
         divider(painter, x, ly, left_w, pal.text_dim);
         ly += 16.0;
         group_title(painter, x, ly, "Оформление", pal.accent);
-        // Переключатель пульсации — справа на той же строке, места хватает.
-        let pulse_chip = Rect::from_min_size(
-            Pos2::new(x + left_w - 112.0, ly - 5.0),
-            Vec2::new(112.0, 20.0),
-        );
-        if chip(
+        // Пульсация — отдельной строкой во всю ширину: размер кнопки
+        // такой же, как у остальных, и ничего не жмётся к заголовку.
+        ly += 20.0;
+        let pulse_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 34.0));
+        if button(
             ui,
-            pulse_chip,
+            pulse_btn,
             if self.pulse_on {
                 "Пульсация: да"
             } else {
@@ -5709,10 +5708,11 @@ impl App {
             },
             self.pulse_on,
             &pal,
+            12.5,
         ) {
             self.pulse_on = !self.pulse_on;
         }
-        ly += 22.0;
+        ly += 40.0;
         text(
             painter,
             Pos2::new(x, ly),
@@ -5927,7 +5927,7 @@ impl App {
                 CapturedView::Hidden => CapturedView::WhiteLeft,
             };
         }
-        ly += 34.0;
+        ly += 54.0;
         }
         {
         // Сеть: режим «по сети» скрыт, пока не включён здесь. Блок стоит

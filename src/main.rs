@@ -4064,9 +4064,10 @@ impl App {
                     area.left() + size * 0.5 + c as f32 * step
                 };
                 let cy = top + size * 0.5 + r as f32 * step;
-                // Тёмные фигуры на тёмном фоне теряются — обводим светлым.
-                if side == Side::Black {
-                    self.paint_capture_outline(painter, kind, Pos2::new(cx, cy), size, checkers);
+                // Тёмные шахматные фигуры на тёмном фоне теряются — обводим
+                // светлым. Шашки и так читаются, их не трогаем.
+                if side == Side::Black && !checkers {
+                    self.paint_capture_outline(painter, kind, Pos2::new(cx, cy), size, false);
                 }
                 // Слегка приглушены: это память о бое, а не фигуры на доске.
                 self.paint_piece(
@@ -4109,12 +4110,30 @@ impl App {
         let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
         // Фигуры рисуются с коэффициентом 0.82, шашки — в полный размер.
         let base = if checkers { size } else { size * 0.82 };
-        painter.image(
-            art.mask.id(),
-            Rect::from_center_size(center, Vec2::splat(base * 1.07)),
-            uv,
-            alpha(Color32::WHITE, 0.8),
-        );
+        // Контур «толщиной в пиксель»: маска несколько раз сдвигается вокруг
+        // силуэта. Один увеличенный слой давал неровный ободок — на тонких
+        // деталях он толще, на широких тоньше.
+        let d = (base * 0.030).clamp(0.7, 2.0);
+        let rim = alpha(Color32::from_rgb(204, 204, 204), 0.95);
+        let outline = [
+            (1.0, 0.0),
+            (-1.0, 0.0),
+            (0.0, 1.0),
+            (0.0, -1.0),
+            (0.7, 0.7),
+            (0.7, -0.7),
+            (-0.7, 0.7),
+            (-0.7, -0.7),
+        ];
+        for (dx, dy) in outline {
+            let c = center + Vec2::new(dx * d, dy * d);
+            painter.image(
+                art.mask.id(),
+                Rect::from_center_size(c, Vec2::splat(base)),
+                uv,
+                rim,
+            );
+        }
     }
 
     #[allow(clippy::too_many_arguments)]

@@ -1351,17 +1351,14 @@ msgstr "ohne Log"
 msgid "Ваша почта для ответа (необязательно)"
 msgstr "Ihre E-Mail für eine Antwort (optional)"
 
-msgid "Согласен отправить версию, правила и выбранный лог"
-msgstr "Ich sende Version, Regeln und das gewählte Log"
+msgid "Согласен отправить версию, правила и выбранный лог в Google-форму"
+msgstr "Ich bin einverstanden, Version, Regeln und das gewählte Log an das Google-Formular zu senden"
 
 msgid "Сохранить файл"
 msgstr "Datei speichern"
 
 msgid "Скопировать отчёт"
 msgstr "Bericht kopieren"
-
-msgid "Открыть почту"
-msgstr "E-Mail öffnen"
 
 msgid "Отчёт сохранён: {path}"
 msgstr "Bericht gespeichert: {path}"
@@ -1374,9 +1371,6 @@ msgstr "Bericht in die Zwischenablage kopiert"
 
 msgid "Отметьте согласие перед отправкой"
 msgstr "Bitte vor dem Senden zustimmen"
-
-msgid "Письмо открыто в почтовом клиенте"
-msgstr "E-Mail im Mailprogramm geöffnet"
 
 msgid "ShatMat: сообщение о проблеме"
 msgstr "ShatMat: Problembericht"
@@ -1410,3 +1404,15 @@ msgstr "Log: {path}"
 
 msgid "Лог не приложен."
 msgstr "Kein Log angehängt."
+
+msgid "Открыть форму"
+msgstr "Formular öffnen"
+
+msgid "Форма открыта в браузере — нажмите «Отправить»"
+msgstr "Das Formular ist im Browser geöffnet — Senden drücken"
+
+msgid "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»"
+msgstr "Das Formular ist im Browser geöffnet. Das Log liegt in der Zwischenablage — in das Feld Log einfügen"
+
+msgid "Форма не настроена — сохраните отчёт в файл"
+msgstr "Das Formular ist nicht eingerichtet — Bericht in eine Datei speichern"

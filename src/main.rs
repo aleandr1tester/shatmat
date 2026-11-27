@@ -1040,7 +1040,7 @@ const RULE_DEMOS: &[RuleDemo] = &[
 ];
 
 
-/// Кодирование для mailto: пробелы и спецсимволы в проценты.
+/// Кодирование для ссылки с предзаполнением: пробелы и спецсимволы в проценты.
 fn url_encode(s: &str) -> String {
     let mut out = String::new();
     for b in s.as_bytes() {
@@ -1052,6 +1052,46 @@ fn url_encode(s: &str) -> String {
         }
     }
     out
+}
+
+/// Ссылка на Google-форму с предзаполненными полями.
+/// Возвращает (ссылка, вошёл ли лог в ссылку): длинный лог в URL не влезает,
+/// тогда его отправляют через буфер обмена, а в форму вставляют вручную.
+fn report_form_url(
+    form_url: &str,
+    field_message: &str,
+    field_log: &str,
+    field_email: &str,
+    field_meta: &str,
+    message: &str,
+    mail: &str,
+    meta: &str,
+    log: Option<&str>,
+    limit: usize,
+) -> Option<(String, bool)> {
+    if form_url.is_empty() {
+        return None;
+    }
+    let mut base = format!("{form_url}?usp=pp_url");
+    if !field_message.is_empty() && !message.is_empty() {
+        base.push_str(&format!("&entry.{field_message}={}", url_encode(message)));
+    }
+    if !field_email.is_empty() && !mail.is_empty() {
+        base.push_str(&format!("&entry.{field_email}={}", url_encode(mail)));
+    }
+    if !field_meta.is_empty() && !meta.is_empty() {
+        base.push_str(&format!("&entry.{field_meta}={}", url_encode(meta)));
+    }
+    if !field_log.is_empty() {
+        if let Some(log) = log {
+            let mut url = base.clone();
+            url.push_str(&format!("&entry.{field_log}={}", url_encode(log)));
+            if url.len() <= limit {
+                return Some((url, true));
+            }
+        }
+    }
+    Some((base, false))
 }
 
 /// Текст правил (LayoutJob), общий для окна правил и раздела гида.
@@ -2372,8 +2412,17 @@ impl App {
         self.review_ply = 0;
     }
 
-    /// Почта, на которую уходят сообщения о проблемах.
-    const REPORT_EMAIL: &'static str = "aleandr1.tester@gmail.com";
+    /// Ссылка на Google-форму отчётов. Пустая — форма ещё не настроена,
+    /// кнопка «Открыть форму» будет недоступна, останутся копирование и файл.
+    const REPORT_FORM_URL: &'static str = "https://docs.google.com/forms/d/e/1FAIpQLScdyN0JKMaIuG904NNoQaUXzM2jdYz1Pki7na1eJ6pXqS3TuA/viewform";
+    /// ID полей формы (entry.XXXXXXXX) из «Ссылки с предзаполненными ответами».
+    const REPORT_FIELD_MESSAGE: &'static str = "104432352";
+    const REPORT_FIELD_LOG: &'static str = "298242670";
+    const REPORT_FIELD_EMAIL: &'static str = "1736527743";
+    const REPORT_FIELD_META: &'static str = "677615932";
+    /// Предел длины ссылки: длинный лог в URL не влезает, тогда он уходит
+    /// в буфер обмена, а в форме его вставляют вручную.
+    const REPORT_URL_LIMIT: usize = 7000;
 
     /// Открыть окно «Сообщить о проблеме»: подтянуть список логов.
     fn open_report(&mut self) {
@@ -2438,33 +2487,55 @@ impl App {
         Some(path)
     }
 
-    /// Открыть почтовый клиент с готовой темой и краткой шапкой.
-    fn open_mail(&self) {
-        let subject = i18n::tr("ShatMat: сообщение о проблеме");
-        let mut body = String::new();
-        body.push_str(&i18n::trf("Версия игры: {v}", &[("v", VERSION)]));
-        body.push_str("\n");
-        body.push_str(&i18n::trf("Код правил: {code}", &[("code", &rulecode::encode_compact(&rulecode::Rules::from_game(&self.game)))]));
-        body.push_str("\n\n");
-        body.push_str(self.report_text.trim());
-        body.push_str("\n\n");
-        body.push_str(&i18n::tr("Полный отчёт с логом приложите файлом: путь в папке logs/reports."));
-        let url = format!(
-            "mailto:{}?subject={}&body={}",
-            Self::REPORT_EMAIL,
-            url_encode(&subject),
-            url_encode(&body)
+    /// Текст выбранного лога: только сам файл, без шапки отчёта.
+    fn report_log_text(&self) -> Option<String> {
+        let path = self.report_log.and_then(|i| self.report_logs.get(i))?;
+        std::fs::read_to_string(&path.0).ok()
+    }
+
+    /// Ссылка на форму с предзаполненными полями.
+    /// Возвращает (ссылка, вошёл ли лог в ссылку).
+    fn report_form_url(&self) -> Option<(String, bool)> {
+        let meta = format!(
+            "{} · {} · {}",
+            VERSION,
+            rulecode::encode_compact(&rulecode::Rules::from_game(&self.game)),
+            i18n::current().code()
         );
+        let log = self.report_log_text();
+        report_form_url(
+            Self::REPORT_FORM_URL,
+            Self::REPORT_FIELD_MESSAGE,
+            Self::REPORT_FIELD_LOG,
+            Self::REPORT_FIELD_EMAIL,
+            Self::REPORT_FIELD_META,
+            self.report_text.trim(),
+            self.report_email.trim(),
+            &meta,
+            log.as_deref(),
+            Self::REPORT_URL_LIMIT,
+        )
+    }
+
+    /// Открыть форму отчётов в браузере. Some(true) — лог уже в ссылке,
+    /// Some(false) — лог надо положить в буфер и вставить в форму вручную,
+    /// None — форма не настроена.
+    fn open_report_form(&self) -> Option<bool> {
+        let (url, log_included) = self.report_form_url()?;
+        // cmd трактует & как разделитель команд, поэтому ссылку
+        // передаём в кавычках, иначе браузер получит обрезанный адрес.
         #[cfg(windows)]
         {
+            let quoted = format!("\"{url}\"");
             let _ = std::process::Command::new("cmd")
-                .args(["/C", "start", "", &url])
+                .args(["/C", "start", "", &quoted])
                 .spawn();
         }
         #[cfg(not(windows))]
         {
             let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
         }
+        Some(log_included)
     }
 
     /// Открыть список логов из папки logs.
@@ -6948,7 +7019,7 @@ impl App {
             painter,
             Pos2::new(check.right() + 10.0, check.center().y),
             Align2::LEFT_CENTER,
-            i18n::tr("Согласен отправить версию, правила и выбранный лог"),
+            i18n::tr("Согласен отправить версию, правила и выбранный лог в Google-форму"),
             11.0,
             alpha(pal.text, 0.92),
         );
@@ -6985,12 +7056,29 @@ impl App {
             ui.ctx().copy_text(body);
             self.report_status = i18n::tr("Отчёт скопирован в буфер").to_string();
         }
-        if button(ui, mail, "Открыть почту", true, &pal, 11.5) {
+        if button(ui, mail, "Открыть форму", true, &pal, 11.5) {
             if !self.report_consent {
                 self.report_status = i18n::tr("Отметьте согласие перед отправкой").to_string();
             } else {
-                self.open_mail();
-                self.report_status = i18n::tr("Письмо открыто в почтовом клиенте").to_string();
+                match self.open_report_form() {
+                    Some(true) => {
+                        self.report_status =
+                            i18n::tr("Форма открыта в браузере — нажмите «Отправить»").to_string();
+                    }
+                    Some(false) => {
+                        if let Some(log) = self.report_log_text() {
+                            ui.ctx().copy_text(log);
+                        }
+                        self.report_status = i18n::tr(
+                            "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»",
+                        )
+                        .to_string();
+                    }
+                    None => {
+                        self.report_status =
+                            i18n::tr("Форма не настроена — сохраните отчёт в файл").to_string();
+                    }
+                }
             }
         }
     }
@@ -9127,4 +9215,62 @@ mod tests {
         assert!(px[4] < 40 && px[5] < 40 && px[6] < 40, "тёмные тоже темнеют");
         assert_eq!(px[7], 128, "альфа не меняется у полупрозрачных");
     }
+
+    #[test]
+    fn report_form_url_keeps_short_log_inside_link() {
+        let (url, log_in) = report_form_url(
+            "https://example.org/form",
+            "111",
+            "222",
+            "333",
+            "444",
+            "король встал в угол",
+            "test@test.ru",
+            "0.22.1 · 0/21/1 · ru",
+            Some("ход 1 e2-e4\nход 2 e7-e5"),
+            7000,
+        )
+        .expect("форма задана");
+        assert!(log_in, "короткий лог должен войти в ссылку");
+        assert!(url.starts_with("https://example.org/form?usp=pp_url"));
+        assert!(url.contains("&entry.111="), "поле проблемы");
+        assert!(url.contains("&entry.222="), "поле лога");
+        assert!(url.contains("&entry.333=test%40test.ru"), "поле почты");
+        assert!(url.contains("&entry.444="), "поле версии");
+        assert!(!url.contains(' '), "в ссылке не должно быть пробелов");
+    }
+
+    #[test]
+    fn report_form_url_drops_long_log_and_keeps_other_fields() {
+        let long_log = "x".repeat(9000);
+        let (url, log_in) = report_form_url(
+            "https://example.org/form",
+            "111",
+            "222",
+            "333",
+            "444",
+            "проблема",
+            "",
+            "meta",
+            Some(&long_log),
+            7000,
+        )
+        .expect("форма задана");
+        assert!(!log_in, "длинный лог не влезает в ссылку");
+        assert!(!url.contains("&entry.222="), "лог вынесен из ссылки");
+        assert!(url.contains("&entry.111="), "остальные поля на месте");
+        assert!(url.len() <= 7000, "ссылка уложилась в предел");
+    }
+
+    #[test]
+    fn report_form_url_without_form_returns_none() {
+        assert!(report_form_url("", "1", "2", "3", "4", "x", "", "", None, 7000).is_none());
+    }
+
+    #[test]
+    fn url_encode_escapes_ampersand_and_space() {
+        assert_eq!(url_encode("a b&c"), "a%20b%26c");
+        assert_eq!(url_encode("привет"), "%D0%BF%D1%80%D0%B8%D0%B2%D0%B5%D1%82");
+    }
+
 }

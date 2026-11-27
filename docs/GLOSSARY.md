@@ -34,6 +34,7 @@
 | ничья | draw | Remis | tablas | nulle | beraberlik | результат без победителя |
 | код правил | rules code | Regelcode | código de reglas | code des règles | kural kodu | 4-символьный код настроек партии для обмена |
 | журнал партии | game log | Partie-Log | registro de la partida | journal de la partie | parti günlüğü | файл с записью ходов и правил |
+| лог (короткая подпись) | log | Log | registro | journal | günlük | то же, что журнал партии: короткое слово в интерфейсе (кнопки, поля отчёта) |
 | просмотр | review | Ansicht | revisión | revue | inceleme | режим листания партии или лога |
 | правила партии | game rules | Partieregeln | reglas de la partida | règles de la partie | parti kuralları | настройки, общие для обеих сторон |
 | демонстрация | demo | Demo | demostración | démo | gösterim | партия ИИ против ИИ до старта |

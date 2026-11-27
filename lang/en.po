@@ -1351,17 +1351,14 @@ msgstr "no log"
 msgid "Ваша почта для ответа (необязательно)"
 msgstr "Your e-mail for a reply (optional)"
 
-msgid "Согласен отправить версию, правила и выбранный лог"
-msgstr "I agree to send the version, rules and the selected log"
+msgid "Согласен отправить версию, правила и выбранный лог в Google-форму"
+msgstr "I agree to send the version, rules and the selected log to the Google form"
 
 msgid "Сохранить файл"
 msgstr "Save file"
 
 msgid "Скопировать отчёт"
 msgstr "Copy report"
-
-msgid "Открыть почту"
-msgstr "Open e-mail"
 
 msgid "Отчёт сохранён: {path}"
 msgstr "Report saved: {path}"
@@ -1374,9 +1371,6 @@ msgstr "Report copied to clipboard"
 
 msgid "Отметьте согласие перед отправкой"
 msgstr "Tick the consent before sending"
-
-msgid "Письмо открыто в почтовом клиенте"
-msgstr "E-mail opened in your mail app"
 
 msgid "ShatMat: сообщение о проблеме"
 msgstr "ShatMat: problem report"
@@ -1410,3 +1404,15 @@ msgstr "Log: {path}"
 
 msgid "Лог не приложен."
 msgstr "No log attached."
+
+msgid "Открыть форму"
+msgstr "Open form"
+
+msgid "Форма открыта в браузере — нажмите «Отправить»"
+msgstr "The form is open in the browser — press 'Send'"
+
+msgid "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»"
+msgstr "The form is open in the browser. The log is copied to the clipboard — paste it into the 'Log' field"
+
+msgid "Форма не настроена — сохраните отчёт в файл"
+msgstr "The form is not configured — save the report to a file"

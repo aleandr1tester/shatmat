@@ -1351,17 +1351,14 @@ msgstr "sans journal"
 msgid "Ваша почта для ответа (необязательно)"
 msgstr "Votre e-mail pour la réponse (facultatif)"
 
-msgid "Согласен отправить версию, правила и выбранный лог"
-msgstr "J'accepte d'envoyer la version, les règles et le journal choisi"
+msgid "Согласен отправить версию, правила и выбранный лог в Google-форму"
+msgstr "J'accepte d'envoyer la version, les règles et le journal choisi au formulaire Google"
 
 msgid "Сохранить файл"
 msgstr "Enregistrer le fichier"
 
 msgid "Скопировать отчёт"
 msgstr "Copier le rapport"
-
-msgid "Открыть почту"
-msgstr "Ouvrir l'e-mail"
 
 msgid "Отчёт сохранён: {path}"
 msgstr "Rapport enregistré : {path}"
@@ -1374,9 +1371,6 @@ msgstr "Rapport copié dans le presse-papiers"
 
 msgid "Отметьте согласие перед отправкой"
 msgstr "Cochez le consentement avant l'envoi"
-
-msgid "Письмо открыто в почтовом клиенте"
-msgstr "E-mail ouvert dans votre messagerie"
 
 msgid "ShatMat: сообщение о проблеме"
 msgstr "ShatMat : rapport de problème"
@@ -1410,3 +1404,15 @@ msgstr "Journal : {path}"
 
 msgid "Лог не приложен."
 msgstr "Aucun journal joint."
+
+msgid "Открыть форму"
+msgstr "Ouvrir le formulaire"
+
+msgid "Форма открыта в браузере — нажмите «Отправить»"
+msgstr "Le formulaire est ouvert dans le navigateur — appuyez sur Envoyer"
+
+msgid "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»"
+msgstr "Le formulaire est ouvert dans le navigateur. Le journal est copié dans le presse-papiers — collez-le dans le champ Journal"
+
+msgid "Форма не настроена — сохраните отчёт в файл"
+msgstr "Le formulaire n'est pas configuré — enregistrez le rapport dans un fichier"

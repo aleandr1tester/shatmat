@@ -1351,17 +1351,14 @@ msgstr "günlüksüz"
 msgid "Ваша почта для ответа (необязательно)"
 msgstr "Yanıt için e-postanız (isteğe bağlı)"
 
-msgid "Согласен отправить версию, правила и выбранный лог"
-msgstr "Sürüm, kurallar ve seçilen günlüğü göndermeyi kabul ediyorum"
+msgid "Согласен отправить версию, правила и выбранный лог в Google-форму"
+msgstr "Sürümü, kuralları ve seçilen günlüğü Google formuna göndermeyi kabul ediyorum"
 
 msgid "Сохранить файл"
 msgstr "Dosyayı kaydet"
 
 msgid "Скопировать отчёт"
 msgstr "Raporu kopyala"
-
-msgid "Открыть почту"
-msgstr "E-postayı aç"
 
 msgid "Отчёт сохранён: {path}"
 msgstr "Rapor kaydedildi: {path}"
@@ -1374,9 +1371,6 @@ msgstr "Rapor panoya kopyalandı"
 
 msgid "Отметьте согласие перед отправкой"
 msgstr "Göndermeden önce onayı işaretleyin"
-
-msgid "Письмо открыто в почтовом клиенте"
-msgstr "E-posta uygulamada açıldı"
 
 msgid "ShatMat: сообщение о проблеме"
 msgstr "ShatMat: sorun bildirimi"
@@ -1410,3 +1404,15 @@ msgstr "Günlük: {path}"
 
 msgid "Лог не приложен."
 msgstr "Günlük eklenmedi."
+
+msgid "Открыть форму"
+msgstr "Formu aç"
+
+msgid "Форма открыта в браузере — нажмите «Отправить»"
+msgstr "Form tarayıcıda açıldı — Gönder düğmesine basın"
+
+msgid "Форма открыта в браузере. Лог скопирован в буфер — вставьте его в поле «Лог»"
+msgstr "Form tarayıcıda açıldı. Günlük panoya kopyalandı — Günlük alanına yapıştırın"
+
+msgid "Форма не настроена — сохраните отчёт в файл"
+msgstr "Form yapılandırılmadı — raporu dosyaya kaydedin"

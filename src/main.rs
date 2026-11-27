@@ -4473,19 +4473,20 @@ impl App {
         y += pill_h + 12.0;
 
         // соперник
-        text(
-            painter,
-            Pos2::new(x, y + 12.0),
-            Align2::LEFT_TOP,
-            "СОПЕРНИК",
-            8.5,
-            alpha(cur.text_dim, 0.75),
-        );
         let label_w = 66.0;
         let chip_h = 36.0;
         let gap = 8.0;
         let chips_x = x + label_w;
         let chips_w = w - label_w;
+        // Подпись по центру высоты кнопок, а не по верхнему краю.
+        text(
+            painter,
+            Pos2::new(x, y + chip_h * 0.5),
+            Align2::LEFT_CENTER,
+            "СОПЕРНИК",
+            8.5,
+            alpha(cur.text_dim, 0.75),
+        );
         // «по сети» появляется только после включения в настройках
         let net_count = if self.net_enabled { 3 } else { 2 };
         let mut mode_labels: Vec<&str> = vec!["вдвоём", "с компьютером"];
@@ -4551,8 +4552,8 @@ impl App {
         if self.mode == Mode::Computer {
             text(
                 painter,
-                Pos2::new(x, y + 5.0),
-                Align2::LEFT_TOP,
+                Pos2::new(x, y + chip_h * 0.5),
+                Align2::LEFT_CENTER,
                 "СЛОЖНОСТЬ",
                 8.5,
                 alpha(cur.text_dim, 0.75),
@@ -4774,18 +4775,19 @@ impl App {
                 let row = Rect::from_min_size(Pos2::new(x, ry), Vec2::new(w, line_h));
                 let is_current = self.final_ply == Some(idx + 1);
                 let is_last = idx + 1 == lines.len();
+                // Полоса выделения шире текста: слева запас, чтобы номер хода
+                // не вылезал за скругление.
+                let band = Rect::from_min_size(
+                    Pos2::new(x - 6.0, ry + 2.0),
+                    Vec2::new(w + 6.0, line_h - 4.0),
+                );
                 let resp = ui.interact(row, ui.id().with(("panel_move", idx)), Sense::click());
                 // Подсветка только там, где клик действительно что-то делает.
                 if resp.hovered() && over && !is_current {
-                    clip.rect_filled(row.shrink2(Vec2::new(0.0, 2.0)), 5.0, alpha(cur.accent, 0.10));
+                    clip.rect_filled(band, 5.0, alpha(cur.accent, 0.10));
                 }
                 if is_current {
-                    // Полоса выделения на всю строку и с запасом по высоте.
-                    clip.rect_filled(
-                        row.shrink2(Vec2::new(0.0, 2.0)),
-                        5.0,
-                        alpha(cur.accent, 0.20),
-                    );
+                    clip.rect_filled(band, 5.0, alpha(cur.accent, 0.20));
                 }
                 let base = if is_last || is_current {
                     alpha(cur.text, 0.95)
@@ -4831,7 +4833,7 @@ impl App {
                 }
                 let galley = painter.layout_job(job);
                 let text_dy = ((line_h - galley.size().y) * 0.5).max(0.0);
-                clip.galley(Pos2::new(x, ry + text_dy), galley, Color32::WHITE);
+                clip.galley(Pos2::new(x + 2.0, ry + text_dy), galley, Color32::WHITE);
                 if resp.clicked() && over {
                     self.panel_jump = Some(idx + 1);
                 }

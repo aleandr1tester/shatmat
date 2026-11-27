@@ -1040,6 +1040,20 @@ const RULE_DEMOS: &[RuleDemo] = &[
 ];
 
 
+/// Кодирование для mailto: пробелы и спецсимволы в проценты.
+fn url_encode(s: &str) -> String {
+    let mut out = String::new();
+    for b in s.as_bytes() {
+        match *b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                out.push(*b as char)
+            }
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+
 /// Текст правил (LayoutJob), общий для окна правил и раздела гида.
 fn rules_job(width: f32) -> egui::text::LayoutJob {
     let chess_rules = [
@@ -1275,6 +1289,17 @@ pub struct App {
     review_phases: Vec<Option<Phase>>,
     /// Показывать в окне логов ещё и демонстрационные партии.
     logs_demo: bool,
+    /// Окно «Сообщить о проблеме».
+    report_open: bool,
+    report_rect: Rect,
+    report_text: String,
+    report_email: String,
+    report_logs: Vec<(PathBuf, String)>,
+    /// Индекс выбранного лога в report_logs; None — отправлять без лога.
+    report_log: Option<usize>,
+    report_consent: bool,
+    report_status: String,
+    report_scroll: f32,
     /// Заголовок панели в просмотре: итог партии или название лога.
     review_result: String,
     guide: bool,
@@ -1479,6 +1504,15 @@ impl App {
             review_switch: Vec::new(),
             review_phases: Vec::new(),
             logs_demo: false,
+            report_open: false,
+            report_rect: Rect::NOTHING,
+            report_text: String::new(),
+            report_email: String::new(),
+            report_logs: Vec::new(),
+            report_log: None,
+            report_consent: false,
+            report_status: String::new(),
+            report_scroll: 0.0,
             review_result: String::new(),
             guide: false,
             guide_kind: Kind::Pawn,
@@ -2338,6 +2372,101 @@ impl App {
         self.review_ply = 0;
     }
 
+    /// Почта, на которую уходят сообщения о проблемах.
+    const REPORT_EMAIL: &'static str = "aleandr1.tester@gmail.com";
+
+    /// Открыть окно «Сообщить о проблеме»: подтянуть список логов.
+    fn open_report(&mut self) {
+        self.report_logs = replay::list_logs(self.logs_demo);
+        self.report_log = if self.report_logs.is_empty() { None } else { Some(0) };
+        self.report_text.clear();
+        self.report_email.clear();
+        self.report_consent = false;
+        self.report_status.clear();
+        self.report_open = true;
+    }
+
+    /// Текст отчёта: шапка с версией, ОС, режимом и правилами плюс сам лог.
+    fn report_body(&self) -> String {
+        let mut out = String::new();
+        out.push_str(&i18n::trf("Версия игры: {v}", &[("v", VERSION)]));
+        out.push('\n');
+        out.push_str(&i18n::trf(
+            "Система: {os}",
+            &[("os", std::env::consts::OS), ("", "")],
+        ));
+        out.push('\n');
+        out.push_str(&i18n::trf("Режим: {mode}", &[("mode", &self.mode_label())]));
+        out.push('\n');
+        out.push_str(&i18n::trf(
+            "Код правил: {code}",
+            &[("code", &rulecode::encode_compact(&rulecode::Rules::from_game(&self.game)))],
+        ));
+        out.push('\n');
+        out.push_str(&i18n::trf("Язык: {lang}", &[("lang", i18n::current().code())]));
+        out.push('\n');
+        if !self.report_email.trim().is_empty() {
+            out.push_str(&i18n::trf(
+                "Почта для ответа: {mail}",
+                &[("mail", self.report_email.trim())],
+            ));
+            out.push('\n');
+        }
+        out.push_str(&i18n::tr("Что случилось:"));
+        out.push('\n');
+        out.push_str(self.report_text.trim());
+        out.push_str("\n\n");
+        if let Some(path) = self.report_log.and_then(|i| self.report_logs.get(i)) {
+            out.push_str(&i18n::trf("Лог: {path}", &[("path", &path.0.display().to_string())]));
+            out.push_str("\n");
+            if let Ok(text) = std::fs::read_to_string(&path.0) {
+                out.push_str(&text);
+            }
+        } else {
+            out.push_str(&i18n::tr("Лог не приложен."));
+            out.push('\n');
+        }
+        out
+    }
+
+    /// Сохранить отчёт в logs/reports и вернуть путь.
+    fn save_report(&self) -> Option<PathBuf> {
+        let dir = logging::logs_dir().join("reports");
+        std::fs::create_dir_all(&dir).ok()?;
+        let path = dir.join(format!("report-{}.txt", logging::now_string()));
+        std::fs::write(&path, self.report_body()).ok()?;
+        Some(path)
+    }
+
+    /// Открыть почтовый клиент с готовой темой и краткой шапкой.
+    fn open_mail(&self) {
+        let subject = i18n::tr("ShatMat: сообщение о проблеме");
+        let mut body = String::new();
+        body.push_str(&i18n::trf("Версия игры: {v}", &[("v", VERSION)]));
+        body.push_str("\n");
+        body.push_str(&i18n::trf("Код правил: {code}", &[("code", &rulecode::encode_compact(&rulecode::Rules::from_game(&self.game)))]));
+        body.push_str("\n\n");
+        body.push_str(self.report_text.trim());
+        body.push_str("\n\n");
+        body.push_str(&i18n::tr("Полный отчёт с логом приложите файлом: путь в папке logs/reports."));
+        let url = format!(
+            "mailto:{}?subject={}&body={}",
+            Self::REPORT_EMAIL,
+            url_encode(&subject),
+            url_encode(&body)
+        );
+        #[cfg(windows)]
+        {
+            let _ = std::process::Command::new("cmd")
+                .args(["/C", "start", "", &url])
+                .spawn();
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
+        }
+    }
+
     /// Открыть список логов из папки logs.
     fn open_logs(&mut self) {
         self.logs_list = replay::list_logs(self.logs_demo);
@@ -2553,6 +2682,12 @@ impl App {
             }
             return;
         }
+        if self.report_open {
+            if !self.report_rect.contains(pos) {
+                self.report_open = false;
+            }
+            return;
+        }
         if self.settings {
             if !self.settings_rect.contains(pos) {
                 self.settings = false;
@@ -2634,6 +2769,9 @@ impl App {
                 }
                 if self.logs_window {
                     self.paint_logs(ui, &painter, layout);
+                }
+                if self.report_open {
+                    self.paint_report(ui, &painter, layout);
                 }
                 if self.guide {
                     self.paint_guide(ui, &painter, layout);
@@ -4944,6 +5082,11 @@ impl App {
         if button(ui, open_logs_btn, "Открыть логи", false, &pal, 11.5) {
             self.open_logs();
         }
+        ly += 36.0;
+        let report_btn = Rect::from_min_size(Pos2::new(x, ly), Vec2::new(left_w, 32.0));
+        if button(ui, report_btn, "Сообщить о проблеме", false, &pal, 11.5) {
+            self.open_report();
+        }
         ly += 38.0;
 
         ly += 6.0;
@@ -6628,6 +6771,229 @@ impl App {
     }
 
     // ------------------------- результат -------------------------
+
+    fn paint_report(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
+        painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(175));
+        let card = Rect::from_center_size(layout.full.center(), Vec2::new(760.0, 600.0));
+        self.report_rect = card;
+        let pal = Palette::for_phase(self.game.phase);
+        rr(
+            painter,
+            card,
+            24.0,
+            Color32::from_rgb(22, 20, 30),
+            Stroke::new(1.0_f32, alpha(pal.accent, 0.40)),
+        );
+        let pad = 26.0;
+        let x = card.left() + pad;
+        let w = card.width() - pad * 2.0;
+        text(
+            painter,
+            Pos2::new(x, card.top() + 20.0),
+            Align2::LEFT_TOP,
+            i18n::tr("СООБЩИТЬ О ПРОБЛЕМЕ"),
+            19.0,
+            pal.text,
+        );
+        let close = Rect::from_min_size(
+            Pos2::new(card.right() - pad - 96.0, card.top() + 16.0),
+            Vec2::new(96.0, 30.0),
+        );
+        if button(ui, close, "Закрыть", false, &pal, 12.0) {
+            self.report_open = false;
+        }
+        let mut y = card.top() + 62.0;
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            i18n::tr("Что случилось"),
+            10.0,
+            alpha(pal.text_dim, 0.85),
+        );
+        y += 16.0;
+        let msg_rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 96.0));
+        rr(
+            painter,
+            msg_rect,
+            10.0,
+            alpha(Color32::WHITE, 0.05),
+            Stroke::new(1.0_f32, alpha(pal.text, 0.16)),
+        );
+        let msg_field = egui::TextEdit::multiline(&mut self.report_text)
+            .font(FontId::proportional(12.5))
+            .text_color(pal.text)
+            .frame(false)
+            .hint_text(i18n::tr("опишите, что пошло не так"));
+        ui.put(msg_rect.shrink(8.0), msg_field);
+        y += 106.0;
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            i18n::tr("Приложить лог"),
+            10.0,
+            alpha(pal.text_dim, 0.85),
+        );
+        y += 16.0;
+        let list_h = 118.0;
+        let list_rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, list_h));
+        rr(
+            painter,
+            list_rect,
+            10.0,
+            alpha(Color32::WHITE, 0.04),
+            Stroke::new(1.0_f32, alpha(pal.text, 0.12)),
+        );
+        let row_h = 24.0;
+        let rows = self.report_logs.len() + 1;
+        let content_h = rows as f32 * row_h;
+        let max_off = (content_h - list_h + 8.0).max(0.0);
+        if let Some(m) = ui.input(|i| i.pointer.latest_pos()) {
+            if list_rect.contains(m) && max_off > 0.5 {
+                let wheel = ui.input(|i| i.raw_scroll_delta.y);
+                self.report_scroll = (self.report_scroll - wheel * 0.5).clamp(0.0, max_off);
+            }
+        }
+        self.report_scroll = self.report_scroll.clamp(0.0, max_off);
+        let clip = painter.with_clip_rect(list_rect.shrink(4.0));
+        let mut pick: Option<Option<usize>> = None;
+        for idx in 0..rows {
+            let ry = list_rect.top() + 4.0 - self.report_scroll + idx as f32 * row_h;
+            let row = Rect::from_min_size(
+                Pos2::new(list_rect.left() + 4.0, ry),
+                Vec2::new(list_rect.width() - 8.0, row_h - 2.0),
+            );
+            if row.bottom() < list_rect.top() || row.top() > list_rect.bottom() {
+                continue;
+            }
+            let selected = if idx == 0 {
+                self.report_log.is_none()
+            } else {
+                self.report_log == Some(idx - 1)
+            };
+            let resp = ui.interact(row, ui.id().with(("report_log_row", idx)), Sense::click());
+            if selected {
+                clip.rect_filled(row, 6.0, alpha(pal.accent, 0.14));
+            } else if resp.hovered() {
+                clip.rect_filled(row, 6.0, alpha(pal.accent, 0.07));
+            }
+            let label = if idx == 0 {
+                i18n::tr("без лога").to_string()
+            } else {
+                self.report_logs[idx - 1].1.clone()
+            };
+            clip.text(
+                Pos2::new(row.left() + 8.0, row.center().y),
+                Align2::LEFT_CENTER,
+                label,
+                FontId::proportional(11.0),
+                alpha(pal.text, if selected { 0.98 } else { 0.9 }),
+            );
+            if resp.clicked() {
+                pick = Some(if idx == 0 { None } else { Some(idx - 1) });
+            }
+        }
+        if let Some(p) = pick {
+            self.report_log = p;
+        }
+        y += list_h + 10.0;
+
+        text(
+            painter,
+            Pos2::new(x, y),
+            Align2::LEFT_TOP,
+            i18n::tr("Ваша почта для ответа (необязательно)"),
+            10.0,
+            alpha(pal.text_dim, 0.85),
+        );
+        y += 16.0;
+        let mail_rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w * 0.5, 32.0));
+        rr(
+            painter,
+            mail_rect,
+            8.0,
+            alpha(Color32::WHITE, 0.05),
+            Stroke::new(1.0_f32, alpha(pal.text, 0.16)),
+        );
+        let mail_field = egui::TextEdit::singleline(&mut self.report_email)
+            .font(FontId::proportional(12.5))
+            .text_color(pal.text)
+            .frame(false)
+            .hint_text("you@example.com");
+        ui.put(mail_rect.shrink(7.0), mail_field);
+        y += 42.0;
+
+        let check = Rect::from_min_size(Pos2::new(x, y), Vec2::new(18.0, 18.0));
+        let check_hit = ui.interact(
+            check.expand2(Vec2::new(4.0, 6.0)),
+            ui.id().with("report_consent"),
+            Sense::click(),
+        );
+        painter.rect_stroke(
+            check,
+            4.0,
+            Stroke::new(1.2_f32, alpha(pal.text_dim, 0.75)),
+            egui::StrokeKind::Inside,
+        );
+        if self.report_consent {
+            painter.rect_filled(check.shrink(4.0), 2.0, pal.accent);
+        }
+        if check_hit.clicked() {
+            self.report_consent = !self.report_consent;
+        }
+        text(
+            painter,
+            Pos2::new(check.right() + 10.0, check.center().y),
+            Align2::LEFT_CENTER,
+            i18n::tr("Согласен отправить версию, правила и выбранный лог"),
+            11.0,
+            alpha(pal.text, 0.92),
+        );
+        y += 30.0;
+
+        if !self.report_status.is_empty() {
+            text_fit(
+                painter,
+                Pos2::new(x, y),
+                &self.report_status,
+                w,
+                11.0,
+                pal.accent,
+            );
+        }
+
+        let btn_y = card.bottom() - 56.0;
+        let bw = (w - 16.0) / 3.0;
+        let save = Rect::from_min_size(Pos2::new(x, btn_y), Vec2::new(bw, 40.0));
+        let copy = Rect::from_min_size(Pos2::new(x + bw + 8.0, btn_y), Vec2::new(bw, 40.0));
+        let mail = Rect::from_min_size(Pos2::new(x + (bw + 8.0) * 2.0, btn_y), Vec2::new(bw, 40.0));
+        if button(ui, save, "Сохранить файл", false, &pal, 11.5) {
+            if let Some(path) = self.save_report() {
+                self.report_status = i18n::trf(
+                    "Отчёт сохранён: {path}",
+                    &[("path", &path.display().to_string())],
+                );
+            } else {
+                self.report_status = i18n::tr("Не удалось сохранить отчёт").to_string();
+            }
+        }
+        if button(ui, copy, "Скопировать отчёт", false, &pal, 11.5) {
+            let body = self.report_body();
+            ui.ctx().copy_text(body);
+            self.report_status = i18n::tr("Отчёт скопирован в буфер").to_string();
+        }
+        if button(ui, mail, "Открыть почту", true, &pal, 11.5) {
+            if !self.report_consent {
+                self.report_status = i18n::tr("Отметьте согласие перед отправкой").to_string();
+            } else {
+                self.open_mail();
+                self.report_status = i18n::tr("Письмо открыто в почтовом клиенте").to_string();
+            }
+        }
+    }
 
     fn paint_logs(&mut self, ui: &mut egui::Ui, painter: &egui::Painter, layout: &Layout) {
         painter.rect_filled(layout.full, 0.0, Color32::from_black_alpha(170));

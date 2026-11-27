@@ -1329,3 +1329,84 @@ msgstr "Yolu kopyala"
 
 msgid "Показать"
 msgstr "Göster"
+
+msgid "Сообщить о проблеме"
+msgstr "Sorun bildir"
+
+msgid "СООБЩИТЬ О ПРОБЛЕМЕ"
+msgstr "SORUN BİLDİR"
+
+msgid "Что случилось"
+msgstr "Ne oldu"
+
+msgid "опишите, что пошло не так"
+msgstr "ne ters gittiğini yazın"
+
+msgid "Приложить лог"
+msgstr "Günlük ekle"
+
+msgid "без лога"
+msgstr "günlüksüz"
+
+msgid "Ваша почта для ответа (необязательно)"
+msgstr "Yanıt için e-postanız (isteğe bağlı)"
+
+msgid "Согласен отправить версию, правила и выбранный лог"
+msgstr "Sürüm, kurallar ve seçilen günlüğü göndermeyi kabul ediyorum"
+
+msgid "Сохранить файл"
+msgstr "Dosyayı kaydet"
+
+msgid "Скопировать отчёт"
+msgstr "Raporu kopyala"
+
+msgid "Открыть почту"
+msgstr "E-postayı aç"
+
+msgid "Отчёт сохранён: {path}"
+msgstr "Rapor kaydedildi: {path}"
+
+msgid "Не удалось сохранить отчёт"
+msgstr "Rapor kaydedilemedi"
+
+msgid "Отчёт скопирован в буфер"
+msgstr "Rapor panoya kopyalandı"
+
+msgid "Отметьте согласие перед отправкой"
+msgstr "Göndermeden önce onayı işaretleyin"
+
+msgid "Письмо открыто в почтовом клиенте"
+msgstr "E-posta uygulamada açıldı"
+
+msgid "ShatMat: сообщение о проблеме"
+msgstr "ShatMat: sorun bildirimi"
+
+msgid "Полный отчёт с логом приложите файлом: путь в папке logs/reports."
+msgstr "Günlüğü içeren tam raporu dosya olarak ekleyin: yol logs/reports klasöründe."
+
+msgid "Версия игры: {v}"
+msgstr "Oyun sürümü: {v}"
+
+msgid "Система: {os}"
+msgstr "Sistem: {os}"
+
+msgid "Режим: {mode}"
+msgstr "Mod: {mode}"
+
+msgid "Код правил: {code}"
+msgstr "Kural kodu: {code}"
+
+msgid "Язык: {lang}"
+msgstr "Dil: {lang}"
+
+msgid "Почта для ответа: {mail}"
+msgstr "Yanıt e-postası: {mail}"
+
+msgid "Что случилось:"
+msgstr "Ne oldu:"
+
+msgid "Лог: {path}"
+msgstr "Günlük: {path}"
+
+msgid "Лог не приложен."
+msgstr "Günlük eklenmedi."

@@ -1329,3 +1329,84 @@ msgstr "Pfad kopieren"
 
 msgid "Показать"
 msgstr "Zeigen"
+
+msgid "Сообщить о проблеме"
+msgstr "Problem melden"
+
+msgid "СООБЩИТЬ О ПРОБЛЕМЕ"
+msgstr "PROBLEM MELDEN"
+
+msgid "Что случилось"
+msgstr "Was ist passiert"
+
+msgid "опишите, что пошло не так"
+msgstr "beschreiben Sie, was schiefging"
+
+msgid "Приложить лог"
+msgstr "Log anhängen"
+
+msgid "без лога"
+msgstr "ohne Log"
+
+msgid "Ваша почта для ответа (необязательно)"
+msgstr "Ihre E-Mail für eine Antwort (optional)"
+
+msgid "Согласен отправить версию, правила и выбранный лог"
+msgstr "Ich sende Version, Regeln und das gewählte Log"
+
+msgid "Сохранить файл"
+msgstr "Datei speichern"
+
+msgid "Скопировать отчёт"
+msgstr "Bericht kopieren"
+
+msgid "Открыть почту"
+msgstr "E-Mail öffnen"
+
+msgid "Отчёт сохранён: {path}"
+msgstr "Bericht gespeichert: {path}"
+
+msgid "Не удалось сохранить отчёт"
+msgstr "Bericht konnte nicht gespeichert werden"
+
+msgid "Отчёт скопирован в буфер"
+msgstr "Bericht in die Zwischenablage kopiert"
+
+msgid "Отметьте согласие перед отправкой"
+msgstr "Bitte vor dem Senden zustimmen"
+
+msgid "Письмо открыто в почтовом клиенте"
+msgstr "E-Mail im Mailprogramm geöffnet"
+
+msgid "ShatMat: сообщение о проблеме"
+msgstr "ShatMat: Problembericht"
+
+msgid "Полный отчёт с логом приложите файлом: путь в папке logs/reports."
+msgstr "Hängen Sie den vollen Bericht mit Log als Datei an: Pfad im Ordner logs/reports."
+
+msgid "Версия игры: {v}"
+msgstr "Spielversion: {v}"
+
+msgid "Система: {os}"
+msgstr "System: {os}"
+
+msgid "Режим: {mode}"
+msgstr "Modus: {mode}"
+
+msgid "Код правил: {code}"
+msgstr "Regelcode: {code}"
+
+msgid "Язык: {lang}"
+msgstr "Sprache: {lang}"
+
+msgid "Почта для ответа: {mail}"
+msgstr "Antwort-E-Mail: {mail}"
+
+msgid "Что случилось:"
+msgstr "Was ist passiert:"
+
+msgid "Лог: {path}"
+msgstr "Log: {path}"
+
+msgid "Лог не приложен."
+msgstr "Kein Log angehängt."

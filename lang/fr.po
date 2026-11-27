@@ -1329,3 +1329,84 @@ msgstr "Copier le chemin"
 
 msgid "Показать"
 msgstr "Montrer"
+
+msgid "Сообщить о проблеме"
+msgstr "Signaler un problème"
+
+msgid "СООБЩИТЬ О ПРОБЛЕМЕ"
+msgstr "SIGNALER UN PROBLÈME"
+
+msgid "Что случилось"
+msgstr "Que s'est-il passé"
+
+msgid "опишите, что пошло не так"
+msgstr "décrivez ce qui ne va pas"
+
+msgid "Приложить лог"
+msgstr "Joindre un journal"
+
+msgid "без лога"
+msgstr "sans journal"
+
+msgid "Ваша почта для ответа (необязательно)"
+msgstr "Votre e-mail pour la réponse (facultatif)"
+
+msgid "Согласен отправить версию, правила и выбранный лог"
+msgstr "J'accepte d'envoyer la version, les règles et le journal choisi"
+
+msgid "Сохранить файл"
+msgstr "Enregistrer le fichier"
+
+msgid "Скопировать отчёт"
+msgstr "Copier le rapport"
+
+msgid "Открыть почту"
+msgstr "Ouvrir l'e-mail"
+
+msgid "Отчёт сохранён: {path}"
+msgstr "Rapport enregistré : {path}"
+
+msgid "Не удалось сохранить отчёт"
+msgstr "Impossible d'enregistrer le rapport"
+
+msgid "Отчёт скопирован в буфер"
+msgstr "Rapport copié dans le presse-papiers"
+
+msgid "Отметьте согласие перед отправкой"
+msgstr "Cochez le consentement avant l'envoi"
+
+msgid "Письмо открыто в почтовом клиенте"
+msgstr "E-mail ouvert dans votre messagerie"
+
+msgid "ShatMat: сообщение о проблеме"
+msgstr "ShatMat : rapport de problème"
+
+msgid "Полный отчёт с логом приложите файлом: путь в папке logs/reports."
+msgstr "Joignez le rapport complet avec le journal en pièce jointe : le chemin est dans logs/reports."
+
+msgid "Версия игры: {v}"
+msgstr "Version du jeu : {v}"
+
+msgid "Система: {os}"
+msgstr "Système : {os}"
+
+msgid "Режим: {mode}"
+msgstr "Mode : {mode}"
+
+msgid "Код правил: {code}"
+msgstr "Code des règles : {code}"
+
+msgid "Язык: {lang}"
+msgstr "Langue : {lang}"
+
+msgid "Почта для ответа: {mail}"
+msgstr "E-mail de réponse : {mail}"
+
+msgid "Что случилось:"
+msgstr "Que s'est-il passé :"
+
+msgid "Лог: {path}"
+msgstr "Journal : {path}"
+
+msgid "Лог не приложен."
+msgstr "Aucun journal joint."

@@ -70,9 +70,10 @@ The **Settings** button in the panel:
 - interface font: Noto Sans by default (Cyrillic + Latin, including Turkish
   letters); the **Font** button cycles the built-in Noto Sans and custom fonts
   from the `fonts` folder;
-- captured pieces in columns beside the board, heaviest first, shown as
+- captured pieces in columns beside the board (black on the left, white on
+  the right by default), heaviest first, at most eight per column, shown as
   checkers in the checkers phase; the **Captured** switch cycles the layout
-  (white left -> black left -> hidden) on click;
+  (black left -> white left -> hidden) on click;
 - move smoothness: from 0.05 to 0.60 seconds.
 
 ## Rules code

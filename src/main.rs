@@ -1596,7 +1596,7 @@ impl App {
             piece_tex,
             icon_tex,
             pulse_on: true,
-            captured_view: CapturedView::WhiteLeft,
+            captured_view: CapturedView::BlackLeft,
             piece_preset,
             piece_presets,
             packs,
@@ -4009,31 +4009,19 @@ impl App {
             Pos2::new(frame.right() + 8.0, frame.top()),
             Pos2::new(layout.panel.left() - 10.0, frame.bottom()),
         );
-        // Размер общий для обеих сторон: как на доске, но с учётом того,
-        // сколько места есть слева и справа и сколько фигур надо уместить.
+        // Размер общий для обеих сторон. В столбике не больше восьми
+        // фигур (как ряд на доске), остальные уходят в следующий столбик:
+        // так порядок по весу читается сверху вниз и фигуры не мельчают.
+        let rows_cap = 8.0_f32;
         let mut size = board_size.max(12.0);
         for (area, n) in [(&left_area, left_list.len()), (&right_area, right_list.len())] {
             if n == 0 {
                 continue;
             }
-            size = size
-                .min((area.width() - 6.0).max(12.0))
-                .min((area.height() - 6.0).max(12.0));
-        }
-        while size > 14.0 {
-            let fits = |area: &Rect, n: usize| -> bool {
-                if n == 0 {
-                    return true;
-                }
-                let step = size * 1.15;
-                let rows = (area.height() / step).floor().max(1.0);
-                let cols = (area.width() / step).floor().max(1.0);
-                (rows * cols) >= n as f32
-            };
-            if fits(&left_area, left_list.len()) && fits(&right_area, right_list.len()) {
-                break;
-            }
-            size *= 0.92;
+            let cols = (n as f32 / rows_cap).ceil().max(1.0);
+            let by_width = ((area.width() / cols) - 6.0).max(12.0);
+            let by_height = ((area.height() / rows_cap) / 1.15).max(12.0);
+            size = size.min(by_width).min(by_height);
         }
         self.paint_capture_side(painter, left_list, left_side, left_area, true, size, &pal, checkers);
         self.paint_capture_side(painter, right_list, right_side, right_area, false, size, &pal, checkers);
@@ -4058,11 +4046,10 @@ impl App {
             return;
         }
         let step = size * 1.15;
-        let rows = ((area.height() / step).floor() as usize).max(1);
-        let cols = ((area.width() / step).floor() as usize).max(1);
+        let rows = ((area.height() / step).floor() as usize).max(1).min(8);
+        let cols = ((list.len() + rows - 1) / rows).max(1);
         // Столбики по центру высоты доски: так они не липнут к верхнему краю.
-        let visible = list.len().min(rows * cols);
-        let column = visible.min(rows);
+        let column = list.len().min(rows);
         let top = area.center().y - column as f32 * step * 0.5 + (step - size) * 0.5;
         let mut idx = 0usize;
         for c in 0..cols {
@@ -4077,6 +4064,10 @@ impl App {
                     area.left() + size * 0.5 + c as f32 * step
                 };
                 let cy = top + size * 0.5 + r as f32 * step;
+                // Тёмные фигуры на тёмном фоне теряются — обводим светлым.
+                if side == Side::Black {
+                    self.paint_capture_outline(painter, kind, Pos2::new(cx, cy), size, checkers);
+                }
                 // Слегка приглушены: это память о бое, а не фигуры на доске.
                 self.paint_piece(
                     painter,
@@ -4092,6 +4083,38 @@ impl App {
                 );
             }
         }
+    }
+
+    /// Светлый ободок вокруг срубленной чёрной фигуры: на тёмном фоне
+    /// силуэт иначе сливается. Маска фигуры рисуется чуть крупнее и цветная
+    /// фигура закрывает её изнутри, оставляя ровный контур.
+    fn paint_capture_outline(
+        &self,
+        painter: &egui::Painter,
+        kind: Kind,
+        center: Pos2,
+        size: f32,
+        checkers: bool,
+    ) {
+        let show_icon = self.show_checker_icons && kind != Kind::Pawn;
+        let royal = kind == Kind::King && !show_icon;
+        let art = if checkers {
+            self.piece_tex.checker_art(Side::Black, false, royal)
+        } else {
+            self.piece_tex.get(Side::Black, kind)
+        };
+        let Some(art) = art else {
+            return;
+        };
+        let uv = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0));
+        // Фигуры рисуются с коэффициентом 0.82, шашки — в полный размер.
+        let base = if checkers { size } else { size * 0.82 };
+        painter.image(
+            art.mask.id(),
+            Rect::from_center_size(center, Vec2::splat(base * 1.07)),
+            uv,
+            alpha(Color32::WHITE, 0.8),
+        );
     }
 
     #[allow(clippy::too_many_arguments)]

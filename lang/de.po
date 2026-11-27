@@ -126,8 +126,6 @@ msgstr "Weiß führt mit {n}"
 msgid "чёрные впереди на {n}"
 msgstr "Schwarz führt mit {n}"
 
-msgid "{material} · взято {white} : {black}"
-msgstr "{material} · geschlagen {white} : {black}"
 
 msgid "ХОДЫ"
 msgstr "ZÜGE"
@@ -1434,3 +1432,9 @@ msgstr "Zum Ende"
 
 msgid "ход {ply} из {total} · Esc — к итогу"
 msgstr "Zug {ply} von {total} · Esc — zum Ergebnis"
+
+msgid "Срублено: да"
+msgstr "Geschlagen: ja"
+
+msgid "Срублено: нет"
+msgstr "Geschlagen: nein"

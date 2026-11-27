@@ -380,6 +380,22 @@ fn lobby_demo_preset(plies: usize) -> Game {
     g
 }
 
+/// Делит срубленные фигуры на две группы: белые (показываются слева)
+/// и чёрные (справа). Порядок — как в партии.
+fn split_captures(recs: &[game::MoveRecord]) -> (Vec<Kind>, Vec<Kind>) {
+    let mut white = Vec::new();
+    let mut black = Vec::new();
+    for r in recs {
+        if let Some((side, kind)) = r.captured {
+            match side {
+                Side::White => white.push(kind),
+                Side::Black => black.push(kind),
+            }
+        }
+    }
+    (white, black)
+}
+
 fn pieces_dir() -> PathBuf {
     if let Some(dir) = std::env::current_exe()
         .ok()
@@ -1318,6 +1334,8 @@ pub struct App {
     icon_tex: PieceTextures,
     /// Пульсация фигур ходящей стороны (по умолчанию включена).
     pulse_on: bool,
+    /// Показывать срубленные фигуры столбиками по бокам доски.
+    show_captured: bool,
     /// Выбранный набор фигур (папка в pieces/ или пак) и список доступных.
     piece_preset: Option<String>,
     piece_presets: Vec<(String, String)>,
@@ -1563,6 +1581,7 @@ impl App {
             piece_tex,
             icon_tex,
             pulse_on: true,
+            show_captured: true,
             piece_preset,
             piece_presets,
             packs,
@@ -3107,6 +3126,7 @@ impl App {
                 self.paint_background(ctx, &painter, layout);
                 self.paint_header(&painter, layout);
                 self.paint_board(ctx, &painter, layout);
+                self.paint_captured(&painter, layout);
                 if !self.started && !self.review {
                     self.paint_start_frost(ui, &painter, layout);
                 }
@@ -3936,6 +3956,129 @@ impl App {
         let _ = painter;
     }
 
+    /// Срубленные фигуры по бокам доски: белые слева, чёрные справа.
+    /// Природа совпадает с текущей фазой: в шахматах — фигуры, в шашках —
+    /// шашки с шахматными метками.
+    fn paint_captured(&self, painter: &egui::Painter, layout: &Layout) {
+        if !self.show_captured {
+            return;
+        }
+        let total = self.game.history.len();
+        let limit = if self.review {
+            self.review_ply.min(total)
+        } else if let Some(ply) = self.final_ply {
+            ply.min(total)
+        } else {
+            total
+        };
+        let (white_lost, black_lost) = split_captures(&self.game.history[..limit]);
+        if white_lost.is_empty() && black_lost.is_empty() {
+            return;
+        }
+        let pal = Palette::for_phase(self.game.phase);
+        let checkers = self.game.phase == Phase::Checkers;
+        // Такой же размер, как фигуры на доске; если места мало — уменьшаем.
+        let board_size = layout.cell * 1.08;
+        let frame = layout.frame;
+        let left_area = Rect::from_min_max(
+            Pos2::new(layout.full.left() + 4.0, frame.top()),
+            Pos2::new(frame.left() - 8.0, frame.bottom()),
+        );
+        let right_area = Rect::from_min_max(
+            Pos2::new(frame.right() + 8.0, frame.top()),
+            Pos2::new(layout.panel.left() - 10.0, frame.bottom()),
+        );
+        self.paint_capture_side(
+            painter,
+            &white_lost,
+            Side::White,
+            left_area,
+            true,
+            board_size,
+            &pal,
+            checkers,
+        );
+        self.paint_capture_side(
+            painter,
+            &black_lost,
+            Side::Black,
+            right_area,
+            false,
+            board_size,
+            &pal,
+            checkers,
+        );
+    }
+
+    /// Столбики срубленных у одного края доски. `align_right` — заполняем
+    /// от правого края области (левая сторона доски), иначе от левого.
+    /// Размер берём как у фигур на доске, но ужимаем, чтобы ничего не
+    /// наползало на сайдбар, край окна и соседние фигуры.
+    #[allow(clippy::too_many_arguments)]
+    fn paint_capture_side(
+        &self,
+        painter: &egui::Painter,
+        list: &[Kind],
+        side: Side,
+        area: Rect,
+        align_right: bool,
+        board_size: f32,
+        pal: &Palette,
+        checkers: bool,
+    ) {
+        if list.is_empty() || area.width() < 14.0 || area.height() < 28.0 {
+            return;
+        }
+        let mut size = board_size
+            .min((area.width() - 6.0).max(12.0))
+            .min((area.height() - 6.0).max(12.0));
+        let mut step = size * 1.15;
+        let want = list.len() as f32;
+        while size > 14.0 {
+            let rows = (area.height() / step).floor().max(1.0);
+            let cols = (area.width() / step).floor().max(1.0);
+            if rows * cols >= want {
+                break;
+            }
+            size *= 0.92;
+            step = size * 1.15;
+        }
+        let rows = ((area.height() / step).floor() as usize).max(1);
+        let cols = ((area.width() / step).floor() as usize).max(1);
+        // Столбики по центру высоты доски: так они не липнут к верхнему краю.
+        let visible = list.len().min(rows * cols);
+        let column = visible.min(rows);
+        let top = area.center().y - column as f32 * step * 0.5 + (step - size) * 0.5;
+        let mut idx = 0usize;
+        for c in 0..cols {
+            for r in 0..rows {
+                let Some(&kind) = list.get(idx) else {
+                    return;
+                };
+                idx += 1;
+                let cx = if align_right {
+                    area.right() - size * 0.5 - c as f32 * step
+                } else {
+                    area.left() + size * 0.5 + c as f32 * step
+                };
+                let cy = top + size * 0.5 + r as f32 * step;
+                // Слегка приглушены: это память о бое, а не фигуры на доске.
+                self.paint_piece(
+                    painter,
+                    Pos2::new(cx, cy),
+                    size,
+                    kind,
+                    false,
+                    side,
+                    pal,
+                    0.9,
+                    checkers,
+                    None,
+                );
+            }
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn paint_piece(
         &self,
@@ -4678,14 +4821,7 @@ impl App {
         text_fit(
             painter,
             Pos2::new(x, y),
-            &i18n::trf(
-                "{material} · взято {white} : {black}",
-                &[
-                    ("material", &material),
-                    ("white", &g.captured_by_white.to_string()),
-                    ("black", &g.captured_by_black.to_string()),
-                ],
-            ),
+            &material,
             w,
             11.5,
             alpha(cur.text_dim, 0.95),
@@ -5560,6 +5696,24 @@ impl App {
             &pal,
         ) {
             self.pulse_on = !self.pulse_on;
+        }
+        // Срубленные фигуры по бокам доски — рядом с заголовком «ШРИФТ».
+        let capt_chip = Rect::from_min_size(
+            Pos2::new(x + left_w - 112.0, ly - 5.0),
+            Vec2::new(112.0, 20.0),
+        );
+        if chip(
+            ui,
+            capt_chip,
+            if self.show_captured {
+                "Срублено: да"
+            } else {
+                "Срублено: нет"
+            },
+            self.show_captured,
+            &pal,
+        ) {
+            self.show_captured = !self.show_captured;
         }
         ly += 22.0;
         text(
@@ -9642,6 +9796,29 @@ fn badge(painter: &egui::Painter, right_top: Pos2, label: &str, color: Color32, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Срубленные делятся на белые и чёрные, порядок сохраняется.
+    #[test]
+    fn captures_split_by_side() {
+        let rec = |side: Side, captured: Option<(Side, Kind)>| game::MoveRecord {
+            side,
+            kind: Kind::Pawn,
+            damka: false,
+            from: (0, 0),
+            to: (0, 1),
+            captured,
+            phase: Phase::Chess,
+        };
+        let recs = vec![
+            rec(Side::White, Some((Side::Black, Kind::Rook))),
+            rec(Side::Black, Some((Side::White, Kind::Pawn))),
+            rec(Side::White, None),
+            rec(Side::Black, Some((Side::White, Kind::Queen))),
+        ];
+        let (white, black) = split_captures(&recs);
+        assert_eq!(white, vec![Kind::Pawn, Kind::Queen]);
+        assert_eq!(black, vec![Kind::Rook]);
+    }
 
     /// Стандартный набор живёт в папке packs/standard, а не в корне pieces/.
     #[test]

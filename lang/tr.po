@@ -126,8 +126,6 @@ msgstr "beyazlar {n} önde"
 msgid "чёрные впереди на {n}"
 msgstr "siyahlar {n} önde"
 
-msgid "{material} · взято {white} : {black}"
-msgstr "{material} · alınan {white} : {black}"
 
 msgid "ХОДЫ"
 msgstr "HAMLELER"
@@ -1434,3 +1432,9 @@ msgstr "Sona"
 
 msgid "ход {ply} из {total} · Esc — к итогу"
 msgstr "hamle {ply}/{total} · Esc — sonuca"
+
+msgid "Срублено: да"
+msgstr "Alınanlar: var"
+
+msgid "Срублено: нет"
+msgstr "Alınanlar: yok"

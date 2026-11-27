@@ -126,8 +126,6 @@ msgstr "blancas adelante por {n}"
 msgid "чёрные впереди на {n}"
 msgstr "negras adelante por {n}"
 
-msgid "{material} · взято {white} : {black}"
-msgstr "{material} · capturado {white} : {black}"
 
 msgid "ХОДЫ"
 msgstr "MOVIMIENTOS"
@@ -1434,3 +1432,9 @@ msgstr "Al final"
 
 msgid "ход {ply} из {total} · Esc — к итогу"
 msgstr "jugada {ply} de {total} · Esc — al resultado"
+
+msgid "Срублено: да"
+msgstr "Capturadas: sí"
+
+msgid "Срублено: нет"
+msgstr "Capturadas: no"

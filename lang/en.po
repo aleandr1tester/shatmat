@@ -126,8 +126,6 @@ msgstr "white ahead by {n}"
 msgid "чёрные впереди на {n}"
 msgstr "black ahead by {n}"
 
-msgid "{material} · взято {white} : {black}"
-msgstr "{material} · captured {white} : {black}"
 
 msgid "ХОДЫ"
 msgstr "MOVES"
@@ -1434,3 +1432,9 @@ msgstr "To the end"
 
 msgid "ход {ply} из {total} · Esc — к итогу"
 msgstr "move {ply} of {total} · Esc — back to result"
+
+msgid "Срублено: да"
+msgstr "Captured: on"
+
+msgid "Срублено: нет"
+msgstr "Captured: off"

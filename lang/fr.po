@@ -126,8 +126,6 @@ msgstr "les blancs mènent de {n}"
 msgid "чёрные впереди на {n}"
 msgstr "les noirs mènent de {n}"
 
-msgid "{material} · взято {white} : {black}"
-msgstr "{material} · capturé {white} : {black}"
 
 msgid "ХОДЫ"
 msgstr "COUPS"
@@ -1434,3 +1432,9 @@ msgstr "À la fin"
 
 msgid "ход {ply} из {total} · Esc — к итогу"
 msgstr "coup {ply} sur {total} · Esc — au résultat"
+
+msgid "Срублено: да"
+msgstr "Capturées : oui"
+
+msgid "Срублено: нет"
+msgstr "Capturées : non"

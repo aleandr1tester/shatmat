@@ -70,6 +70,8 @@ The **Settings** button in the panel:
 - interface font: Noto Sans by default (Cyrillic + Latin, including Turkish
   letters); the **Font** button cycles the built-in Noto Sans and custom fonts
   from the `fonts` folder;
+- captured pieces in columns beside the board: white on the left, black on
+  the right, shown as checkers in the checkers phase (can be turned off);
 - move smoothness: from 0.05 to 0.60 seconds.
 
 ## Rules code

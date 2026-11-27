@@ -1341,6 +1341,12 @@ pub struct App {
     review: bool,
     review_saved: Option<Game>,
     review_ply: usize,
+    /// Прокрутка журнала ходов в панели (0 — верх).
+    panel_scroll: f32,
+    /// Сколько ходов было на прошлом кадре: новый ход прокручивает к концу.
+    panel_seen_moves: usize,
+    /// Клик по ходу после партии: полуход, с которого открыть разбор.
+    panel_jump: Option<usize>,
     /// Окно «Логи партий»: список файлов из папки logs.
     logs_window: bool,
     logs_list: Vec<(PathBuf, String)>,
@@ -1572,6 +1578,9 @@ impl App {
             review: false,
             review_saved: None,
             review_ply: 0,
+            panel_scroll: 0.0,
+            panel_seen_moves: 0,
+            panel_jump: None,
             logs_window: false,
             logs_list: Vec::new(),
             logs_scroll: 0.0,
@@ -1970,6 +1979,9 @@ impl App {
         if !ctx.input(|i| i.focused) && self.shot.is_none() {
             return;
         }
+        // Скорость демонстрации — та же настройка, что и в партии: один
+        // ползунок управляет игрой, демо и разбором.
+        self.demo.move_anim_secs = self.game.move_anim_secs;
         self.demo.tick(dt);
         if self.demo.is_over() {
             // Отдельный лог демо-партии: разбирать такие партии так же
@@ -1989,6 +2001,7 @@ impl App {
             self.demo_replay += dt;
             if self.demo_end_pause > 8.8 {
                 self.demo = lobby_demo_game();
+                self.demo.move_anim_secs = self.game.move_anim_secs;
                 self.demo_seed = lobby_demo_seed();
                 self.demo_seed0 = self.demo_seed;
                 self.demo_start = Some(logging::now_string());
@@ -2674,6 +2687,9 @@ impl App {
         let Some(mut view) = replay::load_game(&path) else {
             return;
         };
+        // Плавность — из настроек: иначе разбор чужого лога играет со
+        // скоростью, записанной в том логе, и кажется «другой игрой».
+        view.move_anim_secs = self.game.move_anim_secs;
         if self.review {
             self.exit_review();
         }
@@ -4584,20 +4600,46 @@ impl App {
                 Vec2::new(chip_w, 36.0),
             ));
         }
-        // журнал ходов (последние строки)
+        // Журнал ходов: все строки, колесо мыши прокручивает, а после
+        // партии клик по ходу открывает разбор с этой позиции.
         let log_top = y;
         let log_bottom = setup_top - 10.0;
         let line_h = 17.0;
-        let max_lines = (((log_bottom - log_top) / line_h).floor() as usize).max(0);
-        if max_lines > 0 && !g.history.is_empty() {
+        let view_h = (log_bottom - log_top).max(0.0);
+        if view_h >= line_h && !g.history.is_empty() {
             // Тот же вид, что в просмотре лога: «полуход.ход» и природа хода.
             let (all_lines, _switched, all_phases) = Self::build_review_lines(g);
             let lines = &all_lines[1..];
             let phases = &all_phases[1..];
-            let start = lines.len().saturating_sub(max_lines);
-            let mut ly = log_top;
+            let content_h = lines.len() as f32 * line_h;
+            let max_off = (content_h - view_h).max(0.0);
+            // Новый ход — прокручиваем к концу, как в чате.
+            if self.panel_seen_moves != g.history.len() {
+                self.panel_seen_moves = g.history.len();
+                self.panel_scroll = max_off;
+            }
+            let list_rect =
+                Rect::from_min_max(Pos2::new(x, log_top), Pos2::new(x + w, log_bottom));
+            if let Some(m) = ui.input(|i| i.pointer.latest_pos()) {
+                if list_rect.contains(m) && max_off > 0.5 {
+                    let wheel = ui.input(|i| i.raw_scroll_delta.y);
+                    self.panel_scroll = (self.panel_scroll - wheel).clamp(0.0, max_off);
+                }
+            }
+            self.panel_scroll = self.panel_scroll.clamp(0.0, max_off);
+            let clip = painter.with_clip_rect(list_rect);
             let font = FontId::proportional(12.0);
-            for idx in start..lines.len() {
+            for idx in 0..lines.len() {
+                let ry = log_top + idx as f32 * line_h - self.panel_scroll;
+                if ry + line_h < log_top || ry > log_bottom {
+                    continue;
+                }
+                let row = Rect::from_min_size(Pos2::new(x, ry), Vec2::new(w, line_h));
+                let resp = ui.interact(row, ui.id().with(("panel_move", idx)), Sense::click());
+                // Подсветка только там, где клик действительно что-то делает.
+                if resp.hovered() && over {
+                    clip.rect_filled(row.shrink2(Vec2::new(0.0, 1.0)), 4.0, alpha(cur.accent, 0.10));
+                }
                 let is_last = idx + 1 == lines.len();
                 let base = if is_last {
                     alpha(cur.text, 0.95)
@@ -4642,10 +4684,27 @@ impl App {
                     );
                 }
                 let galley = painter.layout_job(job);
-                painter.galley(Pos2::new(x, ly), galley, Color32::WHITE);
-                ly += line_h;
+                clip.galley(Pos2::new(x, ry + 2.0), galley, Color32::WHITE);
+                if resp.clicked() && over {
+                    self.panel_jump = Some(idx + 1);
+                }
             }
-        } else if max_lines > 0 {
+            // Тонкий ползунок: видно, что список длиннее области.
+            if max_off > 0.5 {
+                let bar = Rect::from_min_size(
+                    Pos2::new(list_rect.right() - 3.0, log_top),
+                    Vec2::new(3.0, view_h),
+                );
+                painter.rect_filled(bar, 1.5, alpha(Color32::WHITE, 0.06));
+                let frac = (view_h / content_h).clamp(0.08, 1.0);
+                let top = log_top + (self.panel_scroll / max_off) * (view_h * (1.0 - frac));
+                let knob = Rect::from_min_size(
+                    Pos2::new(bar.left(), top),
+                    Vec2::new(3.0, view_h * frac),
+                );
+                painter.rect_filled(knob, 1.5, alpha(Color32::WHITE, 0.28));
+            }
+        } else if view_h >= line_h {
             // Подсказки не рисуем, если под них нет места: раскрытая сводка
             // правил съедает высоту журнала, и строки наезжали друг на друга.
             let hint_h = 17.0;
@@ -8339,6 +8398,10 @@ impl eframe::App for App {
             self.draw(ctx, &layout);
             self.handle_shot(ctx);
             return;
+        }
+        if let Some(ply) = self.panel_jump.take() {
+            self.start_review();
+            self.set_review_ply(ply);
         }
         if self.guide {
             if let Some(demo) = &mut self.guide_demo {

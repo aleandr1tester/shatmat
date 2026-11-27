@@ -5320,7 +5320,7 @@ impl App {
             .font_faces
             .get(self.font_index)
             .map(|f| f.name.clone())
-            .unwrap_or_else(|| "Prosto".to_string());
+            .unwrap_or_else(|| "Noto Sans".to_string());
         if font_name.chars().count() > 28 {
             font_name = font_name.chars().take(27).collect::<String>() + "…";
         }

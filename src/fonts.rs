@@ -1,4 +1,4 @@
-//! Шрифты интерфейса: встроенный Prosto и пользовательские TTF/OTF из
+//! Шрифты интерфейса: встроенный Noto Sans и пользовательские TTF/OTF из
 //! папки `fonts` рядом с exe.
 
 use eframe::egui;
@@ -23,19 +23,13 @@ pub fn prepare() {
 
 pub fn load() -> Vec<FontFace> {
     prepare();
-    // Noto Sans — шрифт по умолчанию: у него высокий x-height и полное
-    // покрытие латиницы (включая турецкие буквы) и кириллицы, поэтому
-    // мелкие подписи читаются лучше, чем у дисплейного Prosto.
-    let mut faces = vec![
-        FontFace {
-            name: "Noto Sans".to_string(),
-            bytes: include_bytes!("../fonts/noto_sans.ttf").to_vec(),
-        },
-        FontFace {
-            name: "Prosto".to_string(),
-            bytes: include_bytes!("../fonts/prosto.ttf").to_vec(),
-        },
-    ];
+    // Noto Sans — единственный встроенный шрифт: высокий x-height и полное
+    // покрытие латиницы (включая турецкие буквы) и кириллицы, поэтому мелкие
+    // подписи читаются хорошо. Остальные шрифты — из папки `fonts`.
+    let mut faces = vec![FontFace {
+        name: "Noto Sans".to_string(),
+        bytes: include_bytes!("../fonts/noto_sans.ttf").to_vec(),
+    }];
     let mut custom = Vec::new();
     if let Ok(entries) = std::fs::read_dir(fonts_dir()) {
         for entry in entries.flatten() {
@@ -53,7 +47,8 @@ pub fn load() -> Vec<FontFace> {
                 .and_then(|s| s.to_str())
                 .unwrap_or("font")
                 .to_string();
-            if stem.eq_ignore_ascii_case("prosto") || stem.eq_ignore_ascii_case("noto_sans") {
+            // Встроенные шрифты не дублируем, даже если файл лежит в папке.
+            if stem.eq_ignore_ascii_case("noto_sans") {
                 continue;
             }
             if let Ok(bytes) = std::fs::read(&path) {

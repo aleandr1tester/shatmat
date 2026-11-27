@@ -68,8 +68,8 @@ The **Settings** button in the panel:
   **Surrounding** (yellow lines of pieces covering escape squares); both are
   on by default;
 - interface font: Noto Sans by default (Cyrillic + Latin, including Turkish
-  letters); the **Font** button cycles the built-in Noto Sans/Prosto and custom
-  fonts from the `fonts` folder;
+  letters); the **Font** button cycles the built-in Noto Sans and custom fonts
+  from the `fonts` folder;
 - move smoothness: from 0.05 to 0.60 seconds.
 
 ## Rules code
@@ -124,7 +124,7 @@ The default interface font is **Noto Sans**: it covers Cyrillic and Latin,
 including Turkish letters, and reads noticeably better at small sizes. Place
 `.ttf` or `.otf` files in the `fonts` folder next to the program and restart the
 game. In the settings press the **Font** button to cycle through fonts: the
-built-in Noto Sans/Prosto and custom fonts go in a circle. Details are in
+built-in Noto Sans and custom fonts go in a circle. Details are in
 `fonts/README.txt`.
 
 ## Logs and journal
@@ -323,6 +323,17 @@ git show --stat HEAD
 - `lang/` — interface translations: `ru.po`, `en.po`, `es.po`, `de.po`,
   `fr.po`, `tr.po` (or `.mo`).
 - `logs/` — game log files (see `logs/README.txt`).
+
+## License
+
+The source is open but **noncommercial**: [PolyForm Noncommercial 1.0.0](LICENSE).
+You may use, copy, modify and distribute the game for personal, educational,
+research and charitable purposes. Commercial use requires a separate permission
+from the author.
+
+Contributions are accepted under [CLA.md](CLA.md): by sending a patch you allow
+relicensing of the project. Third-party fonts, sounds and libraries are listed
+in [THIRD-PARTY.md](THIRD-PARTY.md).
 
 ## Next
 

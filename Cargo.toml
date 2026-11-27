@@ -1,8 +1,10 @@
 ﻿[package]
 name = "shatmat"
-version = "0.22.1"
+version = "0.22.2"
 edition = "2021"
 description = "ShatMat — фигуры меняют природу"
+license = "PolyForm-Noncommercial-1.0.0"
+repository = "https://github.com/aleandr1tester/shatmat"
 
 [dependencies]
 eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts", "x11", "wayland"] }

@@ -1243,7 +1243,7 @@ msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}
 msgstr "hamle {n} · satranç {c}, dama {k} · alınan {cc}/{ck} · faz değişimi {f}"
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
-msgstr "Hamle {full} · yarım hamle {ply}/{total}"
+msgstr "Hamle {full}/{full_total} · yarım hamle {ply}/{ply_total}"
 
 msgid "показывать демо-партии"
 msgstr "demo partileri göster"

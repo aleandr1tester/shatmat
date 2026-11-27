@@ -1243,7 +1243,7 @@ msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}
 msgstr "coups {n} · échecs {c}, dames {k} · prises {cc}/{ck} · changements {f}"
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
-msgstr "Coup {full} · demi-coup {ply} sur {total}"
+msgstr "Coup {full} sur {full_total} · demi-coup {ply} sur {ply_total}"
 
 msgid "показывать демо-партии"
 msgstr "afficher les démos"

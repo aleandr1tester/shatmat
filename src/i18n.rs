@@ -405,6 +405,45 @@ msgstr "Move {n}"
         assert!(map.is_empty());
     }
 
+    /// Набор подстановок `{name}` в переводе должен совпадать с русской
+    /// строкой: иначе в интерфейсе покажется «{total}» вместо числа.
+    #[test]
+    fn po_placeholders_match_msgids() {
+        fn keys(s: &str) -> Vec<String> {
+            let mut out = Vec::new();
+            let mut rest = s;
+            while let Some(pos) = rest.find('{') {
+                match rest[pos + 1..].find('}') {
+                    Some(end) => {
+                        out.push(rest[pos + 1..pos + 1 + end].to_string());
+                        rest = &rest[pos + 1 + end + 1..];
+                    }
+                    None => break,
+                }
+            }
+            out.sort();
+            out
+        }
+        for lang in [Lang::En, Lang::Es, Lang::De, Lang::Fr, Lang::Tr] {
+            let path = format!("lang/{}.po", lang.code());
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            let map = parse_po(&text);
+            for (msgid, translated) in &map {
+                if translated.trim().is_empty() {
+                    continue;
+                }
+                assert_eq!(
+                    keys(msgid),
+                    keys(translated),
+                    "{}: подстановки расходятся: {msgid:?} -> {translated:?}",
+                    lang.code()
+                );
+            }
+        }
+    }
+
     #[test]
     fn lang_codes_round_trip() {
         for lang in Lang::ALL {

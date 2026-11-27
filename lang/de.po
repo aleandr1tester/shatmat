@@ -1242,7 +1242,7 @@ msgid "ходов {n} · шахматы {c}, шашки {k} · взятия {cc}
 msgstr "Züge {n} · Schach {c}, Damespiel {k} · Schläge {cc}/{ck} · Phasenwechsel {f}"
 
 msgid "Ход {full} из {full_total} · полуход {ply} из {ply_total}"
-msgstr "Zug {full} · Halbzug {ply} von {total}"
+msgstr "Zug {full} von {full_total} · Halbzug {ply} von {ply_total}"
 
 msgid "показывать демо-партии"
 msgstr "Demo-Partien zeigen"

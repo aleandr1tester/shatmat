@@ -833,6 +833,34 @@ enum RuleAction {
     Flip,
 }
 
+/// Вариант демонстрации на странице (у короля их три).
+struct RuleVariant {
+    label: &'static str,
+    text: &'static str,
+    pieces: &'static [(Square, Side, Kind, bool, bool)],
+    sources: &'static [Square],
+    targets: &'static [Square],
+    victims: &'static [Square],
+    forced: &'static [Square],
+    /// Поля, куда ход запрещён — рисуются перечёркнутыми.
+    blocked: &'static [Square],
+    promote: bool,
+    action: RuleAction,
+}
+
+/// Сцена для отрисовки: позиция и анимация (страница или её вариант).
+#[derive(Clone, Copy)]
+struct RuleScene<'a> {
+    pieces: &'a [(Square, Side, Kind, bool, bool)],
+    sources: &'a [Square],
+    targets: &'a [Square],
+    victims: &'a [Square],
+    forced: &'a [Square],
+    blocked: &'a [Square],
+    promote: bool,
+    action: RuleAction,
+}
+
 /// Страница гида «Правила»: заголовок, короткий текст и позиция-пример.
 struct RuleDemo {
     title: &'static str,
@@ -851,6 +879,8 @@ struct RuleDemo {
     promote: bool,
     /// Что показывает кнопка «Показать».
     action: RuleAction,
+    /// Дополнительные варианты демонстрации (например, способы взять короля).
+    variants: &'static [RuleVariant],
 }
 
 const RULE_DEMOS: &[RuleDemo] = &[
@@ -883,6 +913,7 @@ const RULE_DEMOS: &[RuleDemo] = &[
         forced: &[],
         promote: false,
         action: RuleAction::Flip,
+        variants: &[],
     },
     RuleDemo {
         title: "Серия взятий",
@@ -911,20 +942,69 @@ const RULE_DEMOS: &[RuleDemo] = &[
                 victim: (1, 5),
             },
         ]),
+        variants: &[],
     },
     RuleDemo {
         title: "Король",
-        text: "В шахматах короля не берут — ему ставят мат. В шашках король выглядит как шашка с меткой и уязвим: дамка летит по диагонали через всё поле и берёт его, как обычную шашку. Край доски не спасает: королю достаточно оказаться на линии атаки — даже прижатым к борту его снимают, и партия сразу кончается.",
+        text: "В шахматах короля не берут — ему ставят мат. В шашках король ходит и бьёт как дамка, но его можно взять, и это сразу поражение. Три способа взять короля — ниже.",
         pieces: &[
-            ((7, 7), Side::Black, Kind::King, false, true),
-            ((0, 0), Side::White, Kind::Pawn, true, true),
+            ((2, 2), Side::White, Kind::Pawn, false, true),
+            ((1, 3), Side::Black, Kind::King, false, true),
         ],
-        sources: &[(0, 0)],
-        targets: &[],
-        victims: &[(7, 7)],
+        sources: &[(2, 2)],
+        targets: &[(0, 4)],
+        victims: &[(1, 3)],
         forced: &[],
         promote: false,
-        action: RuleAction::Move((0, 0), (7, 7), Some((7, 7))),
+        action: RuleAction::Move((2, 2), (0, 4), Some((1, 3))),
+        variants: &[
+            RuleVariant {
+                label: "Прыжок",
+                text: "Обычная шашка берёт короля-шашку прыжком через него — так же, как любую другую шашку.",
+                pieces: &[
+                    ((2, 2), Side::White, Kind::Pawn, false, true),
+                    ((1, 3), Side::Black, Kind::King, false, true),
+                ],
+                sources: &[(2, 2)],
+                targets: &[(0, 4)],
+                victims: &[(1, 3)],
+                forced: &[],
+                blocked: &[],
+                promote: false,
+                action: RuleAction::Move((2, 2), (0, 4), Some((1, 3))),
+            },
+            RuleVariant {
+                label: "Касание у края",
+                text: "Король на крайней линии: прыгать некуда. Дамка (или король) берёт его наступлением на его клетку. Простая шашка так не может.",
+                pieces: &[
+                    ((7, 0), Side::Black, Kind::King, false, true),
+                    ((3, 4), Side::White, Kind::Pawn, true, true),
+                ],
+                sources: &[(3, 4)],
+                targets: &[],
+                victims: &[(7, 0)],
+                forced: &[],
+                blocked: &[],
+                promote: false,
+                action: RuleAction::Move((3, 4), (7, 0), Some((7, 0))),
+            },
+            RuleVariant {
+                label: "Защита",
+                text: "За королём по диагонали стоит фигура: поле приземления занято, прыжка нет. Наступить простая шашка не может — король под защитой.",
+                pieces: &[
+                    ((3, 5), Side::White, Kind::Pawn, false, true),
+                    ((2, 4), Side::Black, Kind::King, false, true),
+                    ((1, 3), Side::Black, Kind::Pawn, false, true),
+                ],
+                sources: &[(3, 5)],
+                targets: &[],
+                victims: &[],
+                forced: &[],
+                blocked: &[(1, 3)],
+                promote: false,
+                action: RuleAction::None,
+            },
+        ],
     },
     RuleDemo {
         title: "Коронация",
@@ -940,6 +1020,7 @@ const RULE_DEMOS: &[RuleDemo] = &[
         forced: &[],
         promote: true,
         action: RuleAction::Move((1, 6), (0, 7), None),
+        variants: &[],
     },
     RuleDemo {
         title: "Победа и ничья",
@@ -954,6 +1035,7 @@ const RULE_DEMOS: &[RuleDemo] = &[
         forced: &[],
         promote: false,
         action: RuleAction::None,
+        variants: &[],
     },
 ];
 
@@ -972,6 +1054,9 @@ fn rules_job(width: f32) -> egui::text::LayoutJob {
         "Шашка остаётся на клетках своего цвета.",
         "Можно подставляться под удар, если обязательного взятия нет.",
         "Король в шашках выглядит как шашка с меткой, но ходит и бьёт как дамка. Его можно съесть — это сразу поражение.",
+        "Простая шашка берёт короля только прыжком через него — как любую шашку.",
+        "Дамка и король берут короля наступлением на его клетку. Это единственный способ, когда король стоит на крайней линии: поля приземления за ним нет.",
+        "Если за королём по диагонали стоит фигура, простая шашка взять его не может: поле приземления занято, а наступить ей нельзя — король под защитой.",
         "Дамки летят по диагонали на любое расстояние.",
         "Бить обязательно; серия взятий продолжается, пока есть цель.",
         "Обязательное взятие можно отключить в настройках.",
@@ -1204,6 +1289,8 @@ pub struct App {
     guide_section: usize,
     /// Прогресс демонстрации на странице правил (0..1).
     rule_t: f32,
+    /// Какой вариант демонстрации показан на странице.
+    rule_variant: usize,
     /// Демонстрация сейчас проигрывается.
     rule_playing: bool,
     /// Страница правил в гиде.
@@ -1402,6 +1489,7 @@ impl App {
             guide_rules: false,
             guide_section: 0,
             rule_t: 0.0,
+            rule_variant: 0,
             rule_playing: false,
             guide_page: 0,
             started: demo.is_some()
@@ -6986,6 +7074,35 @@ impl App {
         let pad = 30.0;
         let left_x = card.left() + pad;
         let page = &RULE_DEMOS[self.guide_page.min(RULE_DEMOS.len() - 1)];
+        let variants = page.variants;
+        let v_idx = if variants.is_empty() {
+            0
+        } else {
+            self.rule_variant.min(variants.len() - 1)
+        };
+        let variant = variants.get(v_idx);
+        let scene = match variant {
+            Some(v) => RuleScene {
+                pieces: v.pieces,
+                sources: v.sources,
+                targets: v.targets,
+                victims: v.victims,
+                forced: v.forced,
+                blocked: v.blocked,
+                promote: v.promote,
+                action: v.action,
+            },
+            None => RuleScene {
+                pieces: page.pieces,
+                sources: page.sources,
+                targets: page.targets,
+                victims: page.victims,
+                forced: page.forced,
+                blocked: &[],
+                promote: page.promote,
+                action: page.action,
+            },
+        };
         // Демо-зона — половина ширины окна, как в разборе фигур.
         let board_size = (card.width() * 0.5 - 46.0).min(card.height() - 150.0);
         let board = Rect::from_min_size(
@@ -7000,7 +7117,7 @@ impl App {
             9.0,
             alpha(pal.text_dim, 0.75),
         );
-        self.paint_rule_board(painter, board, pal, page, self.rule_t);
+        self.paint_rule_board(painter, board, pal, scene, self.rule_t);
         let right_x = board.right() + 26.0;
         let right_w = card.right() - pad - right_x;
         text(
@@ -7011,9 +7128,7 @@ impl App {
             23.0,
             pal.text,
         );
-        // Кнопка показа демонстрации — под текстом.
         let last = RULE_DEMOS.len() - 1;
-        // Счётчик страниц — рядом с названием правила.
         text(
             painter,
             Pos2::new(card.right() - pad, card.top() + 132.0),
@@ -7022,7 +7137,6 @@ impl App {
             12.0,
             alpha(pal.text_dim, 0.9),
         );
-        // Кнопки — в правом блоке, сразу под текстом.
         let text_h = wrapped_text(
             painter,
             Pos2::new(right_x, card.top() + 166.0),
@@ -7031,32 +7145,58 @@ impl App {
             12.0,
             pal.text,
         );
-        let mut btn_y = (card.top() + 166.0 + text_h + 22.0).min(card.bottom() - 62.0);
-        if !matches!(page.action, RuleAction::None) {
-            let play = Rect::from_min_size(
-                Pos2::new(right_x, btn_y),
-                Vec2::new(right_w, 38.0),
+        let mut y = card.top() + 166.0 + text_h + 10.0;
+        if let Some(v) = variant {
+            let cap_h = wrapped_text(
+                painter,
+                Pos2::new(right_x, y),
+                right_w,
+                i18n::tr(v.text),
+                11.5,
+                alpha(pal.accent, 0.95),
             );
+            y += cap_h + 12.0;
+        }
+        if variants.len() > 1 {
+            let cw = (right_w - 12.0) / 3.0;
+            for (i, v) in variants.iter().enumerate() {
+                let r = Rect::from_min_size(
+                    Pos2::new(right_x + i as f32 * (cw + 6.0), y),
+                    Vec2::new(cw, 28.0),
+                );
+                if chip(ui, r, i18n::tr(v.label), i == v_idx, pal) {
+                    self.rule_variant = i;
+                    self.rule_t = 0.0;
+                    self.rule_playing = false;
+                }
+            }
+            y += 36.0;
+        }
+        if !matches!(scene.action, RuleAction::None) {
+            let play = Rect::from_min_size(Pos2::new(right_x, y), Vec2::new(right_w, 36.0));
             if button(ui, play, "Показать", self.rule_playing, pal, 11.5) {
                 self.rule_t = 0.0;
                 self.rule_playing = true;
             }
-            btn_y += 48.0;
         }
         let bw = (right_w - 10.0) * 0.5;
-        let prev = Rect::from_min_size(
-            Pos2::new(right_x, btn_y),
-            Vec2::new(bw, 40.0),
-        );
+        let nav_y = card.bottom() - 52.0;
+        let prev = Rect::from_min_size(Pos2::new(right_x, nav_y), Vec2::new(bw, 38.0));
         let next = Rect::from_min_size(
-            Pos2::new(right_x + bw + 10.0, btn_y),
-            Vec2::new(bw, 40.0),
+            Pos2::new(right_x + bw + 10.0, nav_y),
+            Vec2::new(bw, 38.0),
         );
         if button(ui, prev, "◀ Назад", false, pal, 11.5) && self.guide_page > 0 {
             self.guide_page -= 1;
+            self.rule_variant = 0;
+            self.rule_t = 0.0;
+            self.rule_playing = false;
         }
         if button(ui, next, "Вперёд ▶", false, pal, 11.5) && self.guide_page < last {
             self.guide_page += 1;
+            self.rule_variant = 0;
+            self.rule_t = 0.0;
+            self.rule_playing = false;
         }
     }
 
@@ -7067,7 +7207,7 @@ impl App {
         painter: &egui::Painter,
         rect: Rect,
         pal: &Palette,
-        page: &RuleDemo,
+        scene: RuleScene,
         t: f32,
     ) {
         let cell = rect.width() / 8.0;
@@ -7092,7 +7232,7 @@ impl App {
                 painter.rect_filled(sq_rect((x, y)), 0.0, fill);
             }
         }
-        for sq in page.sources {
+        for sq in scene.sources {
             painter.rect_stroke(
                 sq_rect(*sq).shrink(1.0),
                 3.0,
@@ -7100,7 +7240,7 @@ impl App {
                 egui::StrokeKind::Inside,
             );
         }
-        for sq in page.targets {
+        for sq in scene.targets {
             let c = sq_rect(*sq).center();
             painter.circle_filled(c, cell * 0.10, alpha(pal.accent, 0.80));
             painter.circle_stroke(
@@ -7118,7 +7258,7 @@ impl App {
         let mut mover_start: Option<Square> = None;
         let mut gone: Vec<Square> = Vec::new();
         let mut fading: Option<(Square, f32)> = None;
-        match page.action {
+        match scene.action {
             RuleAction::Move(from, to, victim) => {
                 mover_start = Some(from);
                 if t > 0.0 {
@@ -7158,7 +7298,7 @@ impl App {
             _ => {}
         }
 
-        for sq in page.victims {
+        for sq in scene.victims {
             if gone.contains(sq) {
                 continue;
             }
@@ -7176,7 +7316,7 @@ impl App {
                 Stroke::new(1.6_f32, alpha(Color32::from_rgb(226, 96, 96), 0.85 * fade)),
             );
         }
-        for (sq, side, kind, damka, checkers_form) in page.pieces {
+        for (sq, side, kind, damka, checkers_form) in scene.pieces {
             if gone.contains(sq) {
                 continue;
             }
@@ -7185,7 +7325,7 @@ impl App {
                 continue;
             }
             // Смена природы: формы перетекают на середине демонстрации.
-            let form = if matches!(page.action, RuleAction::Flip) {
+            let form = if matches!(scene.action, RuleAction::Flip) {
                 if t > 0.5 {
                     !*checkers_form
                 } else {
@@ -7209,10 +7349,10 @@ impl App {
         }
         if let (Some(start_sq), Some(pos)) = (mover_start, mover_pos) {
             if let Some((_, side, kind, damka, checkers_form)) =
-                page.pieces.iter().find(|p| p.0 == start_sq)
+                scene.pieces.iter().find(|p| p.0 == start_sq)
             {
                 // Дошла до последнего ряда — стала дамкой.
-                let damka_now = *damka || (page.promote && t >= 1.0);
+                let damka_now = *damka || (scene.promote && t >= 1.0);
                 self.paint_piece(
                     painter,
                     pos,
@@ -7227,9 +7367,22 @@ impl App {
                 );
             }
         }
+        // Перечёркнутые поля: сюда ход запрещён (занято приземление).
+        for sq in scene.blocked {
+            let r = sq_rect(*sq).shrink(cell * 0.16);
+            let col = alpha(Color32::from_rgb(226, 96, 96), 0.9);
+            painter.line_segment(
+                [r.left_top(), r.right_bottom()],
+                Stroke::new(2.2_f32, col),
+            );
+            painter.line_segment(
+                [r.right_top(), r.left_bottom()],
+                Stroke::new(2.2_f32, col),
+            );
+        }
         // Красная пульсация: кто обязан бить серию (как в самой игре).
         let pulse = 0.5 + 0.5 * (self.time * 4.5).sin();
-        for sq in page.forced {
+        for sq in scene.forced {
             let c = if let (Some(s), Some(pos)) = (mover_start, mover_pos) {
                 if s == *sq {
                     pos
@@ -7838,8 +7991,8 @@ fn guide_checkers_text(kind: Kind, damka: bool) -> (&'static str, &'static str) 
     }
     if kind == Kind::King {
         return (
-            "Пешка-король с кружком. Ходит и бьёт как обычная пешка, но потеря короля — поражение. Несмотря на обычный вид, следите за ней особенно внимательно.",
-            "Бьёт как обычная шашка — через соседнюю фигуру на свободную клетку за ней. Может стать дамкой, если включено «Дамки: все».",
+            "Пешка-король с кружком: выглядит как шашка, но ходит как дамка — по диагонали на любое расстояние, пока путь свободен. Потеря короля — сразу поражение, следите за ним особенно внимательно.",
+            "Бьёт как дамка: сбивает фигуру на диагонали и встаёт за ней на любое свободное поле. Короля соперника, стоящего на краю, может взять касанием — прыгать некуда.",
         );
     }
     (
@@ -7856,8 +8009,8 @@ fn guide_text(kind: Kind, checkers: bool) -> (&'static str, &'static str) {
                 "Бьёт через соседнюю вражескую шашку, вставая на свободную клетку за ней. Серия взятий продолжается, пока есть цель. Обязательный бой можно отключить в настройках.",
             ),
             Kind::King => (
-                "Король в шашечной фазе — обычная шашка с короной: ходит по диагонали на одну клетку вперёд и назад, а после коронации становится дамкой.",
-                "Бьёт как шашка — через соседнюю фигуру на свободное поле за ней. Может стать дамкой, если включено «Дамки: все».",
+                "Король в шашечной фазе — шашка с короной, которая ходит как дамка: по всей диагонали на любое расстояние. Это его главная опасность и главное преимущество.",
+                "Бьёт как дамка — через фигуру на любое свободное поле за ней. Его самого можно взять: прыжком или касанием, если он на краю — это сразу поражение.",
             ),
             _ => (
                 "Иконка показывает вид фигуры, но правила шашечные: по диагонали на одну клетку вперёд и назад. Дамка летит по диагонали на любое расстояние.",
@@ -7912,7 +8065,8 @@ fn guide_squares(kind: Kind, checkers: bool, damka: bool) -> (Square, Vec<Square
     let mut out = Vec::new();
     if checkers {
         let start = (4, 4);
-        if damka {
+        // Король в шашках — летающая фигура, как дамка.
+        if damka || kind == Kind::King {
             for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
                 let mut x = start.0 as i32 + dx;
                 let mut y = start.1 as i32 + dy;

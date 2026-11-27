@@ -6956,8 +6956,10 @@ impl App {
         _pal: &Palette,
     ) {
         let pad = 30.0;
+        // Отступ сверху как между абзацами карточки, чтобы заголовок
+        // не прилипал к строке разделов.
         let text_rect = Rect::from_min_max(
-            Pos2::new(card.left() + pad, card.top() + 70.0),
+            Pos2::new(card.left() + pad, card.top() + 92.0),
             Pos2::new(card.right() - pad, card.bottom() - pad),
         );
         let job = rules_job(text_rect.width());

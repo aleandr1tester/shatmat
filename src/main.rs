@@ -1347,6 +1347,10 @@ pub struct App {
     panel_seen_moves: usize,
     /// Клик по ходу после партии: полуход, с которого открыть разбор.
     panel_jump: Option<usize>,
+    /// Итоговая партия, сохранённая для листания прямо в панели.
+    final_saved: Option<Game>,
+    /// Полуход, который сейчас показан в листании финальной панели.
+    final_ply: Option<usize>,
     /// Окно «Логи партий»: список файлов из папки logs.
     logs_window: bool,
     logs_list: Vec<(PathBuf, String)>,
@@ -1581,6 +1585,8 @@ impl App {
             panel_scroll: 0.0,
             panel_seen_moves: 0,
             panel_jump: None,
+            final_saved: None,
+            final_ply: None,
             logs_window: false,
             logs_list: Vec::new(),
             logs_scroll: 0.0,
@@ -1759,14 +1765,25 @@ impl App {
                     || i.key_pressed(egui::Key::ArrowDown)
                     || i.key_pressed(egui::Key::S)
             });
+            let esc = ctx.input(|i| i.key_pressed(egui::Key::Escape));
+            if esc && self.final_ply.is_some() {
+                self.exit_final_view();
+                return;
+            }
             if back || forward {
-                self.start_review();
-                if self.review {
-                    let max = self.review_max();
-                    let ply = if back { max.saturating_sub(1) } else { max };
-                    self.set_review_ply(ply);
-                    return;
-                }
+                let max = if self.final_ply.is_some() {
+                    self.final_max()
+                } else {
+                    self.game.snapshots.len().saturating_sub(1)
+                };
+                let cur_ply = self.final_ply.unwrap_or(max);
+                let next = if back {
+                    cur_ply.saturating_sub(1)
+                } else {
+                    (cur_ply + 1).min(max)
+                };
+                self.set_final_ply(next);
+                return;
             }
         }
         if self.guide {
@@ -1928,6 +1945,7 @@ impl App {
         if self.net_active() {
             return;
         }
+        self.exit_final_view();
         self.finalize_log("прервана (новая партия)");
         self.win_sound_played = false;
         let smooth = self.game.move_anim_secs;
@@ -2096,6 +2114,10 @@ impl App {
     /// Компьютер играет чёрными: 2–3 секунды показывает цель, затем ходит.
     /// После сумерек пауза не меньше 3 секунд.
     fn update_ai(&mut self, dt: f32) {
+        // Пока листаем итоговую партию, компьютер не должен ходить.
+        if self.final_ply.is_some() {
+            return;
+        }
         if !self.started {
             self.ai_preview = None;
             self.ai_preview_phase = None;
@@ -2456,6 +2478,7 @@ impl App {
     }
 
     fn start_review(&mut self) {
+        self.exit_final_view();
         if self.game.snapshots.len() < 2 {
             return;
         }
@@ -2807,6 +2830,53 @@ impl App {
         self.review_ply = ply;
     }
 
+    /// Показать полуход прямо в финальной панели, не уходя в «Просмотр».
+    fn set_final_ply(&mut self, ply: usize) {
+        if self.final_saved.is_none() {
+            if !self.game.is_over() {
+                return;
+            }
+            self.final_saved = Some(self.game.clone());
+        }
+        let snap = match self
+            .final_saved
+            .as_ref()
+            .and_then(|g| g.snapshots.get(ply).copied())
+        {
+            Some(s) => s,
+            None => return,
+        };
+        self.game.board = snap.board;
+        self.game.turn = snap.turn;
+        self.game.phase = snap.phase;
+        self.game.last_move = snap.last_move;
+        self.game.last_capture = snap.last_capture;
+        self.game.move_anim = 0.0;
+        self.game.selected = None;
+        self.game.legal.clear();
+        self.game.chain = None;
+        self.game.trans = 0.0;
+        self.game.paused = false;
+        self.game.pending_promotion = None;
+        self.final_ply = Some(ply);
+    }
+
+    /// Вернуться к итоговой позиции и закрыть листание.
+    fn exit_final_view(&mut self) {
+        if let Some(saved) = self.final_saved.take() {
+            self.game = saved;
+        }
+        self.final_ply = None;
+    }
+
+    /// Максимальный полуход листания финальной панели.
+    fn final_max(&self) -> usize {
+        self.final_saved
+            .as_ref()
+            .map(|g| g.snapshots.len().saturating_sub(1))
+            .unwrap_or(0)
+    }
+
     /// Максимальный полуход в просмотре.
     fn review_max(&self) -> usize {
         self.review_saved
@@ -2890,6 +2960,10 @@ impl App {
     }
 
     fn handle_pointer(&mut self, ctx: &egui::Context, layout: &Layout) {
+        // В листании финальной партии доска — только просмотр.
+        if self.final_ply.is_some() {
+            return;
+        }
         if self.review {
             return;
         }
@@ -4122,11 +4196,17 @@ impl App {
             alpha(cur.text_dim, 0.9),
         );
 
-        let over = g.is_over();
+        // Партия окончена — или мы листаем её прямо в панели.
+        let over = g.is_over() || self.final_ply.is_some();
+        let status = self
+            .final_saved
+            .as_ref()
+            .map(|s| &s.status)
+            .unwrap_or(&g.status);
         if over {
             // Итог партии — наверху панели, как заголовок: кто победил,
             // почему и что было последним ходом.
-            let (title, reason, color) = match &g.status {
+            let (title, reason, color) = match status {
                 game::Status::Win { side, reason } => (
                     i18n::trf("ПОБЕДА {side}", &[("side", &side.name_ru().to_uppercase())]),
                     i18n::tr_owned(reason.clone()),
@@ -4581,7 +4661,20 @@ impl App {
             9.5,
             alpha(cur.text_dim, 0.85),
         );
-        if over {
+        if let Some(ply) = self.final_ply {
+            // Листаем: показываем, где мы, и как вернуться к итогу.
+            text_fit_right(
+                painter,
+                Pos2::new(x + w, y),
+                &i18n::trf(
+                    "ход {ply} из {total} · Esc — к итогу",
+                    &[("ply", &ply.to_string()), ("total", &self.final_max().to_string())],
+                ),
+                w * 0.7,
+                9.5,
+                alpha(cur.accent, 0.9),
+            );
+        } else if over {
             // После партии журнал управляемый: колесо и клик листают партию.
             text_fit_right(
                 painter,
@@ -4681,8 +4774,16 @@ impl App {
                 if resp.hovered() && over {
                     clip.rect_filled(row.shrink2(Vec2::new(0.0, 1.0)), 4.0, alpha(cur.accent, 0.10));
                 }
+                let is_current = self.final_ply == Some(idx + 1);
                 let is_last = idx + 1 == lines.len();
-                let base = if is_last {
+                if is_current {
+                    clip.rect_filled(
+                        row.shrink2(Vec2::new(0.0, 1.0)),
+                        4.0,
+                        alpha(cur.accent, 0.18),
+                    );
+                }
+                let base = if is_last || is_current {
                     alpha(cur.text, 0.95)
                 } else {
                     alpha(cur.text_dim, 0.8)
@@ -4956,7 +5057,7 @@ impl App {
         if self.settings || self.rules || self.guide || self.journal {
             return;
         }
-        if g.is_over() {
+        if over {
             // Финальные кнопки стоят там же, где игровые: меняется только
             // содержимое — добавлены журнал и просмотр партии.
             if button(ui, rules_btn, "Журнал", false, &cur, 12.0) {
@@ -4970,7 +5071,12 @@ impl App {
             if button(ui, play_btn, "Новая партия", true, &cur, 14.5) {
                 self.new_game();
             }
-            if button(ui, new_btn, "Просмотр", false, &cur, 14.5) {
+            if self.final_ply.is_some() {
+                // Листаем прямо здесь: кнопка возвращает к итоговой позиции.
+                if button(ui, new_btn, "К концу", true, &cur, 14.5) {
+                    self.exit_final_view();
+                }
+            } else if button(ui, new_btn, "Просмотр", false, &cur, 14.5) {
                 self.start_review();
             }
             return;
@@ -8451,8 +8557,12 @@ impl eframe::App for App {
             return;
         }
         if let Some(ply) = self.panel_jump.take() {
-            self.start_review();
-            self.set_review_ply(ply);
+            if self.game.is_over() || self.final_ply.is_some() {
+                self.set_final_ply(ply);
+            } else {
+                self.start_review();
+                self.set_review_ply(ply);
+            }
         }
         if self.guide {
             if let Some(demo) = &mut self.guide_demo {
@@ -8475,7 +8585,7 @@ impl eframe::App for App {
             self.handle_shot(ctx);
             return;
         }
-        if self.started && !self.rules && !self.settings {
+        if self.started && !self.rules && !self.settings && self.final_ply.is_none() {
             self.game.phase_hold = self.mode == Mode::Computer
                 && self.game.turn == Side::Black
                 && !self.game.is_over();
@@ -8602,13 +8712,21 @@ impl eframe::App for App {
         {
             let (wheel, ptr) = ctx.input(|i| (i.raw_scroll_delta.y, i.pointer.latest_pos()));
             if wheel.abs() > 0.5 && ptr.map(|p| layout.board.contains(p)).unwrap_or(false) {
-                self.start_review();
-                if self.review {
-                    let max = self.review_max();
-                    let ply = if wheel > 0.0 { max.saturating_sub(1) } else { max };
-                    self.set_review_ply(ply);
-                    entered_review = true;
-                }
+                // Колесо листает прямо в панели: сначала запоминаем итог,
+                // затем шагаем от текущего полухода.
+                let max = if self.final_ply.is_some() {
+                    self.final_max()
+                } else {
+                    self.game.snapshots.len().saturating_sub(1)
+                };
+                let cur_ply = self.final_ply.unwrap_or(max);
+                let next = if wheel > 0.0 {
+                    cur_ply.saturating_sub(1)
+                } else {
+                    (cur_ply + 1).min(max)
+                };
+                self.set_final_ply(next);
+                entered_review = true;
             }
         }
         if !entered_review {

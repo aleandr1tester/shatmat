@@ -1428,3 +1428,9 @@ msgstr "No se pudo enviar: {reason}. Formulario abierto: el registro está en el
 
 msgid "колесо или клик — разбор"
 msgstr "rueda o clic — revisión"
+
+msgid "К концу"
+msgstr "Al final"
+
+msgid "ход {ply} из {total} · Esc — к итогу"
+msgstr "jugada {ply} de {total} · Esc — al resultado"

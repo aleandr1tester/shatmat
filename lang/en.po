@@ -1428,3 +1428,9 @@ msgstr "Could not send: {reason}. The form is open — the log is in the clipboa
 
 msgid "колесо или клик — разбор"
 msgstr "wheel or click — review"
+
+msgid "К концу"
+msgstr "To the end"
+
+msgid "ход {ply} из {total} · Esc — к итогу"
+msgstr "move {ply} of {total} · Esc — back to result"

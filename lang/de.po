@@ -1428,3 +1428,9 @@ msgstr "Senden fehlgeschlagen: {reason}. Formular geöffnet — das Log liegt in
 
 msgid "колесо или клик — разбор"
 msgstr "Rad oder Klick — Analyse"
+
+msgid "К концу"
+msgstr "Zum Ende"
+
+msgid "ход {ply} из {total} · Esc — к итогу"
+msgstr "Zug {ply} von {total} · Esc — zum Ergebnis"

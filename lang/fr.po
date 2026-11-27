@@ -1428,3 +1428,9 @@ msgstr "Échec de l'envoi : {reason}. Formulaire ouvert — le journal est dans 
 
 msgid "колесо или клик — разбор"
 msgstr "molette ou clic — revue"
+
+msgid "К концу"
+msgstr "À la fin"
+
+msgid "ход {ply} из {total} · Esc — к итогу"
+msgstr "coup {ply} sur {total} · Esc — au résultat"

@@ -1428,3 +1428,9 @@ msgstr "Gönderilemedi: {reason}. Form açıldı — günlük panoda (Ctrl+V)"
 
 msgid "колесо или клик — разбор"
 msgstr "tekerlek veya tık — inceleme"
+
+msgid "К концу"
+msgstr "Sona"
+
+msgid "ход {ply} из {total} · Esc — к итогу"
+msgstr "hamle {ply}/{total} · Esc — sonuca"
